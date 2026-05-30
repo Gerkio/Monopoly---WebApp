@@ -1,566 +1,606 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 	<title>Monopoly</title>
-	<meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<!-- Defense-in-depth: restrict source origins. 'unsafe-inline' for
+	     scripts/styles is required because monopoly.js builds UI fragments
+	     via innerHTML; the auto-escape in I18N.t() handles user values. -->
+	<!-- frame-ancestors is intentionally omitted here: it's ignored when delivered
+	     via <meta> (browser console warning). Use the HTTP header instead if needed. -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://ajax.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self';">
+	<!-- Inline data: URI favicon (transparent 1x1 PNG) — silences the favicon 404
+	     without adding a binary asset. Replace with a real .ico later if desired. -->
+	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
 
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-	<script type="text/javascript" src="classicedition.js"></script>
-	<!-- Comment out the previous line and uncomment the next one to enable the New York City Edition -->
-	<!-- <script type="text/javascript" src="newyorkcityedition.js"></script> -->
-	<script type="text/javascript" src="ai.js"></script>
-	<script type="text/javascript" src="monopoly.js"></script>
-	<link rel="stylesheet" type="text/css" href="styles.css" />
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+
+	<!-- Preload board cell overlay icons so first board render does not waterfall
+	     nine concurrent image requests. Matches background-image URLs declared in
+	     styles.css (.cell-bg-* and #cell* selectors around lines 1032-1080). -->
+	<link rel="preload" as="image" href="images/arrow_icon.png">
+	<link rel="preload" as="image" href="images/community_chest_icon.png">
+	<link rel="preload" as="image" href="images/chance_icon.png">
+	<link rel="preload" as="image" href="images/tax_icon.png">
+	<link rel="preload" as="image" href="images/train_icon.png">
+	<link rel="preload" as="image" href="images/electric_icon.png">
+	<link rel="preload" as="image" href="images/water_icon.png">
+	<link rel="preload" as="image" href="images/free_parking_icon.png">
+	<link rel="preload" as="image" href="images/jake_icon.png">
+
+	<!-- Preload six dice face PNGs so the first 3D cube roll does not stutter
+	     while CSS transitions are mid-flight. See styles.css .die-face-* (~2816). -->
+	<link rel="preload" as="image" href="images/Die_1.png">
+	<link rel="preload" as="image" href="images/Die_2.png">
+	<link rel="preload" as="image" href="images/Die_3.png">
+	<link rel="preload" as="image" href="images/Die_4.png">
+	<link rel="preload" as="image" href="images/Die_5.png">
+	<link rel="preload" as="image" href="images/Die_6.png">
+
+	<!-- ?v= on every local script forces the browser to refetch after a deploy.
+	     Bump this single constant in the edition loader below whenever any
+	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" integrity="sha384-UM1JrZIpBwVf5jj9dTKVvGiiZPZTLVoq4sfdvIe9SBumsvCuv6AHDNtEiIb5h1kU" crossorigin="anonymous"></script>
+	<script type="text/javascript" src="i18n.js?v=20260530e"></script>
+	<script type="text/javascript" src="ui.js?v=20260530e"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260530e"></script>
+	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
+	     overrides the default ('classic'). Synchronous document.write keeps the
+	     normal script-order load semantics that monopoly.js relies on. -->
+	<script type="text/javascript">
+		(function () {
+			var V = '20260530a';
+			var EDITIONS = { classic: 'classicedition.js', nyc: 'newyorkcityedition.js' };
+			var edition = null;
+			try {
+				var m = /[?&]edition=([^&#]+)/.exec(window.location.search);
+				if (m) edition = decodeURIComponent(m[1]).toLowerCase();
+				if (!edition) edition = (window.localStorage && window.localStorage.getItem('monopoly:edition')) || null;
+			} catch (e) {}
+			if (!EDITIONS[edition]) edition = 'classic';
+			window.__EDITION = edition;
+			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
+		})();
+	</script>
+	<script type="text/javascript" src="ai.js?v=20260530e"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260530e"></script>
+	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
+	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
+	     defers to the system via @media (prefers-color-scheme). -->
+	<script type="text/javascript">
+		(function () {
+			var pref = 'auto';
+			try { pref = window.localStorage.getItem('monopoly:theme') || 'auto'; } catch (e) {}
+			var root = document.documentElement;
+			root.classList.remove('theme-light', 'theme-dark');
+			if (pref === 'light') root.classList.add('theme-light');
+			else if (pref === 'dark') root.classList.add('theme-dark');
+			window.__THEME = pref;
+		})();
+	</script>
+	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
+	     this number whenever styles.css ships visual fixes so users don't
+	     end up on a stale cached copy. -->
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260530e">
 </head>
 
 <body>
-	<div id="popupbackground"></div>
-	<div id="popupwrap">
-		<div id="popup">
-			<div style="position: relative;">
-				<!-- <img id="popupclose" src="Images/close.png" title="Close" alt="x" onclick="hide('popupbackground'); hide('popupwrap');" /> -->
-				<div id="popuptext"></div>
-				<div id="popupdrag"></div>
-			</div>
-		</div>
-	</div>
-
-	<div id="statsbackground"></div>
-	<div id="statswrap">
-		<div id="stats">
-			<div style="position: relative;">
-				<img id="statsclose" src="images/close.png" title="Close" alt="x" />
-				<div id="statstext"></div>
-				<div id="statsdrag"></div>
-			</div>
-		</div>
-	</div>
-
-	<p id="noscript">
+	<p id="noscript" data-i18n="setup.noJS">
 		Note: This page will not function without JavaScript.
 	</p>
 
-	<div id="refresh">
-		Refresh this page to start a new game.
+	<!-- Top-right toolbar: language + mute. Outside stage, always in viewport orientation. -->
+	<div id="topbar" role="group" aria-label="Settings">
+		<div id="lang-toolbar" role="group" aria-label="Language">
+			<button type="button" class="lang-btn lang-btn-en" data-lang="en" title="English">EN</button>
+			<button type="button" class="lang-btn lang-btn-es" data-lang="es" title="Español">ES</button>
+		</div>
+		<button type="button" id="mute-btn" class="icon-btn" title="Toggle sound" aria-label="Toggle sound">
+			<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+				<path class="ico-sound-on"  d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/>
+				<path class="ico-sound-off" d="M3 9v6h4l5 5V4L7 9H3zm12.5 1.46-1.41 1.42L18 12l-2.91 2.92 1.41 1.41L19.41 13.4 22.33 16.33l1.41-1.41L20.83 12l2.91-2.92-1.41-1.41L19.41 10.59z"/>
+			</svg>
+		</button>
+		<button type="button" id="help-btn" class="icon-btn" data-i18n-title="help.openTitle" title="Help / rules (?)" aria-label="Help">
+			<span aria-hidden="true">?</span>
+		</button>
+		<!-- Theme toggle: Auto (system) → Light → Dark → Auto. Initial state
+		     is set from localStorage / matchMedia by the inline boot script. -->
+		<button type="button" id="theme-btn" class="icon-btn" data-i18n-title="ui.themeToggle" title="Theme (light / dark / auto)" aria-label="Theme">
+			<svg id="ico-theme-auto" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+				<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/>
+			</svg>
+			<svg id="ico-theme-light" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+				<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v3m0 14v3M2 12h3m14 0h3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+			</svg>
+			<svg id="ico-theme-dark" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+				<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+			</svg>
+		</button>
 	</div>
 
-	<!-- <div id="enlarge"></div> -->
-
-	<div id="deed">
-		<div id="deed-normal" style="display: none;">
-			<div id="deed-header">
-				<div style="margin: 5px; font-size: 11px;">T I T L E&nbsp;&nbsp;D E E D</div>
-				<div id="deed-name"></div>
-			</div>
-			<table id="deed-table">
-				<tr>
-					<td colspan="2">
-						RENT&nbsp;$<span id="deed-baserent">12</span>.
-					</td>
-				</tr>
-				<tr>
-					<td style="text-align: left;">With 1 House</td>
-					<td style="text-align: right;">$&nbsp;&nbsp;&nbsp;<span id="deed-rent1">60</span>.</td>
-				</tr>
-				<tr>
-					<td style="text-align: left;">With 2 Houses</td>
-					<td style="text-align: right;"><span id="deed-rent2">180</span>.</td>
-				</tr>
-				<tr>
-					<td style="text-align: left;">With 3 Houses</td>
-					<td style="text-align: right;"><span id="deed-rent3">500</span>.</td>
-				</tr>
-				<tr>
-					<td style="text-align: left;">With 4 Houses</td>
-					<td style="text-align: right;"><span id="deed-rent4">700</span>.</td>
-				</tr>
-				<tr>
-					<td colspan="2">
-						<div style="margin-bottom: 8px;">With HOTEL $<span id="deed-rent5">900</span>.</div>
-						<div>Mortgage Value $<span id="deed-mortgage">80</span>.</div>
-						<div>Houses cost $<span id="deed-houseprice">100</span>. each</div>
-						<div>Hotels, $<span id="deed-hotelprice">100</span>. plus 4 houses</div>
-						<div style="font-size: 9px; font-style: italic; margin-top: 5px;">If a player owns ALL the Lots of any Color-Group, the rent is Doubled on Unimproved Lots in that group.</div>
-					</td>
-				</tr>
-			</table>
-		</div>
-
-		<div id="deed-mortgaged">
-			<div id="deed-mortgaged-name"></div>
-			<p>&bull;</p>
-			<div>MORTGAGED</div>
-			<div> for $<span id="deed-mortgaged-mortgage">80</span></div>
-			<p>&bull;</p>
-			<div style="font-style: italic; font-size: 13px; margin: 10px;">Card must be turned this side up if property is mortgaged</div>
-		</div>
-
-		<div id="deed-special">
-			<div id="deed-special-name"></div>
-			<div id="deed-special-text"></div>
-			<div id="deed-special-footer">
-				Mortgage Value
-				<span style="float: right;">$<span id="deed-special-mortgage">100</span>.</span>
+	<!-- Onboarding tour overlay — first-time only. Hidden until __startTour() runs. -->
+	<div id="tour-overlay" aria-hidden="true">
+		<div id="tour-spotlight"></div>
+		<div id="tour-tooltip" role="dialog" aria-labelledby="tour-title">
+			<h4 id="tour-title"></h4>
+			<p id="tour-body"></p>
+			<div id="tour-dots"></div>
+			<div id="tour-actions">
+				<button type="button" id="tour-skip" class="tour-btn tour-btn-ghost" data-i18n="tour.skip">Skip</button>
+				<button type="button" id="tour-next" class="tour-btn tour-btn-primary" data-i18n="tour.next">Next</button>
 			</div>
 		</div>
 	</div>
 
-	<table id="board">
-		<tr>
-			<td class="cell board-corner" id="cell20"></td>
-			<td class="cell board-top" id="cell21"></td>
-			<td class="cell board-top" id="cell22"></td>
-			<td class="cell board-top" id="cell23"></td>
-			<td class="cell board-top" id="cell24"></td>
-			<td class="cell board-top" id="cell25"></td>
-			<td class="cell board-top" id="cell26"></td>
-			<td class="cell board-top" id="cell27"></td>
-			<td class="cell board-top" id="cell28"></td>
-			<td class="cell board-top" id="cell29"></td>
-			<td class="cell board-corner" id="cell30"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell19"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell31"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell18"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell32"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell17"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell33"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell16"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell34"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell15"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell35"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell14"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell36"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell13"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell37"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell12"></td>
-			<td colspan="9" class="board-center"></td>
-			<td class="cell board-right" id="cell38"></td>
-		</tr><tr>
-			<td class="cell board-left" id="cell11"></td>
-			<td colspan="9" class="board-center">
-				<div id="jail"></div>
-			</td>
-			<td class="cell board-right" id="cell39"></td>
-		</tr><tr>
-			<td class="cell board-corner" id="cell10"></td>
-			<td class="cell board-bottom" id="cell9"></td>
-			<td class="cell board-bottom" id="cell8"></td>
-			<td class="cell board-bottom" id="cell7"></td>
-			<td class="cell board-bottom" id="cell6"></td>
-			<td class="cell board-bottom" id="cell5"></td>
-			<td class="cell board-bottom" id="cell4"></td>
-			<td class="cell board-bottom" id="cell3"></td>
-			<td class="cell board-bottom" id="cell2"></td>
-			<td class="cell board-bottom" id="cell1"></td>
-			<td class="cell board-corner" id="cell0"></td>
-		</tr>
-	</table>
+	<!-- Help modal — opened by #help-btn or the "?" key. Hidden by default. -->
+	<div id="help-overlay" aria-hidden="true">
+		<div id="help-modal" role="dialog" aria-labelledby="help-title">
+			<button type="button" id="help-close" class="help-close" data-i18n-title="help.escCloseTitle" title="Close (Esc)" data-i18n-aria="help.escCloseTitle" aria-label="Close (Esc)">×</button>
+			<h2 id="help-title" data-i18n="help.title">How to play</h2>
 
-	<div id="moneybarwrap">
-		<div id="moneybar">
-			<table>
-				<tr id="moneybarrow1" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p1arrow" class="money-bar-arrow" alt=">"/></td>
-					<td id="p1moneybar" class="moneybarcell">
-						<div><span id="p1moneyname" >Player 1</span>:</div>
-						<div>$<span id="p1money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow2" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p2arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p2moneybar" class="moneybarcell">
-						<div><span id="p2moneyname" >Player 2</span>:</div>
-						<div>$<span id="p2money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow3" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p3arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p3moneybar" class="moneybarcell">
-						<div><span id="p3moneyname" >Player 3</span>:</div>
-						<div>$<span id="p3money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow4" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p4arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p4moneybar" class="moneybarcell">
-						<div><span id="p4moneyname" >Player 4</span>:</div>
-						<div>$<span id="p4money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow5" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p5arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p5moneybar" class="moneybarcell">
-						<div><span id="p5moneyname" >Player 5</span>:</div>
-						<div>$<span id="p5money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow6" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p6arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p6moneybar" class="moneybarcell">
-						<div><span id="p6moneyname" >Player 6</span>:</div>
-						<div>$<span id="p6money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow7" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p7arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p7moneybar" class="moneybarcell">
-						<div><span id="p7moneyname" >Player 7</span>:</div>
-						<div>$<span id="p7money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrow8" class="money-bar-row">
-					<td class="moneybararrowcell"><img src="images/arrow.png" id="p8arrow" class="money-bar-arrow" alt=">" /></td>
-					<td id="p8moneybar" class="moneybarcell">
-						<div><span id="p8moneyname" >Player 8</span>:</div>
-						<div>$<span id="p8money">1500</span></div>
-					</td>
-				</tr>
-				<tr id="moneybarrowbutton">
-					<td class="moneybararrowcell">&nbsp;</td>
-					<td style="border: none;">
-						<input type="button" id="viewstats" value="View stats" title="View a pop-up window that shows a list of each player's properties." />
-					</td>
-				</tr>
-			</table>
+			<div class="help-section">
+				<h3 data-i18n="help.shortcutsTitle">Keyboard shortcuts</h3>
+				<dl class="help-kbd-list">
+					<dt><kbd data-i18n="help.kbdSpace">Space</kbd></dt><dd data-i18n="help.kbdRollDesc">Roll dice / Start game</dd>
+					<dt><kbd>Enter</kbd></dt><dd data-i18n="help.kbdEnterDesc">End turn / confirm primary action</dd>
+					<dt><kbd>B</kbd></dt><dd data-i18n="help.kbdBDesc">Buy tab</dd>
+					<dt><kbd>M</kbd></dt><dd data-i18n="help.kbdMDesc">Manage tab</dd>
+					<dt><kbd>T</kbd></dt><dd data-i18n="help.kbdTDesc">Trade tab</dd>
+					<dt><kbd>S</kbd></dt><dd data-i18n="help.kbdSDesc">View stats</dd>
+					<dt><kbd>?</kbd></dt><dd data-i18n="help.kbdHelpDesc">Open this help</dd>
+					<dt><kbd>Esc</kbd></dt><dd data-i18n="help.kbdEscDesc">Close modal</dd>
+				</dl>
+			</div>
+
+			<div class="help-section">
+				<h3 data-i18n="help.rulesTitle">Quick rules</h3>
+				<ul class="help-list">
+					<li data-i18n="help.ruleRoll">Roll dice on your turn. Your token walks to the destination cell-by-cell.</li>
+					<li data-i18n="help.ruleBuy">If you land on an unowned property, you can buy it for the listed price.</li>
+					<li data-i18n="help.ruleRent">If you land on an owned property, you pay rent. Rent doubles on full color groups, then increases with houses (1→4) and a hotel.</li>
+					<li data-i18n="help.ruleBuild">Once you own a full color group, you can build houses. You must build evenly across the group.</li>
+					<li data-i18n="help.ruleJail">Three doubles in a row, or landing on "Go to Jail", sends you to jail. Pay $50 or roll doubles to leave.</li>
+					<li data-i18n="help.ruleGo">Pass GO to collect $200.</li>
+					<li data-i18n="help.ruleWin">Last player not bankrupt wins.</li>
+				</ul>
+			</div>
+
+			<div class="help-section">
+				<h3 data-i18n="help.tipsTitle">Tips</h3>
+				<ul class="help-list">
+					<li data-i18n="help.tipHover">Hover any property on the board to see its title deed with current rent and owner.</li>
+					<li data-i18n="help.tipMonopoly">Owning a full color group doubles rent immediately, even with zero houses.</li>
+					<li data-i18n="help.tipCash">Keep a cash buffer — landing on someone else's hotel can wipe you out.</li>
+					<li data-i18n="help.tipMortgage">Mortgaging gives you half the price back. Unmortgaging costs 10% interest.</li>
+				</ul>
+			</div>
 		</div>
 	</div>
 
-	<div id="setup">
-		<div style="margin-bottom: 20px;">
-			Select number of players.
-			<select id="playernumber" title="Select the number of players for the game.">
-				<option>2</option>
-				<option>3</option>
-				<option selected="selected">4</option>
-				<option>5</option>
-				<option>6</option>
-				<option>7</option>
-				<option>8</option>
-			</select>
+	<!-- The scalable + rotatable game world.
+	     monopoly.js fitStage() sets the transform on resize/orientation.
+	     The modal backgrounds live INSIDE the stage so they share its stacking
+	     context with popupwrap/statswrap — otherwise the dim would paint on top
+	     of the popup and intercept all clicks. -->
+	<div id="game-stage">
+
+		<!-- Modal dim overlays — anchored to the stage (via position:fixed inside
+		     a transformed parent, which means fixed-to-stage in CSS). -->
+		<div id="popupbackground"></div>
+		<div id="statsbackground"></div>
+
+		<div id="popupwrap">
+			<div id="popup">
+				<div class="popup-row">
+					<div id="popuptext"></div>
+					<div id="popupdrag"></div>
+				</div>
+			</div>
 		</div>
 
-		<div id="player1input" class="player-input">
-			Player 1: <input type="text" id="player1name" title="Player name" maxlength="16" value="Player 1" />
-			<select id="player1color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option selected="selected" style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player1ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player1name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
+		<div id="statswrap">
+			<div id="stats">
+				<div class="popup-row">
+					<img id="statsclose" src="images/close.png" data-i18n-title="ui.closeEsc" title="Close (Esc)" data-i18n-aria="ui.closeEsc" aria-label="Close (Esc)" alt="Close" width="30" height="30" loading="lazy" decoding="async">
+					<div id="statstext"></div>
+					<span class="modal-hint" data-i18n="ui.pressEscToClose">Press Esc to close</span>
+					<div id="statsdrag"></div>
+				</div>
+			</div>
 		</div>
 
-		<div id="player2input" class="player-input">
-			Player 2: <input type="text" id="player2name" title="Player name" maxlength="16" value="Player 2" />
-			<select id="player2color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option selected="selected" style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player2ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player2name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
+		<div id="refresh" data-i18n="setup.refresh">
+			Refresh this page to start a new game.
 		</div>
 
-		<div id="player3input" class="player-input">
-			Player 3: <input type="text" id="player3name" title="Player name" maxlength="16" value="Player 3" />
-			<select id="player3color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option selected="selected" style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player3ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player3name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
+		<!-- <div id="enlarge"></div> -->
+
+		<div id="deed">
+			<div id="deed-normal" class="is-hidden">
+				<div id="deed-header">
+					<div class="deed-titledeed-text" data-i18n="deed.titleDeed">T I T L E&nbsp;&nbsp;D E E D</div>
+					<div id="deed-name"></div>
+				</div>
+				<table id="deed-table">
+					<tr>
+						<td colspan="2" id="deed-price-row">
+							<span data-i18n="deed.price">PRICE</span>&nbsp;$<span id="deed-price">0</span>.
+						</td>
+					</tr>
+					<tr id="deed-owner-row" class="is-hidden">
+						<td colspan="2" id="deed-owner-cell"></td>
+					</tr>
+					<tr id="deed-currentrent-row" class="is-hidden">
+						<td colspan="2" id="deed-currentrent-cell"></td>
+					</tr>
+					<tr id="deed-row-base">
+						<td colspan="2">
+							<span data-i18n="deed.rent">RENT</span>&nbsp;$<span id="deed-baserent">12</span>.
+						</td>
+					</tr>
+					<tr id="deed-row-h1">
+						<td class="tx-l" data-i18n="deed.with1House">With 1 House</td>
+						<td class="tx-r">$&nbsp;&nbsp;&nbsp;<span id="deed-rent1">60</span>.</td>
+					</tr>
+					<tr id="deed-row-h2">
+						<td class="tx-l" data-i18n="deed.with2Houses">With 2 Houses</td>
+						<td class="tx-r"><span id="deed-rent2">180</span>.</td>
+					</tr>
+					<tr id="deed-row-h3">
+						<td class="tx-l" data-i18n="deed.with3Houses">With 3 Houses</td>
+						<td class="tx-r"><span id="deed-rent3">500</span>.</td>
+					</tr>
+					<tr id="deed-row-h4">
+						<td class="tx-l" data-i18n="deed.with4Houses">With 4 Houses</td>
+						<td class="tx-r"><span id="deed-rent4">700</span>.</td>
+					</tr>
+					<tr id="deed-row-hotel" class="deed-hotel-row">
+						<td colspan="2">
+							<div><span data-i18n="deed.withHotel">With HOTEL</span> $<span id="deed-rent5">900</span>.</div>
+							<div><span data-i18n="deed.mortgageValue">Mortgage Value</span> $<span id="deed-mortgage">80</span>.</div>
+							<div id="deed-houseprice-line">Houses cost $<span id="deed-houseprice">100</span>. each</div>
+							<div id="deed-hotelprice-line">Hotels, $<span id="deed-hotelprice">100</span>. plus 4 houses</div>
+							<div class="deed-group-rule" data-i18n="deed.groupRule">If a player owns ALL the Lots of any Color-Group, the rent is Doubled on Unimproved Lots in that group.</div>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div id="deed-mortgaged">
+				<div id="deed-mortgaged-name"></div>
+				<p>&bull;</p>
+				<div data-i18n="deed.mortgaged">MORTGAGED</div>
+				<div><span data-i18n="deed.mortgagedForPrefix">for</span> $<span id="deed-mortgaged-mortgage">80</span></div>
+				<p>&bull;</p>
+				<div class="deed-mortgaged-note" data-i18n="deed.mortgagedNote">Card must be turned this side up if property is mortgaged</div>
+			</div>
+
+			<div id="deed-special">
+				<div id="deed-special-name"></div>
+				<div id="deed-special-price">
+					<span data-i18n="deed.price">PRICE</span>&nbsp;$<span id="deed-special-price-amount">0</span>.
+				</div>
+				<div id="deed-special-text"></div>
+				<div id="deed-special-footer">
+					<span data-i18n="deed.mortgageValue">Mortgage Value</span>
+					<span class="deed-special-mortgage-value">$<span id="deed-special-mortgage">100</span>.</span>
+				</div>
+			</div>
 		</div>
 
-		<div id="player4input" class="player-input">
-			Player 4: <input type="text" id="player4name" title="Player name" maxlength="16" value="Player 4" />
-			<select id="player4color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option selected="selected" style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player4ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player4name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
-		</div>
-
-		<div id="player5input" class="player-input">
-			Player 5: <input type="text" id="player5name" title="Player name" maxlength="16" value="Player 5" />
-			<select id="player5color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option selected="selected" style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player5ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player5name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
-		</div>
-
-		<div id="player6input" class="player-input">
-			Player 6: <input type="text" id="player6name" title="Player name" maxlength="16" value="Player 6" />
-			<select id="player6color" title="Player color">
-				<option selected="selected" style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player6ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player6name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
-		</div>
-
-		<div id="player7input" class="player-input">
-			Player 7: <input type="text" id="player7name" title="Player name" maxlength="16" value="Player 7" />
-			<select id="player7color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option selected="selected" style="color: orange;">Orange</option>
-				<option style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player7ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player7name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
-		</div>
-
-		<div id="player8input" class="player-input">
-			Player 8: <input type="text" id="player8name" title="Player name" maxlength="16" value="Player 8" />
-			<select id="player8color" title="Player color">
-				<option style="color: aqua;">Aqua</option>
-				<option style="color: black;">Black</option>
-				<option style="color: blue;">Blue</option>
-				<option style="color: fuchsia;">Fuchsia</option>
-				<option style="color: gray;">Gray</option>
-				<option style="color: green;">Green</option>
-				<option style="color: lime;">Lime</option>
-				<option style="color: maroon;">Maroon</option>
-				<option style="color: navy;">Navy</option>
-				<option style="color: olive;">Olive</option>
-				<option style="color: orange;">Orange</option>
-				<option selected="selected" style="color: purple;">Purple</option>
-				<option style="color: red;">Red</option>
-				<option style="color: silver;">Silver</option>
-				<option style="color: teal;">Teal</option>
-				<option style="color: yellow;">Yellow</option>
-			</select>
-			<select id="player8ai" title="Choose whether this player is controled by a human or by the computer." onclick="document.getElementById('player8name').disabled = this.value !== '0';">
-				<option value="0" selected="selected">Human</option>
-				<option value="1">AI (Test)</option>
-			</select>
-		</div>
-
-		<div style="margin: 20px 0px;">
-			<input type="button" value="Start Game" onclick="setup();" title="Begin playing." />
-		</div>
-
-		<div id="noF5">Note: Refreshing this page or navigating away from it may end your game without warning.</div>
-	</div>
-
-	<div id="control">
-		<table>
+		<table id="board">
 			<tr>
-				<td style="text-align: left; vertical-align: top; border: none;">
-					<div id="menu">
-						<table id="menutable" cellspacing="0">
-							<tr>
-								<td class="menu-item" id="buy-menu-item">
-
-									<a href="javascript:void(0);" title="View alerts and buy the property you landed on.">Buy</a>
-								</td>
-								<td class="menu-item" id="manage-menu-item">
-
-									<a href="javascript:void(0);" title="View, mortgage, and improve your property. ">Manage</a>
-								</td>
-								<td class="menu-item" id="trade-menu-item">
-
-									<a href="javascript:void(0);" title="Exchange property with other players.">Trade</a>
-								</td>
-							</tr>
-						</table>
-					</div>
-
-					<div id="buy">
-						<div id="alert"></div>
-						<div id="landed"></div>
-					</div>
-
-					<div id="manage">
-						<div id="option">
-							<div id="buildings" title="Available buildings"></div>
-							<input type="button" value="Buy house" id="buyhousebutton"/>
-							<input type="button" value="Mortgage" id="mortgagebutton" />
-							<input type="button" value="Sell house" id="sellhousebutton"/>
-						</div>
-						<div id="owned"></div>
-					</div>
-				</td>
-				<td style="vertical-align: top; border: none;">
-					<div id="quickstats" style="">
-							<div><span id="pname" >Player 1</span>:</div>
-							<div><span id="pmoney">$1500</span></div>
-					</div>
-					<div>
-						<div id="die0" title="Die" class="die die-no-img"></div>
-						<div id="die1" title="Die" class="die die-no-img"></div>
-					</div>
-
-				</td>
+				<td class="cell board-corner" id="cell20"></td>
+				<td class="cell board-top" id="cell21"></td>
+				<td class="cell board-top" id="cell22"></td>
+				<td class="cell board-top" id="cell23"></td>
+				<td class="cell board-top" id="cell24"></td>
+				<td class="cell board-top" id="cell25"></td>
+				<td class="cell board-top" id="cell26"></td>
+				<td class="cell board-top" id="cell27"></td>
+				<td class="cell board-top" id="cell28"></td>
+				<td class="cell board-top" id="cell29"></td>
+				<td class="cell board-corner" id="cell30"></td>
 			</tr><tr>
-				<td colspan="2" style="border: none">
-					<div style="padding-top: 8px;">
-						<input type="button" id="nextbutton" title="Roll the dice and move your token accordingly." value="Roll Dice"/>
-						<input type="button" id="resignbutton" title="If you cannot pay your debt then you must resign from the game." value="Resign" onclick="game.resign();" />
-					</div>
+				<td class="cell board-left" id="cell19"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell31"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell18"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell32"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell17"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell33"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell16"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell34"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell15"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell35"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell14"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell36"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell13"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell37"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell12"></td>
+				<td colspan="9" class="board-center"></td>
+				<td class="cell board-right" id="cell38"></td>
+			</tr><tr>
+				<td class="cell board-left" id="cell11"></td>
+				<td colspan="9" class="board-center">
+					<div id="jail"></div>
 				</td>
+				<td class="cell board-right" id="cell39"></td>
+			</tr><tr>
+				<td class="cell board-corner" id="cell10"></td>
+				<td class="cell board-bottom" id="cell9"></td>
+				<td class="cell board-bottom" id="cell8"></td>
+				<td class="cell board-bottom" id="cell7"></td>
+				<td class="cell board-bottom" id="cell6"></td>
+				<td class="cell board-bottom" id="cell5"></td>
+				<td class="cell board-bottom" id="cell4"></td>
+				<td class="cell board-bottom" id="cell3"></td>
+				<td class="cell board-bottom" id="cell2"></td>
+				<td class="cell board-bottom" id="cell1"></td>
+				<td class="cell board-corner" id="cell0"></td>
 			</tr>
 		</table>
-	</div>
 
-	<div id="trade">
-		<table style="border-spacing: 3px;">
-			<tr>
-				<td class="trade-cell">
+		<div id="moneybarwrap">
+			<div id="moneybar">
+				<table>
+					<tr id="moneybarrow1" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p1arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p1moneybar" class="moneybarcell">
+							<div><span id="p1moneyname" >Player 1</span>:</div>
+							<div>$<span id="p1money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow2" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p2arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p2moneybar" class="moneybarcell">
+							<div><span id="p2moneyname" >Player 2</span>:</div>
+							<div>$<span id="p2money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow3" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p3arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p3moneybar" class="moneybarcell">
+							<div><span id="p3moneyname" >Player 3</span>:</div>
+							<div>$<span id="p3money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow4" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p4arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p4moneybar" class="moneybarcell">
+							<div><span id="p4moneyname" >Player 4</span>:</div>
+							<div>$<span id="p4money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow5" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p5arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p5moneybar" class="moneybarcell">
+							<div><span id="p5moneyname" >Player 5</span>:</div>
+							<div>$<span id="p5money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow6" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p6arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p6moneybar" class="moneybarcell">
+							<div><span id="p6moneyname" >Player 6</span>:</div>
+							<div>$<span id="p6money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow7" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p7arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p7moneybar" class="moneybarcell">
+							<div><span id="p7moneyname" >Player 7</span>:</div>
+							<div>$<span id="p7money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrow8" class="money-bar-row">
+						<td class="moneybararrowcell"><img src="images/arrow.png" id="p8arrow" class="money-bar-arrow" alt="" width="28" height="28" loading="lazy" decoding="async"></td>
+						<td id="p8moneybar" class="moneybarcell">
+							<div><span id="p8moneyname" >Player 8</span>:</div>
+							<div>$<span id="p8money">1500</span></div>
+						</td>
+					</tr>
+					<tr id="moneybarrowbutton">
+						<td class="moneybararrowcell">&nbsp;</td>
+						<td class="bare-cell">
+							<input type="button" id="viewstats" value="View stats" data-i18n-value="ui.viewStats" data-i18n-title="ui.viewStatsTitle" title="View a pop-up window that shows a list of each player's properties.">
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+
+		<div id="setup">
+			<div class="setup-section-mb-20">
+				<span data-i18n="setup.selectPlayers">Select number of players.</span>
+				<select id="playernumber" data-i18n-title="setup.numPlayersTitle" title="Select the number of players for the game.">
+					<option>2</option>
+					<option>3</option>
+					<option selected="selected">4</option>
+					<option>5</option>
+					<option>6</option>
+					<option>7</option>
+					<option>8</option>
+				</select>
+			</div>
+
+			<!-- Player setup blocks generated by monopoly.js __renderPlayerSetup() -->
+			<div id="player-setup-list"></div>
+
+			<div id="edition-select-row">
+				<label for="edition-select" data-i18n="setup.editionLabel">Board edition:</label>
+				<select id="edition-select" data-i18n-title="setup.editionTitle" title="Pick a board layout. Reloads the page.">
+					<option value="classic" data-i18n="setup.editionClassic">Classic</option>
+					<option value="nyc" data-i18n="setup.editionNYC">New York City</option>
+				</select>
+			</div>
+
+			<div id="setup-presets" data-i18n-title="setup.presetsTitle" title="Quick configurations">
+				<button type="button" class="setup-preset" data-preset="quick">
+					<strong data-i18n="setup.presetQuick">Quick</strong>
+					<span data-i18n="setup.presetQuickSub">$1000 · faster</span>
+				</button>
+				<button type="button" class="setup-preset" data-preset="standard">
+					<strong data-i18n="setup.presetStandard">Standard</strong>
+					<span data-i18n="setup.presetStandardSub">$1500 · classic</span>
+				</button>
+				<button type="button" class="setup-preset" data-preset="long">
+					<strong data-i18n="setup.presetLong">Long</strong>
+					<span data-i18n="setup.presetLongSub">$2500 · marathon</span>
+				</button>
+			</div>
+
+			<details id="house-rules-block">
+				<summary data-i18n="setup.houseRulesTitle">House rules (optional)</summary>
+				<div class="house-rules-grid">
+					<label class="house-rule">
+						<input type="checkbox" id="rule-free-parking-jackpot" />
+						<span class="house-rule-text">
+							<strong data-i18n="setup.ruleFP">Free Parking jackpot</strong>
+							<small data-i18n="setup.ruleFPSub">Taxes + fines pile up; landing on Free Parking wins the pot.</small>
+						</span>
+					</label>
+					<label class="house-rule">
+						<input type="checkbox" id="rule-snake-eyes-bonus" />
+						<span class="house-rule-text">
+							<strong data-i18n="setup.ruleSnake">Snake-eyes bonus</strong>
+							<small data-i18n="setup.ruleSnakeSub">Rolling double 1s pays $500.</small>
+						</span>
+					</label>
+					<label class="house-rule">
+						<input type="checkbox" id="rule-double-go" />
+						<span class="house-rule-text">
+							<strong data-i18n="setup.ruleDoubleGo">Double GO</strong>
+							<small data-i18n="setup.ruleDoubleGoSub">Landing exactly on GO pays $400 instead of $200.</small>
+						</span>
+					</label>
+					<label class="house-rule">
+						<input type="checkbox" id="rule-no-auctions" />
+						<span class="house-rule-text">
+							<strong data-i18n="setup.ruleNoAuc">No auctions</strong>
+							<small data-i18n="setup.ruleNoAucSub">Unbought properties return to the bank.</small>
+						</span>
+					</label>
+					<label class="house-rule">
+						<input type="checkbox" id="rule-speed-mode" />
+						<span class="house-rule-text">
+							<strong data-i18n="setup.ruleSpeed">Speed mode</strong>
+							<small data-i18n="setup.ruleSpeedSub">All animations 2× faster.</small>
+						</span>
+					</label>
+				</div>
+			</details>
+
+			<div class="setup-section-my-20">
+				<input type="button" id="start-game-btn" value="Start Game" data-i18n-value="ui.startGame" data-i18n-title="ui.startGameTitle" title="Begin playing.">
+			</div>
+
+			<div id="noF5" data-i18n="setup.noF5">Note: Refreshing this page or navigating away from it may end your game without warning.</div>
+		</div>
+
+		<div id="control">
+			<table>
+				<tr>
+					<td class="bare-cell-left">
+						<div id="menu">
+							<table id="menutable" cellspacing="0">
+								<tr>
+									<td class="menu-item" id="buy-menu-item">
+
+										<a href="javascript:void(0);" data-i18n-title="menu.buyTitle" title="View alerts and buy the property you landed on." data-i18n="menu.buy">Buy</a>
+									</td>
+									<td class="menu-item" id="manage-menu-item">
+
+										<a href="javascript:void(0);" data-i18n-title="menu.manageTitle" title="View, mortgage, and improve your property." data-i18n="menu.manage">Manage</a>
+									</td>
+									<td class="menu-item" id="trade-menu-item">
+
+										<a href="javascript:void(0);" data-i18n-title="menu.tradeTitle" title="Exchange property with other players." data-i18n="menu.trade">Trade</a>
+									</td>
+								</tr>
+							</table>
+						</div>
+
+						<div id="buy">
+							<div id="alert" aria-live="polite"></div>
+							<div id="landed" aria-live="polite"></div>
+						</div>
+
+						<div id="manage">
+							<div id="option">
+								<div id="buildings" title="Available buildings"></div>
+								<input type="button" value="Buy house" data-i18n-value="ui.buyHouse" id="buyhousebutton"/>
+								<input type="button" value="Mortgage" data-i18n-value="ui.mortgage" id="mortgagebutton" />
+								<input type="button" value="Sell house" data-i18n-value="ui.sellHouse" id="sellhousebutton"/>
+							</div>
+							<div id="owned"></div>
+						</div>
+					</td>
+					<td class="bare-cell-right">
+						<div id="quickstats">
+								<div><span id="pname" >Player 1</span>:</div>
+								<div><span id="pmoney">$1500</span></div>
+						</div>
+						<div>
+							<div id="die0" title="Die" class="die die-no-img"></div>
+							<div id="die1" title="Die" class="die die-no-img"></div>
+						</div>
+
+					</td>
+				</tr><tr>
+					<td colspan="2" class="bare-cell-bot">
+						<div class="roll-bar">
+							<input type="button" id="nextbutton" data-i18n-title="ui.rollDiceTitle" title="Roll the dice and move your token accordingly." value="Roll Dice" data-i18n-value="ui.rollDice">
+							<input type="button" id="resignbutton" data-i18n-title="ui.resignTitle" title="If you cannot pay your debt then you must resign from the game." value="Resign" data-i18n-value="ui.resign">
+						</div>
+					</td>
+				</tr>
+			</table>
+		</div>
+
+		<div id="trade">
+			<div class="trade-grid">
+				<div class="trade-cell">
 					<div id="trade-leftp-name"></div>
-				</td>
-				<td class="trade-cell">
+				</div>
+				<div class="trade-cell">
 					<div id="trade-rightp-name"></div>
-				</td>
-			</tr>
-			<tr>
-				<td class="trade-cell">
-					$&nbsp;<input id="trade-leftp-money" value="0" title="Enter amount to exchange with the other player." />
-				</td>
-				<td class="trade-cell">
-					$&nbsp;<input id="trade-rightp-money" value="0" title="Enter amount to exchange with the other player." />
-				</td>
-			</tr>
-			<tr>
-				<td id="trade-leftp-property" class="trade-cell"></td>
-				<td id="trade-rightp-property" class="trade-cell"></td>
-			</tr>
-			<tr>
-				<td colspan="2" class="trade-cell">
-					<input type="button" id="proposetradebutton" value="Propose Trade" onclick="game.proposeTrade();" title="Exchange the money and properties that are checked above." />
-					<input type="button" id="canceltradebutton" value="Cancel Trade" onclick='game.cancelTrade();' title="Cancel the trade." />
-					<input type="button" id="accepttradebutton" value="Accept Trade" onclick="game.acceptTrade();" title="Accept the proposed trade." />
-					<input type="button" id="rejecttradebutton" value="Reject Trade" onclick='game.cancelTrade();' title="Reject the proposed trade." />
-				</td>
-			</tr>
-		</table>
-	</div>
+				</div>
+				<div class="trade-cell">
+					$&nbsp;<input id="trade-leftp-money" type="text" value="0" data-i18n-placeholder="trade.moneyPlaceholder" placeholder="$0" title="Enter amount to exchange with the other player." />
+				</div>
+				<div class="trade-cell">
+					$&nbsp;<input id="trade-rightp-money" type="text" value="0" data-i18n-placeholder="trade.moneyPlaceholder" placeholder="$0" title="Enter amount to exchange with the other player." />
+				</div>
+				<div id="trade-leftp-property" class="trade-cell"></div>
+				<div id="trade-rightp-property" class="trade-cell"></div>
+				<div class="trade-cell trade-buttons">
+					<input type="button" id="proposetradebutton" value="Propose Trade" data-i18n-value="ui.proposeTrade" data-i18n-title="ui.proposeTradeTitle" title="Exchange the money and properties that are checked above.">
+					<input type="button" id="canceltradebutton" value="Cancel Trade" data-i18n-value="ui.cancelTrade" data-i18n-title="ui.cancelTradeTitle" title="Cancel the trade.">
+					<input type="button" id="accepttradebutton" value="Accept Trade" data-i18n-value="ui.acceptTrade" data-i18n-title="ui.acceptTradeTitle" title="Accept the proposed trade.">
+					<input type="button" id="rejecttradebutton" value="Reject Trade" data-i18n-value="ui.rejectTrade" data-i18n-title="ui.rejectTradeTitle" title="Reject the proposed trade.">
+				</div>
+			</div>
+		</div>
+
+	</div><!-- /#game-stage -->
 
 </body>
 </html>

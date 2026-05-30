@@ -1,587 +1,943 @@
-body {
-	background: #FFFFFF;
-	margin: 0px;
-	min-width: 1075px;
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root {
+	--surface: #FAFAF7;
+	--surface-card: #FFFFFF;
+	--surface-felt: #1B5E3F;
+	--surface-felt-deep: #154832;
+	--ink: #1A1A1A;
+	--ink-muted: #525252;
+	--ink-faint: #8A8A8A;
+	--accent: #1B5E3F;
+	--accent-bright: #2E7D5C;
+	--money: #2E7D5C;
+	--money-bright: #43A578;
+	--warning: #D64545;
+	--gold: #D4AF37;
+	--hairline: rgba(0, 0, 0, 0.08);
+	--hairline-strong: rgba(0, 0, 0, 0.15);
+	--shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.06);
+	--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+	--shadow-lifted: 0 12px 32px rgba(0, 0, 0, 0.14), 0 4px 10px rgba(0, 0, 0, 0.08);
+	--radius-sm: 4px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+	--radius-xl: 16px;
+	--ease-out: cubic-bezier(.2, .8, .2, 1);
+	--ease-press: cubic-bezier(.4, 0, .2, 1);
+	/* Decorative easing tokens — used for UI/decorative motion so the game
+	   reads as a single coherent motion language. Physics-tuned curves on
+	   gameplay animations (rent-fly, token-land, token-hop, cell-purchase)
+	   are intentionally kept as-is so the gameplay feel is preserved. */
+	--ease-bounce: cubic-bezier(.34, 1.56, .64, 1);
+	--ease-smooth: cubic-bezier(.18, .85, .25, 1);
+	--dur-micro: 80ms;
+	--dur-hover: 150ms;
+	--dur-modal: 200ms;
+	--dur-state: 200ms;
+	--dur-card: 300ms;
+	--dur-token: 400ms;
+	--dur-celebration: 600ms;
+	--dur-intro: 1100ms;
+	--font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	/* Vignette intensity — overridden in dark mode to deepen contrast on the
+	   wood texture without making panels muddy. */
+	--vignette-rgba: rgba(0, 0, 0, 0.55);
+	/* Subtle hover overlay — inverted in dark mode so feedback stays visible. */
+	--hover-overlay: rgba(0, 0, 0, 0.03);
+	/* Ledger / parchment palette — used by money-bar rows and any "paper"
+	   surface. Light mode is warm cream; dark mode is a deeper card panel.
+	   Centralizing them in tokens keeps the dark theme legible (previously
+	   the rows showed white text on a hardcoded beige and were invisible). */
+	--ledger-bg-start:   #fdfcf8;
+	--ledger-bg-end:     #f7f4ea;
+	--ledger-border:     rgba(110, 70, 30, 0.12);
+	--ledger-divider:    rgba(110, 70, 30, 0.18);
+	--ledger-active-top: #ffffff;
 }
 
-td {
-	font-size: 12px;
-	font-family: arial, sans-serif;
-	border: 1px solid black;
+/* Dark mode tokens — applied either when the OS prefers dark OR when the
+   user has explicitly forced .theme-dark on <html>. The selector list keeps
+   the token set in one place so the two activation paths stay in lockstep.
+   Light-mode override (.theme-light:not(.theme-dark)) wins over the @media
+   query via specificity, preserving forced-light behaviour. */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--surface: #14171A;
+		--surface-card: #1F2429;
+		--surface-felt: #246B4A;
+		--surface-felt-deep: #1A4E36;
+		--ink: #E8E8E5;
+		--ink-muted: #B0B0AC;
+		--ink-faint: #7E7E7A;
+		--accent: #43A578;
+		--accent-bright: #5BC196;
+		--money: #43A578;
+		--money-bright: #6FD3A8;
+		--warning: #E66464;
+		--gold: #E0BC4A;
+		--hairline: rgba(255, 255, 255, 0.10);
+		--hairline-strong: rgba(255, 255, 255, 0.20);
+		--shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.40);
+		--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
+		--shadow-lifted: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.40);
+		--vignette-rgba: rgba(0, 0, 0, 0.78);
+		--hover-overlay: rgba(255, 255, 255, 0.05);
+		/* Ledger palette tuned for dark mode — deeper card panel + amber
+		   accents on borders/dividers to keep the "paper" feel without the
+		   cream-on-cream legibility loss the light tokens caused. */
+		--ledger-bg-start:   #232A30;
+		--ledger-bg-end:     #1B2126;
+		--ledger-border:     rgba(212, 175, 55, 0.18);
+		--ledger-divider:    rgba(212, 175, 55, 0.20);
+		--ledger-active-top: #2B343B;
+		color-scheme: dark;
+	}
+}
+
+/* Explicit overrides via class on <html>. Toggled by the UI so users can
+   force a scheme regardless of OS preference.
+
+   .theme-light MUST re-declare every light-mode token so it can override the
+   dark tokens from `@media (prefers-color-scheme: dark)` when the OS is on
+   dark mode. Without this duplication, forcing "light" via the toggle on a
+   dark-OS browser kept the dark tokens active and the UI stayed dark. */
+html.theme-light:not(.theme-dark) {
+	--surface: #FAFAF7;
+	--surface-card: #FFFFFF;
+	--surface-felt: #1B5E3F;
+	--surface-felt-deep: #154832;
+	--ink: #1A1A1A;
+	--ink-muted: #525252;
+	--ink-faint: #8A8A8A;
+	--accent: #1B5E3F;
+	--accent-bright: #2E7D5C;
+	--money: #2E7D5C;
+	--money-bright: #43A578;
+	--warning: #D64545;
+	--gold: #D4AF37;
+	--hairline: rgba(0, 0, 0, 0.08);
+	--hairline-strong: rgba(0, 0, 0, 0.15);
+	--shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.06);
+	--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+	--shadow-lifted: 0 12px 32px rgba(0, 0, 0, 0.14), 0 4px 10px rgba(0, 0, 0, 0.08);
+	--vignette-rgba: rgba(0, 0, 0, 0.55);
+	--hover-overlay: rgba(0, 0, 0, 0.03);
+	--ledger-bg-start:   #fdfcf8;
+	--ledger-bg-end:     #f7f4ea;
+	--ledger-border:     rgba(110, 70, 30, 0.12);
+	--ledger-divider:    rgba(110, 70, 30, 0.18);
+	--ledger-active-top: #ffffff;
+	color-scheme: light;
+}
+html.theme-dark {
+	--surface: #14171A;
+	--surface-card: #1F2429;
+	--surface-felt: #246B4A;
+	--surface-felt-deep: #1A4E36;
+	--ink: #E8E8E5;
+	--ink-muted: #B0B0AC;
+	--ink-faint: #7E7E7A;
+	--accent: #43A578;
+	--accent-bright: #5BC196;
+	--money: #43A578;
+	--money-bright: #6FD3A8;
+	--warning: #E66464;
+	--gold: #E0BC4A;
+	--hairline: rgba(255, 255, 255, 0.10);
+	--hairline-strong: rgba(255, 255, 255, 0.20);
+	--shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.40);
+	--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
+	--shadow-lifted: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.40);
+	--vignette-rgba: rgba(0, 0, 0, 0.78);
+	--hover-overlay: rgba(255, 255, 255, 0.05);
+	--ledger-bg-start:   #232A30;
+	--ledger-bg-end:     #1B2126;
+	--ledger-border:     rgba(212, 175, 55, 0.18);
+	--ledger-divider:    rgba(212, 175, 55, 0.20);
+	--ledger-active-top: #2B343B;
+	color-scheme: dark;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+body {
+	/* Wood texture (maderafondo.png, ~757KB) is lazy-loaded by UI.loadWoodTexture()
+	   after the game stage is visible+interactive. Until then we show the solid
+	   surface color so first paint isn't blocked on the big PNG decode. */
+	background: var(--surface);
+	font-family: var(--font-ui);
+	color: var(--ink);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+/* Wood texture layer — painted by a dedicated fixed element so we can fade it
+   in via opacity (compositor-friendly) without touching the body's background.
+   UI.loadWoodTexture() preloads the PNG, then adds .wood-loaded to <body>. */
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	background: url('images/maderafondo.png') center center / cover no-repeat;
+	opacity: 0;
+	transition: opacity 600ms ease-out;
+	pointer-events: none;
+	z-index: 0;
+	will-change: opacity;
+}
+body.wood-loaded::after {
+	opacity: 1;
+}
+/* Subtle vignette so UI panels stay readable on top of the busy wood texture. */
+body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	background: radial-gradient(circle at center,
+		rgba(0, 0, 0, 0) 0%,
+		rgba(0, 0, 0, 0.18) 60%,
+		rgba(0, 0, 0, 0.38) 100%);
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* ============================================================
+   Game stage — fixed-design-size container, scaled+rotated by JS
+   to fit the viewport (and rotate 90deg on portrait screens).
+   ============================================================ */
+#game-stage {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	width: 1520px;
+	height: 1100px;
+	/* z-index MUST be > body::after (wood texture, z-index: 0) and
+	   body::before (vignette, z-index: 1), otherwise the wood layer paints
+	   on top of the stage and hides the board + sidepanel entirely. */
+	z-index: 2;
+	transform: translate(-50%, -50%);
+	transform-origin: center center;
+	will-change: transform;
+	/* fitStage() in monopoly.js overrides transform on load + resize.
+	   Stage is 1520 wide: board on left (940 px with margins), then a generous
+	   gap (~140 px), then the right column (control + moneybar) anchored right. */
+}
+
+/* Top-right toolbar wrapping language + mute. Outside the stage so it stays
+   in viewport orientation. */
+#topbar {
+	position: fixed;
+	top: 12px;
+	right: 12px;
+	z-index: 100;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	font-family: var(--font-ui);
+	-webkit-user-select: none;
+	user-select: none;
+}
+@media (max-width: 600px) {
+	#topbar {
+		top: auto;
+		bottom: 12px;
+	}
+}
+
+#lang-toolbar {
+	display: inline-flex;
+	gap: 0;
+	padding: 3px;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: 999px;
+	box-shadow: var(--shadow-card);
+	font-family: var(--font-ui);
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* Icon button (mute toggle). Round 32 px circle with the same shadow as the
+   lang pill so they read as siblings. */
+.icon-btn {
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: 50%;
+	box-shadow: var(--shadow-card);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--ink-muted);
+	transition: color var(--dur-hover) var(--ease-out),
+				background var(--dur-hover) var(--ease-out);
+}
+.icon-btn:hover  { color: var(--ink); background: #fff; }
+.icon-btn:focus-visible {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 2px;
+}
+.icon-btn svg { fill: currentColor; }
+
+/* Toggle SVG paths via .muted class on the button. */
+.icon-btn .ico-sound-off { display: none; }
+.icon-btn.muted .ico-sound-on  { display: none; }
+.icon-btn.muted .ico-sound-off { display: inline; }
+.icon-btn.muted { color: var(--warning); }
+
+/* Theme button: shows only the icon for the currently active preference.
+   `data-theme` is set by JS to 'auto' | 'light' | 'dark'. Default markup
+   stacks all three SVGs; we hide the ones that don't match. */
+#theme-btn svg { display: none; fill: currentColor; }
+#theme-btn[data-theme="auto"]  #ico-theme-auto,
+#theme-btn[data-theme="light"] #ico-theme-light,
+#theme-btn[data-theme="dark"]  #ico-theme-dark   { display: inline; }
+/* Fallback when JS hasn't initialized yet: show the auto icon. */
+#theme-btn:not([data-theme]) #ico-theme-auto { display: inline; }
+
+/* Help button — "?" glyph styled to match the mute icon button. */
+#help-btn {
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 16px;
+	line-height: 1;
+}
+#help-btn:hover { color: var(--accent); }
+
+/* Help overlay — full-screen dim with centered modal. */
+#help-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 200;
+	background: rgba(10, 10, 20, 0.55);
+	display: none;
+	align-items: flex-start;
+	justify-content: center;
+	padding: 60px 20px;
+	overflow-y: auto;
+	-webkit-user-select: none;
+	user-select: none;
+	animation: fade-in var(--dur-state) var(--ease-out) both;
+}
+#help-overlay.help-open { display: flex; }
+
+@media (max-height: 600px) {
+	#help-overlay { padding: 20px 12px; }
+}
+
+/* Parametric pure-opacity fade — reused for help overlay, tour overlay
+   and victory overlay so the entrance language stays consistent. */
+@keyframes fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+
+#help-modal {
+	position: relative;
+	max-width: 540px;
+	max-height: min(90vh, 700px);
+	overflow-y: auto;
+	width: 100%;
+	background: var(--surface-card);
+	border-radius: var(--radius-lg);
+	padding: 26px 30px;
+	box-shadow: var(--shadow-lifted);
+	font-family: var(--font-ui);
+	color: var(--ink);
+	line-height: 1.5;
+	animation: help-modal-in var(--dur-card) var(--ease-smooth) both;
+}
+@keyframes help-modal-in {
+	from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+	to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+#help-modal h2 {
+	margin: 0 0 18px;
+	font-size: 22px;
+	letter-spacing: -0.01em;
+	color: var(--accent);
+}
+#help-modal h3 {
+	margin: 18px 0 8px;
+	font-size: 13px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-muted);
+	font-weight: 700;
+}
+#help-modal .help-section + .help-section {
+	margin-top: 6px;
+}
+#help-modal .help-list {
+	margin: 0;
+	padding-left: 18px;
+	font-size: 13px;
+	color: var(--ink);
+}
+#help-modal .help-list li {
+	margin-bottom: 6px;
+}
+
+/* Keyboard shortcut definition list — two columns, key on the left. */
+.help-kbd-list {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 6px 14px;
+	margin: 0;
+	font-size: 13px;
+}
+.help-kbd-list dt {
+	display: flex;
+	justify-content: flex-end;
+}
+.help-kbd-list dd {
+	margin: 0;
+	color: var(--ink-muted);
+	align-self: center;
+}
+kbd {
+	display: inline-block;
+	min-width: 22px;
+	padding: 2px 8px;
+	background: var(--surface);
+	border: 1px solid var(--hairline-strong);
+	border-bottom-width: 2px;
+	border-radius: 4px;
+	font-family: var(--font-ui);
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ink);
 	text-align: center;
 }
 
-#setup {
-	display: none;
-	margin: 15px;
-}
-
-#moneybar {
-	float: right;
-	border: 0px solid black;
-	background-color: white;
-	margin: 15px;
-	border-radius: 5px;
-	display: none;
-	z-index: 14;
-	position: relative;
-	cursor: default;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#moneybar table {
-	font-weight: bold;
-	border-spacing: 1px;
-}
-
-#moneybarwrap {
+.help-close {
 	position: absolute;
-	min-width: 135px;
-	top: 0px;
-	right: 0px;
-	-webkit-user-select: none;
-	user-select: none;
+	top: 12px;
+	right: 12px;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	border: none;
+	background: transparent;
+	font-size: 24px;
+	line-height: 1;
+	color: var(--ink-muted);
+	cursor: pointer;
+	transition: background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.help-close:hover {
+	background: var(--surface);
+	color: var(--ink);
 }
 
-#propertystats {
-	margin-right: 110px;
+/* ============================================================
+   ONBOARDING TOUR — coachmark spotlight + tooltip steps.
+   #tour-overlay is full-screen dim with a "hole" cut at the
+   highlighted element (achieved with a giant box-shadow on
+   #tour-spotlight). Triggered by __startTour() on first game.
+   ============================================================ */
+#tour-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 250;
+	display: none;
+	pointer-events: none;
+}
+#tour-overlay.tour-active {
+	display: block;
+	pointer-events: auto;
+	animation: fade-in var(--dur-card) var(--ease-out) both;
+}
+
+/* The spotlight is a transparent box; the dim is the gigantic outer shadow.
+   JS sets top/left/width/height to match the highlighted element. */
+#tour-spotlight {
+	position: absolute;
+	top: 0; left: 0;
+	width: 0; height: 0;
+	border-radius: 12px;
+	box-shadow:
+		0 0 0 9999px rgba(10, 10, 20, 0.65),
+		0 0 0 3px rgba(212, 175, 55, 0.8),
+		0 0 24px 4px rgba(212, 175, 55, 0.5);
+	transition: top 280ms var(--ease-out),
+	            left 280ms var(--ease-out),
+	            width 280ms var(--ease-out),
+	            height 280ms var(--ease-out);
+	pointer-events: none;
+}
+
+#tour-tooltip {
+	position: absolute;
+	max-width: 320px;
+	background: var(--surface-card);
+	color: var(--ink);
+	padding: 16px 18px;
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lifted);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	line-height: 1.5;
+	transition: top 280ms var(--ease-out), left 280ms var(--ease-out);
+	pointer-events: auto;
+}
+#tour-tooltip h4 {
+	margin: 0 0 6px;
+	font-size: 14px;
+	color: var(--accent);
+}
+#tour-tooltip p { margin: 0 0 12px; color: var(--ink-muted); }
+
+#tour-dots {
+	display: flex;
+	gap: 5px;
+	margin-bottom: 12px;
+}
+.tour-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--hairline-strong);
+	transition: background 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.tour-dot.active {
+	background: var(--accent);
+	transform: scale(1.4);
+}
+
+#tour-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+.tour-btn {
+	font-family: var(--font-ui);
+	font-size: 12px;
+	font-weight: 600;
+	padding: 7px 14px;
+	border-radius: 999px;
+	border: 1px solid var(--hairline-strong);
+	background: var(--surface);
+	color: var(--ink-muted);
+	cursor: pointer;
+	transition: background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.tour-btn-ghost:hover { color: var(--ink); }
+.tour-btn-primary {
+	background: var(--accent);
+	color: #fff;
+	border-color: var(--accent);
+}
+.tour-btn-primary:hover { background: var(--accent-bright); }
+
+/* ============================================================
+   CONSEQUENCE PREVIEW TOOLTIP — shows on action buttons (Buy,
+   Mortgage, Build) summarizing the cash impact of clicking.
+   ============================================================ */
+#consequence-tip {
+	position: fixed;
+	z-index: 220;
+	min-width: 180px;
+	background: var(--surface-card);
+	color: var(--ink);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	padding: 10px 14px;
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-lifted);
+	pointer-events: none;
+	display: none;
+	opacity: 0;
+	transform: translateY(4px);
+	transition: opacity var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+	border-top: 3px solid var(--money);
+}
+#consequence-tip.consequence-tip-visible {
+	opacity: 1;
+	transform: translateY(0);
+}
+#consequence-tip.consequence-tip-warn   { border-top-color: var(--gold); }
+#consequence-tip.consequence-tip-danger { border-top-color: var(--warning); }
+
+.ct-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 14px;
+}
+.ct-label { color: var(--ink-muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.ct-amt   { font-weight: 700; }
+.ct-delta { color: var(--ink-faint); padding: 2px 0; }
+.ct-after { border-top: 1px dashed var(--hairline); padding-top: 4px; margin-top: 4px; font-size: 14px; }
+.ct-after .ct-amt { color: var(--money); }
+#consequence-tip.consequence-tip-warn .ct-after .ct-amt   { color: var(--gold); }
+#consequence-tip.consequence-tip-danger .ct-after .ct-amt { color: var(--warning); }
+.ct-note {
+	margin-top: 6px;
+	font-size: 11px;
+	color: var(--warning);
+	font-style: italic;
+}
+
+.lang-btn {
+	font-family: var(--font-ui);
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ink-muted);
+	background: transparent;
+	border: none;
+	padding: 5px 12px;
+	border-radius: 999px;
+	cursor: pointer;
+	letter-spacing: 0.04em;
+	transition:
+		background var(--dur-hover) var(--ease-out),
+		color var(--dur-hover) var(--ease-out);
+}
+
+.lang-btn:hover {
+	color: var(--ink);
+}
+
+.lang-btn.active {
+	background: var(--accent);
+	color: #fff;
+	box-shadow: 0 1px 3px rgba(27, 94, 63, 0.3);
+}
+
+.lang-btn:focus-visible {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 2px;
+}
+
+/* ============================================================
+   Toasts — transient notifications stacked bottom-right of viewport.
+   Created on demand by UI.toast() in ui.js.
+   ============================================================ */
+#ui-overlay {
+	position: fixed;
+	bottom: 16px;
+	right: 16px;
+	z-index: 200;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 8px;
+	pointer-events: none;
+	max-width: 340px;
+}
+
+.toast {
+	pointer-events: auto;
+	background: var(--surface-card);
+	color: var(--ink);
+	border: 1px solid var(--hairline);
+	border-left: 3px solid var(--ink-faint);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-card);
+	padding: 10px 14px;
+	font-family: var(--font-ui);
+	font-size: 13px;
+	line-height: 1.4;
+	animation: toast-in var(--dur-modal) var(--ease-out) both;
+	transform: translateZ(0);
+	contain: layout paint;
+}
+
+.toast-success { border-left-color: var(--money); }
+.toast-warning { border-left-color: var(--gold); }
+.toast-danger  { border-left-color: var(--warning); }
+
+.toast-out { animation: toast-out var(--dur-modal) var(--ease-out) both; }
+/* @keyframes toast-in / toast-out are defined once near the bottom of this
+   file (vertical slide); the duplicate horizontal-slide definitions that
+   used to live here were removed during keyframe consolidation. */
+
+td {
+	font-size: 12px;
+	font-family: var(--font-ui);
+	border: 1px solid var(--hairline);
+	text-align: center;
+}
+
+#noscript {
+	margin: 16px;
+	font-family: var(--font-ui);
+	color: var(--warning);
 }
 
 #refresh {
 	display: none;
-	margin: 15px;
+	margin: 24px;
+	font-family: var(--font-ui);
+	font-weight: 500;
+	color: var(--ink);
 }
 
 #noF5 {
 	display: none;
+	margin-top: 16px;
+	font-size: 12px;
+	color: var(--ink-faint);
 }
 
-#noscript {
-	margin-left: 10px;
-}
-
+/* ============================================================
+   Board
+   ============================================================ */
 #board {
 	display: none;
-	border: 2px solid black;
-	border-spacing: 3px;
-	margin: 25px;
+	border: none;
+	border-spacing: 4px;
+	margin: 16px;
 	float: left;
-}
-
-#jail {
-	border: 1px solid black;
-	height: 65px;
-	width: 65px;
+	background: var(--surface-felt);
+	/* Layered background:
+	   1. Felt micro-noise via tiny repeating linear gradient (textile feel).
+	   2. Diagonal pinstripe at very low opacity (subtle structure).
+	   3. Soft corner highlights for depth.   */
+	background-image:
+		repeating-linear-gradient(45deg,
+			rgba(255, 255, 255, 0.022) 0 2px,
+			transparent 2px 4px),
+		repeating-linear-gradient(-45deg,
+			rgba(0, 0, 0, 0.025) 0 2px,
+			transparent 2px 4px),
+		radial-gradient(ellipse at 30% 25%, rgba(255, 255, 255, 0.06), transparent 60%),
+		radial-gradient(ellipse at 70% 75%, rgba(0, 0, 0, 0.10), transparent 60%);
+	border-radius: var(--radius-lg);
+	padding: 8px;
+	box-shadow:
+		/* Wood-like outer frame: warm thick border + soft drop. */
+		0 0 0 6px #8b6f47,
+		0 0 0 8px rgba(0, 0, 0, 0.35),
+		0 0 0 14px #6b4a26,
+		0 0 0 16px rgba(0, 0, 0, 0.25),
+		/* Inner gold pinstripe along the edge of the felt. */
+		inset 0 0 0 2px rgba(212, 175, 55, 0.35),
+		inset 0 0 0 3px rgba(0, 0, 0, 0.4),
+		0 24px 60px rgba(0, 0, 0, 0.45),
+		0 8px 16px rgba(0, 0, 0, 0.30);
+	/* position: relative so #board appears in the offsetParent chain of its
+	   cells. Without it, browsers compute td.offsetLeft inconsistently
+	   (sometimes relative to the table, sometimes to the next positioned
+	   ancestor), and __measureCellCoords ends up missing the board's own
+	   offset within the stage. Tokens then render offset from their cells. */
 	position: relative;
-	top: 73px;
-	left: -73px;
-	z-index: 2;
 }
 
-
-#control {
+/* Subtle radial vignette in the felt center for depth — no visible border
+   so it doesn't clip the rotated Chance/Community Chest cards. */
+#board::after {
+	content: '';
 	position: absolute;
-	z-index: 9;
-	top: 250px;
-	left: 250px;
-	border: 2px solid black;
-	padding: 10px;
-	display: none;
-	background-color: white;
-}
-
-#quickstats {
-	font-size: 12px;
-	font-weight: bold;
-	font-family: arial, sans-serif;
-	border: 2px solid blue;
-	margin: 5px;
-	padding: 3px;
-	width: 80px;
-}
-
-#pname {
-	background-color: white;
-}
-
-#landed {
-	padding: 3px;
-	border: 1px solid gray;
-	border-top: none;
-	width: 302px;
-
-	margin: 0px;
-	text-align: center;
-}
-
-#alert {
-	width: 307px;
-	height: 92px;
-	margin: 0px;
-	padding-left: 1px;
-	border: 1px solid gray;
-	font-family: Consolas, "Courier New", monospace;
-	font-size: 13px;
-	background-color: #FFFFFF;
-	overflow-y: scroll;
-}
-
-#manage {
-	width: 308px;
-	border: 1px solid gray;
-	display: none;
-}
-
-#option {
-	border-bottom: 1px solid gray;
-	background-color: white;
-	display: none;
-	background: white;
-	vertical-align: middle;
-	padding: 3px;
-	text-align: center;
-	min-height: 26px;
-}
-
-#buildings {
-	margin: auto;
-	height: 21px;
-	font-size: 16px;
-	font-weight: bold;
-}
-
-#buildings .house {
-	width: 25px;
-	height: 19px;
-	vertical-align: top;
-	float: none;
-}
-
-#buildings .hotel {
-	width: 26px;
-	height: 19px;
-	vertical-align: top;
-	float: none;
-}
-
-#owned {
-	padding: 3px 0px;
-	background-color: white;
-	text-align: center;
-	max-height: 390px;
-	overflow-y: auto;
-}
-
-#owned .propertycellname {
-	vertical-align: top;
-}
-
-#property {
-	margin-right: 1px;
-	background: white;
-}
-
-#trade {
-	border: 2px solid black;
-	display: none;
-	width: 630px;
-	margin: 15px auto;
-	background-color: white;
-	border-radius: 8px;
-	padding: 2px;
-	z-index: 14;
-}
-
-#trade-leftp-name {
-	font-size: 13px;
-	font-weight: bold;
-}
-
-#trade-leftp-name option {
-	font-size: 13px;
-	font-weight: normal;
-}
-
-#trade-rightp-name {
-	font-size: 13px;
-	font-weight: bold;
-}
-
-#trade-rightp-name option {
-	font-size: 13px;
-	font-weight: normal;
-}
-
-#trade-leftp-money {
-	width: 90%;
-}
-
-#trade-rightp-money {
-	width: 90%;
-}
-
-#deedcolor {
-	background: white;
-	width: 100%;
-	height: 48px;
-}
-
-#deedname {
-	margin-top: 10px;
-	font-weight: bold;
-	font-size: 20px;
-	background-color: white;
-}
-
-#menu {
-	width: 290px;
-	height: 32px;
-	margin: 0px 10px;
-}
-
-#menutable {
-	padding: 0px;
-	text-align: left;
-	font-family: arial, sans-serif;
-	color: white;
-	font-weight: bold;
-	font-size: 16px;
-	border: 1px solid blue;
-	border-radius: 5px 5px 0px 0px;
-	height: 30px;
-	width: 99%;
-	margin: 0px;
-	background-color: #305BC9;
-	/* background-image: -webkit-linear-gradient(bottom,#213EB2,#4787ED);
-	background-image: -moz-linear-gradient(bottom,#213EB2,#4787ED); */
-	background-image: url(images/menu_background.png);
-	/* background-repeat: repeat-x; */
-	overflow: hidden;
-}
-
-#menutable td {
-	vertical-align: top;
-}
-
-#menu a {
-	color: #FFFFFF;
-	text-decoration: none;
-	display: block;
-	height: 100%;
-	width: 100%;
-	padding-top: 8px;
-}
-
-#buy-menu-item {
-	color: #FFFFFF;
-	margin-left: 2px;
-	border-left: none;
-}
-
-#trade-menu-item {
-	color: #AAAAAA;
-	border-right: none;
-	margin-right: 2px;
-}
-
-
-#popup {
-	width: 300px;
-	min-width: 300px;
-	font-family: Arial, sans-serif;
-	font-size: 14px;
-	padding: 10px;
-	text-align: center;
-	word-wrap: break-word;
-	line-height: 1.5;
-	border: 2px solid black;
-	border-radius: 10px;
-	background-color: white;
-	display: block;
-	z-index: 13;
-	margin: auto;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#popupwrap {
-	position: absolute;
-	top: 255px;
-	left: 0px;
-	width: 100%;
-	display: none;
-	background-color: transparent;
-	z-index: 13;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#popuptext {
-	overflow-x: auto;
-}
-
-/* #popupclose {
-	display: none;
-	position: absolute;
-	top: -24px;
-	right: -25px;
-	width: 30px;
-	height: 30px;
-	border: none;
-	cursor: pointer;
-	overflow: visible;
-	z-index: 12;
-} */
-
-#popupclose input {
-	margin: 0px;
-	background-color: red;
-	height: 18px;
-	width: 18px;
-	padding: 0px;
-}
-
-#popupbackground {
-	position: fixed;
-	width: 100%;
-	height: 100%;
-	top: 0px;
-	left: 0px;
-	background-color: #000000;
-	opacity: 0.5;
-	display: none;
-	z-index: 10;
-}
-
-#popupdrag {
-	width: 100%;
-	height: 16px;
-	position: absolute;
-	top: -16px;
-	cursor: move;
-}
-
-#stats {
-	max-width: 914px;
-	min-width: 454px;
-	font-family: Arial, sans-serif;
-	font-size: 14px;
-	padding: 10px;
-	text-align: center;
-	word-wrap: break-word;
-	line-height: 1.5;
-	border: 2px solid black;
-	border-radius: 10px;
-	background-color: white;
-	display: block;
-	z-index: 17;
-	margin: auto;
-	position: relative;
-	top: 0px;
-	left: 0px;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#statswrap {
-	position: absolute;
-	top: 250px;
-	left: 0px;
-	width: 100%;
-	display: none;
-	background-color: transparent;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#statstext {
-	overflow: hidden;
-	min-height: 70px;
-}
-
-#statsclose {
-	display: block;
-	position: absolute;
-	top: -24px;
-	right: -25px;
-	width: 30px;
-	height: 30px;
-	border: none;
-	cursor: pointer;
-	overflow: visible;
-	z-index: 17;
-}
-
-#statsbackground {
-	position: fixed;
-	width: 100%;
-	height: 100%;
-	top: 0px;
-	left: 0px;
-	background-color: #000000;
-	opacity: .5;
-	display: none;
-	z-index: 16;
-}
-
-#statsdrag {
-	width: 100%;
-	height: 16px;
-	position: absolute;
-	top: -16px;
-	cursor: move;
-}
-
-#deed {
-	display: none;
-	position: fixed;
-	border: 2px solid black;
-	width: 235px;
-	height: 275px;
-	background-color: white;
-	z-index: 18;
-	-webkit-user-select: none;
-	user-select: none;
-}
-
-#deed td{
-	border: none;
-}
-
-#deed-header {
-	width: 215px;
-	height: 48px;
-	border: 1px solid black;
-	margin: 9px;
-	background-color: yellow;
-	text-align: center;
-	text-transform: uppercase;
-	font-family: Calibri, Arial;
-}
-
-#deed-name {
-	font-size: 15px;
-	font-weight: bold;
-
-}
-
-#deed-table {
-	margin: 9px;
-	width: 217px;
-	border-spacing: 1px;
-}
-
-#deed-mortgaged {
-	font-family: Calibri, Arial;
-	font-size: 16px;
-	text-align: center;
-
-}
-
-#deed-mortgaged-name {
-	font-size: 18px;
-	font-weight: bold;
-	text-transform: uppercase;
-	margin: 30px 20px 20px;
-}
-
-#deed-special {
-	font-family: Calibri, Arial;
-	text-align: justify;
-}
-
-#deed-special-name {
-	text-align: center;
-	font-size: 18px;
-	font-weight: bold;
-	border-style: solid;
-	border-width: 2px 0px;
-	text-transform: uppercase;
-	margin: 50px 20px 20px;
-}
-
-#deed-special-text {
-	margin: 20px;
-	font-size: 15px;
-}
-
-#deed-special-footer {
-	margin: 0px 20px;
-	width: 195px;
-	position: absolute;
-	bottom: 20px;
-	font-size: 16px;
-}
-
-#enlarge-wrap {
-	border: none;
+	top: 90px;
+	right: 90px;
+	bottom: 90px;
+	left: 90px;
+	background: radial-gradient(ellipse at center,
+		rgba(0, 0, 0, 0) 0%,
+		rgba(0, 0, 0, 0) 50%,
+		rgba(0, 0, 0, 0.18) 100%);
+	pointer-events: none;
 	z-index: 0;
-}
-
-.menu-item:hover {
-	/* background-image: -webkit-linear-gradient(bottom,#000080,#4787ED);
-	background-image: -moz-linear-gradient(bottom,#000080,#4787ED); */
-
-	background-image: url(images/menu_background_hover.png);
-}
-
-.menu-item {
-	padding: 0px;
-	border-collapse: collapse;
-	text-align: center;
-	display: table-cell;
-	background-color: transparent;
-	border: none;
-	border-right: 2px solid white;
-	height: 30px;
-	min-width: 90px;
-	width: 90px;
-	max-width: 90px;
-	overflow: hidden;
-}
-
-.die {
-	display: none;
-	margin: 5px;
-	float: left;
-}
-
-.die-no-img {
-
-
-	border-radius: 6px;
-	font-weight: bold;
-	border: 2px solid black;
-	padding: 5px 10px;
-}
-.house {
-	width: 25px;
-	height: 19px;
-	vertical-align: middle;
-	float: right;
-}
-
-.hotel {
-	width: 26px;
-	height: 19px;
-	vertical-align: middle;
-	float: right;
+	border-radius: 4px;
 }
 
 .cell {
 	position: relative;
-	top: 0px;
-	left: 0px;
-	padding: 0px;
+	top: 0;
+	left: 0;
+	padding: 0;
 	vertical-align: bottom;
+	background-color: var(--surface-card);
 	background-repeat: no-repeat;
 	background-size: auto 40px;
+	background-position: center;
+	border: none;
+	border-radius: 3px;
+	/* Subtle paper texture + soft inner shadow for depth. The 1px hairline
+	   stays as the cell outline. */
+	box-shadow:
+		inset 0 0 0 1px var(--hairline),
+		inset 0 -8px 12px rgba(0, 0, 0, 0.04),
+		inset 0  1px 0 rgba(255, 255, 255, 0.8);
+	transition: box-shadow var(--dur-hover) var(--ease-out),
+				transform var(--dur-hover) var(--ease-out);
+}
+/* Subtle paper grain on each cell — applied via the .cell-anchor child's
+   ::before so it doesn't conflict with the cell's own pseudo-elements
+   (cell-group-mono star, cell-landed-flash ring, etc.). */
+.cell-anchor::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background-image:
+		radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.02) 0%, transparent 30%),
+		radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.02) 0%, transparent 30%),
+		radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.04) 0%, transparent 30%);
+	background-size: 24px 24px;
+	background-repeat: repeat;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 0;
+	opacity: 0.6;
+}
+
+/* Highlight on any property cell of the same color group as the one
+   currently being hovered. JS toggles .cell-group-hover on group siblings. */
+.cell.cell-group-hover {
+	box-shadow:
+		inset 0 0 0 1px var(--hairline),
+		0 0 0 2px rgba(255, 215, 0, 0.55),
+		0 0 8px 1px rgba(255, 215, 0, 0.35);
+	z-index: 4;
+}
+
+/* Cell hover (direct mouse hover) — subtle lift + cursor pointer so cells
+   feel interactive. Stays compositor-friendly: only transform. */
+.cell {
+	cursor: pointer;
+	transition: transform var(--dur-hover) var(--ease-out);
+	will-change: transform;
+}
+.cell:hover,
+.cell:active {
+	transform: translateZ(0) scale(1.04);
+	z-index: 5;
+}
+.cell.board-corner:hover,
+.cell.board-corner:active { transform: translateZ(0) scale(1.02); } /* corners barely lift */
+
+/* Rent flight — "$N" pill that arcs from the payer's token to the
+   receiver's money-bar row. Body-level so it overlays everything. */
+.rent-flight {
+	position: fixed;
+	width: 48px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(180deg, var(--warning), #a8332a);
+	color: #fff;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 13px;
+	letter-spacing: 0.02em;
+	border-radius: 999px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
+	            inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+	            inset 0 1px 1px rgba(255, 255, 255, 0.3);
+	pointer-events: none;
+	z-index: 9998;
+	animation: rent-fly 1000ms cubic-bezier(.34, .8, .25, 1) forwards;
+	will-change: transform, opacity;
+}
+@keyframes rent-fly {
+	0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
+	15%  { opacity: 1; transform: translate(calc(var(--travel-x) * 0.15), calc(var(--travel-y) * 0.15 + var(--arc-y, -40px) * 0.3)) scale(1.15); }
+	60%  { opacity: 1; transform: translate(calc(var(--travel-x) * 0.6),  calc(var(--travel-y) * 0.6  + var(--arc-y, -40px) * 0.7)) scale(1);    }
+	90%  { opacity: 1; transform: translate(calc(var(--travel-x) * 0.95), calc(var(--travel-y) * 0.95 + var(--arc-y, -40px) * 0.15)) scale(0.95); }
+	100% { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)) scale(0.6); }
+}
+
+/* Cell purchase pulse — short ownership-change celebration.
+   Implemented as a pseudo-element so the cell's own border/styles stay intact.
+   The CSS var --purchase-color is set by __pulsePurchasedCell to the new
+   owner's color. */
+.cell.cell-purchase-pulse {
+	z-index: 7;
+	/* Brief scale-up pop on the cell itself before the ring pulse settles —
+	   confirms "this just changed hands" even when the eye is on the
+	   money bar. Transform-only, GPU-friendly. */
+	animation: purchase-pop 180ms cubic-bezier(.34, 1.56, .64, 1) both;
+	will-change: transform;
+}
+.cell.cell-purchase-pulse::after {
+	content: '';
+	position: absolute;
+	inset: -3px;
+	border: 3px solid var(--purchase-color, var(--accent));
+	border-radius: 4px;
+	pointer-events: none;
+	animation: cell-purchase 900ms cubic-bezier(.22, .9, .25, 1) both;
+	will-change: transform, opacity;
+}
+@keyframes cell-purchase {
+	0%   { opacity: 0;    transform: scale(1.4);  }
+	30%  { opacity: 1;    transform: scale(1.05); }
+	60%  { opacity: 0.85; transform: scale(1);    }
+	100% { opacity: 0;    transform: scale(0.96); }
+}
+@keyframes purchase-pop {
+	0%   { transform: translateZ(0) scale(1);    }
+	50%  { transform: translateZ(0) scale(1.08); }
+	100% { transform: translateZ(0) scale(1);    }
+}
+
+/* Locate-on-board: gold ring pulse when hovering a property in the stats
+   modal. Implemented via an absolute-positioned ::after pseudo-element that
+   scales+fades (transform/opacity only — compositor-friendly). */
+.cell.cell-stats-hover {
+	z-index: 8;
+}
+.cell.cell-stats-hover::after {
+	content: '';
+	position: absolute;
+	inset: -2px;
+	border: 3px solid var(--gold);
+	border-radius: 4px;
+	pointer-events: none;
+	box-shadow: 0 0 12px 2px rgba(212, 175, 55, 0.45);
+	animation: cell-stats-pulse 1.2s ease-in-out infinite;
+	transform-origin: center center;
+	will-change: transform, opacity;
+}
+@keyframes cell-stats-pulse {
+	0%, 100% { transform: scale(1);    opacity: 1;    }
+	50%      { transform: scale(1.12); opacity: 0.55; }
+}
+
+/* Monopoly: a player owns every property in a color group.
+   __refreshGroupVisuals toggles this and sets --group-owner-color. */
+.cell.cell-group-mono {
+	box-shadow:
+		inset 0 0 0 2px var(--group-owner-color, var(--gold)),
+		0 0 10px 1px rgba(212, 175, 55, 0.35);
+	z-index: 3;
+}
+.cell.cell-group-mono::before {
+	content: '★';
+	position: absolute;
+	top: 2px;
+	right: 3px;
+	font-size: 10px;
+	color: var(--gold);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+	z-index: 6;
+	animation: mono-star-in var(--dur-token) var(--ease-bounce) both;
+	pointer-events: none;
+}
+@keyframes mono-star-in {
+	0%   { opacity: 0; transform: scale(0.2) rotate(-180deg); }
+	100% { opacity: 1; transform: scale(1)   rotate(0deg); }
 }
 
 .board-center {
 	width: 675px;
 	border: none;
+	background-color: transparent;
 	vertical-align: bottom;
 	background-repeat: no-repeat;
 	background-size: auto 40px;
@@ -590,6 +946,12 @@ td {
 .board-corner {
 	width: 102px;
 	height: 102px;
+	/* Subtle gold ring around the corner cells to make them feel like
+	   anchor points of the board. */
+	box-shadow:
+		inset 0 0 0 2px rgba(212, 175, 55, 0.4),
+		inset 0 0 0 3px rgba(0, 0, 0, 0.3),
+		0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .board-top {
@@ -612,34 +974,2966 @@ td {
 	height: 72px;
 }
 
+.cell-anchor {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	bottom: 0;
+	left: 0;
+}
+
+.cell-name {
+	position: absolute;
+	bottom: 4px;
+	left: 0;
+	text-align: center;
+	width: 100%;
+	padding: 0 4px;
+	box-sizing: border-box;
+	font-family: var(--font-ui);
+	font-size: 10px;
+	font-weight: 700;            /* bumped for legibility */
+	line-height: 1.1;
+	letter-spacing: 0.02em;
+	color: var(--ink);
+	text-transform: uppercase;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.board-corner .cell-name {
+	bottom: 8px;
+	font-size: 11px;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   Color strip on property cells (groupNumber 3..10)
+   The element is created in monopoly.js window.onload as .cell-color
+   with inline background-color from square[i].color
+   ============================================================ */
+.cell-color {
+	position: absolute;
+	/* Inner bevel + soft overlay to give the color stripe depth so it
+	   doesn't look like a flat sticker. */
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.22),
+		inset 0 -3px 6px rgba(0, 0, 0, 0.18),
+		inset 0  2px 3px rgba(255, 255, 255, 0.25);
+	/* Faint diagonal sheen via a transparent gradient layered on top of
+	   the inline backgroundColor (set in JS). Keeps the group color
+	   readable but adds a tactile "ribbon" feel. */
+	background-image: linear-gradient(135deg,
+		rgba(255, 255, 255, 0.18) 0%,
+		rgba(255, 255, 255, 0) 35%,
+		rgba(0, 0, 0, 0.10) 100%);
+}
+
+.board-bottom .cell-color {
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 22px;
+	border-radius: 3px 3px 0 0;
+}
+
+.board-top .cell-color {
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 22px;
+	border-radius: 0 0 3px 3px;
+}
+
+.board-left .cell-color {
+	top: 0;
+	right: 0;
+	height: 100%;
+	width: 22px;
+	border-radius: 0 3px 3px 0;
+}
+
+.board-right .cell-color {
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 22px;
+	border-radius: 3px 0 0 3px;
+}
+
+/* Adjust cell-name on sides where the color strip would overlap.
+   board-bottom cells: strip is on TOP, name is at bottom — no collision.
+   board-top cells: strip is at BOTTOM, name must be lifted above it. */
+.board-top .cell-name { bottom: 26px; }
+.board-left .cell-name { padding-right: 24px; }
+.board-right .cell-name { padding-left: 24px; }
+
+/* ============================================================
+   Price chip per cell — classic Monopoly board look. Tiny text
+   anchored to the edge opposite the color stripe / icon.
+   ============================================================ */
+.cell-price {
+	position: absolute;
+	font-family: var(--font-ui);
+	font-size: 8.5px;
+	font-weight: 700;
+	color: var(--ink-muted);
+	letter-spacing: 0.04em;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+	pointer-events: none;
+	z-index: 2;
+}
+/* On bottom-row cells, price sits below the icon, above the name. */
+.board-bottom .cell-price {
+	bottom: 16px;
+	left: 0;
+	right: 0;
+	text-align: center;
+}
+/* On top-row cells, price sits below the title, above the color stripe. */
+.board-top .cell-price {
+	top: 4px;
+	left: 0;
+	right: 0;
+	text-align: center;
+}
+/* On side cells, price sits along the opposite edge of the color stripe. */
+.board-left .cell-price {
+	left: 4px;
+	top: 50%;
+	transform: translateY(-50%) rotate(-90deg);
+	transform-origin: left center;
+}
+.board-right .cell-price {
+	right: 4px;
+	top: 50%;
+	transform: translateY(-50%) rotate(90deg);
+	transform-origin: right center;
+}
+
+/* ============================================================
+   Special-cell icons (works for both Classic and NYC editions
+   because cell indices are identical for special squares)
+   ============================================================ */
+#cell0 { /* GO */
+	background-image: url('images/arrow_icon.png');
+	background-position: center 32%;
+	background-size: 56px auto;
+}
+
+#cell2, #cell17, #cell33 { /* Community Chest */
+	background-image: url('images/community_chest_icon.png');
+	background-position: center 32%;
+	background-size: auto 40px;
+}
+
+#cell7, #cell22, #cell36 { /* Chance */
+	background-image: url('images/chance_icon.png');
+	background-position: center 32%;
+	background-size: auto 40px;
+}
+
+#cell4, #cell38 { /* City Tax / Luxury Tax */
+	background-image: url('images/tax_icon.png');
+	background-position: center 28%;
+	background-size: auto 46px;
+}
+
+#cell5, #cell15, #cell25, #cell35 { /* Railroads */
+	background-image: url('images/train_icon.png');
+	background-position: center 30%;
+	background-size: auto 48px;
+	/* Slight dark band behind icon — railroads on real Monopoly have a
+	   black bar across the cell. Layered via additional gradient. */
+	background-image:
+		linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, transparent 18%, transparent 60%, rgba(0, 0, 0, 0.08) 100%),
+		url('images/train_icon.png');
+	background-repeat: no-repeat, no-repeat;
+	background-position: center top, center 30%;
+	background-size: 100% 100%, auto 48px;
+}
+
+#cell12 { /* Electric Company */
+	background-image: url('images/electric_icon.png');
+	background-position: center 32%;
+	background-size: auto 46px;
+}
+
+#cell28 { /* Water Works */
+	background-image: url('images/water_icon.png');
+	background-position: center 32%;
+	background-size: auto 46px;
+}
+
+/* Chance / Community Chest cells get a colored tint to match their decks. */
+#cell2, #cell17, #cell33 {  /* Community Chest cells */
+	background-color: #fdf3c5;
+}
+#cell7, #cell22, #cell36 {  /* Chance cells */
+	background-color: #f7e9c2;
+}
+
+#cell20 { /* Free Parking */
+	background-image: url('images/free_parking_icon.png');
+	background-position: center 35%;
+	background-size: 56px auto;
+}
+
+#cell10 { /* Just Visiting / Jail */
+	background-image: url('images/jake_icon.png');
+	background-position: center 35%;
+	background-size: 44px auto;
+}
+
+#cell30 { /* Go to Jail */
+	background-image: url('images/jake_icon.png');
+	background-position: center 35%;
+	background-size: 56px auto;
+}
+
+/* ============================================================
+   Buildings on the board — small house/hotel icons rendered on the
+   color-strip area of each property cell. Created lazily by monopoly.js
+   and updated by __updateBuildings() whenever buyHouse/sellHouse fires.
+   Positioned to avoid overlapping the player tokens (which live in the
+   opposite half of the cell via the per-side inset rules).
+   ============================================================ */
+.cell-buildings {
+	position: absolute;
+	display: flex;
+	gap: 3px;
+	pointer-events: none;
+	z-index: 2;
+	align-items: center;
+	justify-content: center;
+}
+.board-bottom .cell-buildings { top:    4px; left: 4px; right:  4px; height: 14px; }
+.board-top    .cell-buildings { bottom: 4px; left: 4px; right:  4px; height: 14px; }
+.board-left   .cell-buildings { right:  4px; top:  4px; bottom: 4px; width:  14px; flex-direction: column; }
+.board-right  .cell-buildings { left:   4px; top:  4px; bottom: 4px; width:  14px; flex-direction: column; }
+
+/* Tiny house — drawn as a CSS shape:
+   • Square base (the .cell-building div itself)
+   • Triangle roof using a pseudo-element with borders
+   • Drop-shadow on the wrapper for depth                */
+.cell-building {
+	position: relative;
+	width: 11px;
+	height: 9px;
+	background: linear-gradient(180deg, #3cb95a 0%, #2ea84d 45%, #156a2c 100%);
+	border: 0.5px solid #0a4a1c;
+	border-top: none;
+	border-radius: 0 0 1px 1px;
+	box-shadow:
+		0 1px 1.5px rgba(0, 0, 0, 0.5),
+		inset 0 -1px 1px rgba(0, 0, 0, 0.35),
+		inset 0 1px 0 rgba(255, 255, 255, 0.18);
+	animation: building-appear var(--dur-card) var(--ease-out);
+	flex-shrink: 0;
+}
+/* Pitched-roof triangle on top of each house. */
+.cell-building::before {
+	content: '';
+	position: absolute;
+	top: -4px;
+	left: -1px;
+	width: 0;
+	height: 0;
+	border-left:  6.5px solid transparent;
+	border-right: 6.5px solid transparent;
+	border-bottom: 4px solid #0e5722;
+	filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4));
+}
+/* Door dot to suggest detail. */
+.cell-building::after {
+	content: '';
+	position: absolute;
+	bottom: 1px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 2px;
+	height: 3px;
+	background: rgba(0, 0, 0, 0.4);
+	border-radius: 1px 1px 0 0;
+}
+
+/* Hotel — bigger, red, with windows and a flat top. */
+.cell-building.cell-hotel {
+	width: 22px;
+	height: 12px;
+	background: linear-gradient(180deg, #ef5b48 0%, #de4a3a 45%, #962017 100%);
+	border: 0.5px solid #6e0c08;
+	border-radius: 2px;
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.55),
+		inset 0 -1px 1.5px rgba(0, 0, 0, 0.4),
+		inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+/* Hotel: replace house roof with a thin chimney-like cap. */
+.cell-building.cell-hotel::before {
+	content: '';
+	position: absolute;
+	top: -3px;
+	left: 3px;
+	width: 4px;
+	height: 3px;
+	background: linear-gradient(180deg, #8a1810, #6e0c08);
+	border: 0.5px solid #4d0807;
+	border-radius: 1px 1px 0 0;
+}
+/* Hotel windows row. */
+.cell-building.cell-hotel::after {
+	content: '';
+	position: absolute;
+	top: 4px;
+	left: 3px;
+	right: 3px;
+	height: 2px;
+	background:
+		linear-gradient(90deg,
+			rgba(255, 224, 130, 0.85) 0 2px, transparent 2px 4px,
+			rgba(255, 224, 130, 0.85) 4px 6px, transparent 6px 8px,
+			rgba(255, 224, 130, 0.85) 8px 10px, transparent 10px 12px,
+			rgba(255, 224, 130, 0.85) 12px 14px);
+	border-radius: 0.5px;
+}
+
+@keyframes building-appear {
+	0%   { opacity: 0; transform: scale(0.35) translateY(-2px); }
+	60%  { opacity: 1; transform: scale(1.2)  translateY(0); }
+	100% { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* ============================================================
+   Mortgaged property indicator — diagonal red stripes overlaid on
+   the cell. Toggled via [data-mortgaged="true"] set by mortgage() /
+   unmortgage() in monopoly.js. Stays low opacity so the color strip,
+   icon and name remain readable underneath.
+   ============================================================ */
+.cell[data-mortgaged="true"]::after {
+	content: '';
+	position: absolute;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background: repeating-linear-gradient(
+		45deg,
+		rgba(214, 69, 69, 0.42),
+		rgba(214, 69, 69, 0.42) 6px,
+		transparent 6px,
+		transparent 14px
+	);
+	pointer-events: none;
+	z-index: 3;
+	border-radius: 3px;
+}
+
+/* ============================================================
+   Center card decks — two tilted "card pile" panels in the middle of
+   the board, classic Monopoly layout:
+     · Community Chest (top-left quadrant)
+     · Chance          (bottom-right quadrant)
+   They're created in monopoly.js's window.onload as children of #board.
+   When a player lands on a Chance/CC cell, .center-deck-flash plays a
+   short lift animation so the player sees which deck was drawn.
+   ============================================================ */
+.center-deck {
+	position: absolute;
+	width: 130px;
+	height: 92px;
+	background:
+		/* Subtle aged-paper noise overlay. */
+		radial-gradient(circle at 25% 30%, rgba(110, 70, 30, 0.04) 0%, transparent 30%),
+		radial-gradient(circle at 70% 60%, rgba(110, 70, 30, 0.04) 0%, transparent 30%),
+		radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.3) 0%, transparent 70%),
+		linear-gradient(135deg, #fcf1cb 0%, #fdf3c5 50%, #f7e9b6 100%);
+	border: none;
+	border-radius: 7px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 8px 10px;
+	box-sizing: border-box;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 12.5px;
+	line-height: 1.15;
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #5a3d1f;
+	word-break: break-word;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+	box-shadow:
+		/* Outer brown frame + inner cream bevel for a "card edge" look. */
+		inset 0 0 0 1.5px #8b6f47,
+		inset 0 0 0 2.5px rgba(255, 255, 255, 0.6),
+		inset 0 0 0 4px rgba(139, 111, 71, 0.6),
+		/* Stacked-cards illusion: 3 layers of card edges trailing diagonally. */
+		3px 3px 0 -1px #fdf3c5,
+		3px 3px 0  1px #8b6f47,
+		6px 6px 0 -2px #fdf3c5,
+		6px 6px 0  0  #8b6f47,
+		9px 9px 0 -3px #fdf3c5,
+		9px 9px 0 -1px #8b6f47,
+		/* Drop shadow under the whole pile. */
+		12px 12px 14px rgba(0, 0, 0, 0.20);
+	pointer-events: none;
+	z-index: 2;
+	transform-origin: center center;
+	transition: transform 220ms var(--ease-out);
+}
+/* Decorative ornament line above the deck title (like a real Monopoly card). */
+.center-deck::before {
+	content: '';
+	display: block;
+	width: 40px;
+	height: 1px;
+	background: rgba(139, 111, 71, 0.55);
+	margin-bottom: 2px;
+}
+.center-deck::after {
+	content: '';
+	display: block;
+	width: 40px;
+	height: 1px;
+	background: rgba(139, 111, 71, 0.55);
+	margin-top: 2px;
+}
+
+#board-logo {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 320px;
+	height: 320px;
+	margin-top: -160px;
+	margin-left: -160px;
+	background-image: url('images/monopoly logo.png');
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+	pointer-events: none;
+	z-index: 1;
+	opacity: 0.55;
+	filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.18));
+	transform: rotate(-12deg);
+	transform-origin: center center;
+	mix-blend-mode: multiply;
+}
+/* Earlier decorative ring + corner dots removed — they were rendering as
+   a visible rectangle on some browsers (the conic-gradient mask didn't
+   constrain to a circle, and the 4 radial dots framed a rectangle).
+   The logo + its drop-shadow + multiply blend now stand on their own. */
+
+#deck-cc {
+	top: 200px;
+	left: 200px;
+	transform: rotate(-28deg);
+}
+
+#deck-chance {
+	bottom: 200px;
+	right: 200px;
+	transform: rotate(-28deg);
+}
+
+.center-deck-icon {
+	width: 26px;
+	height: 26px;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+	flex-shrink: 0;
+}
+#deck-cc .center-deck-icon { background-image: url('images/community_chest_icon.png'); }
+#deck-chance .center-deck-icon { background-image: url('images/chance_icon.png'); }
+
+/* Brief "card lifted" pulse when a player draws from this deck. */
+.center-deck.center-deck-flash {
+	animation: deck-flash var(--dur-celebration) var(--ease-out);
+}
+
+@keyframes deck-flash {
+	0%   { transform: rotate(-28deg) scale(1); }
+	40%  { transform: rotate(-32deg) scale(1.12) translateY(-6px); }
+	100% { transform: rotate(-28deg) scale(1); }
+}
+
+/* Owner indicator bars on the outside edge of property cells */
+.cell-owner {
+	background-size: cover;
+	display: none;
+	position: absolute;
+	opacity: 0.95;
+}
+
+.board-top .cell-owner {
+	height: 15px;
+	left: 0;
+	top: -25px;
+	width: 72px;
+}
+
+.board-bottom .cell-owner {
+	bottom: -25px;
+	height: 15px;
+	left: 0;
+	width: 72px;
+}
+
+.board-left .cell-owner {
+	height: 68px;
+	left: -25px;
+	top: 0;
+	width: 15px;
+}
+
+.board-right .cell-owner {
+	height: 68px;
+	right: -25px;
+	top: 0;
+	width: 15px;
+}
+
+#jail {
+	border: 1px solid var(--hairline-strong);
+	height: 65px;
+	width: 65px;
+	position: relative;
+	top: 73px;
+	left: -73px;
+	z-index: 2;
+	background-color: var(--surface-card);
+	background-image: url('images/jake_icon.png');
+	background-position: center;
+	background-size: 36px auto;
+	background-repeat: no-repeat;
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow-subtle);
+}
+
+/* ============================================================
+   Tokens — per-cell DOM rendering. Each token is a persistent <div>
+   (created in __initTokenLayer) re-parented to the active cell's
+   cell-position-holder on each updatePosition call. Position within the
+   holder is set via inline `left`/`top` (px), so the token always renders
+   strictly inside the cell area — regardless of browser table-layout quirks.
+   ============================================================ */
+.cell-position-holder {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1;
+	/* Absolute fill avoids the `height: 100%` quirk where percentage heights
+	   on divs inside table cells collapse to 0 in some browsers. */
+}
+
+.token {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	box-shadow:
+		0 2px 4px rgba(0, 0, 0, 0.35),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.35),
+		0 0 0 1.5px rgba(255, 255, 255, 0.4);
+	transform: translateZ(0);
+	background-size: 80% 80%;
+	background-repeat: no-repeat;
+	background-position: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	line-height: 1;
+	text-align: center;
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* Cell click ripple — material-style ripple from click point.
+   Injected as a span child by JS, auto-removes after animation. */
+.cell-ripple {
+	position: absolute;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.55);
+	pointer-events: none;
+	transform: translate(-50%, -50%) scale(0);
+	animation: cell-ripple 520ms ease-out forwards;
+	z-index: 5;
+	will-change: transform, opacity;
+}
+@keyframes cell-ripple {
+	to { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+
+/* Token "land" thump — small bounce + squash when the token finishes
+   walking to its destination cell. Compositor-only (transform). */
+.token.token-land {
+	animation: token-land 400ms cubic-bezier(.18, .85, .25, 1.6) both;
+}
+@keyframes token-land {
+	0%   { transform: scaleY(1)    scaleX(1);    }
+	30%  { transform: scaleY(0.7)  scaleX(1.25); }   /* squash */
+	60%  { transform: scaleY(1.15) scaleX(0.9);  }   /* stretch */
+	80%  { transform: scaleY(0.96) scaleX(1.04); }
+	100% { transform: scaleY(1)    scaleX(1);    }
+}
+
+/* Cell flash on landing — a brief light ring around the destination cell. */
+.cell.cell-landed-flash::before {
+	content: '';
+	position: absolute;
+	inset: -2px;
+	border-radius: 4px;
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85),
+	            0 0 14px 4px rgba(255, 255, 255, 0.45);
+	pointer-events: none;
+	animation: cell-landed var(--dur-celebration) ease-out both;
+	z-index: 6;
+}
+@keyframes cell-landed {
+	0%   { opacity: 0;    transform: scale(0.9); }
+	30%  { opacity: 1;    transform: scale(1.05); }
+	100% { opacity: 0;    transform: scale(1.15); }
+}
+
+/* Rich tooltip when hovering a token on the board — shows
+   "Name · $cash" in a small dark bubble above the token. */
+.token[data-tok-tip] {
+	position: absolute;        /* already set, but explicit for tooltip anchoring */
+}
+.token[data-tok-tip]::after {
+	content: attr(data-tok-tip);
+	position: absolute;
+	bottom: calc(100% + 6px);
+	left: 50%;
+	transform: translateX(-50%) translateY(4px);
+	background: rgba(20, 20, 30, 0.92);
+	color: #fff;
+	font-family: var(--font-ui);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	padding: 4px 8px;
+	border-radius: 4px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+	z-index: 200;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.token:hover[data-tok-tip]::after {
+	opacity: 1;
+	transform: translateX(-50%) translateY(0);
+}
+/* Don't show the tooltip while dragging (would clash with the throw). */
+.token.die-airborne[data-tok-tip]::after,
+.token.die-grabbing[data-tok-tip]::after { display: none; }
+
+/* Money-bar row hover → spotlight that player's token on the board. */
+.token.token-mb-spot {
+	z-index: 9;
+	animation: token-mb-spotlight 1.2s ease-in-out infinite;
+}
+@keyframes token-mb-spotlight {
+	0%, 100% { box-shadow:
+		0 2px 4px rgba(0, 0, 0, 0.35),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.35),
+		0 0 0 1.5px rgba(255, 255, 255, 0.4),
+		0 0 0 3px rgba(212, 175, 55, 0.55); }
+	50%      { box-shadow:
+		0 2px 4px rgba(0, 0, 0, 0.35),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.35),
+		0 0 0 1.5px rgba(255, 255, 255, 0.4),
+		0 0 0 10px rgba(212, 175, 55, 0); }
+}
+
+/* Opt-in: added on the very first placement so the token pops in.
+   Subsequent moves use a JS FLIP slide instead (see __placeTokenInCell). */
+.token.token-arrive {
+	animation: token-arrive var(--dur-card) var(--ease-out);
+}
+
+@keyframes token-arrive {
+	0%   { opacity: 0; transform: scale(0.4) translateZ(0); }
+	60%  { opacity: 1; transform: scale(1.2) translateZ(0); }
+	100% { opacity: 1; transform: scale(1) translateZ(0); }
+}
+
+/* Active turn — soft pulsing halo for the current player's token.
+   Uses a ::after pseudo-element animating transform + opacity only
+   (compositor-friendly, no per-frame paint of box-shadow). */
+.token.token-active {
+	z-index: 2;
+}
+.token.token-active::after {
+	content: '';
+	position: absolute;
+	left: -6px;
+	top: -6px;
+	right: -6px;
+	bottom: -6px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.55);
+	pointer-events: none;
+	animation: token-pulse 1.4s ease-in-out infinite;
+	z-index: -1;
+}
+
+@keyframes token-pulse {
+	0%, 100% { opacity: 0;    transform: scale(0.65) translateZ(0); }
+	50%      { opacity: 0.55; transform: scale(1.05) translateZ(0); }
+}
+
+/* Kept for legacy callers; not used by current updatePosition. */
+.cell-position {
+	height: 14px;
+	width: 14px;
+	position: absolute;
+	top: 4px;
+	left: 4px;
+	border-radius: 50%;
+	box-shadow:
+		0 2px 4px rgba(0, 0, 0, 0.25),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+/* ============================================================
+   Houses & hotels
+   ============================================================ */
+.house {
+	width: 26px;
+	height: 20px;
+	vertical-align: middle;
+	float: right;
+	filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+	transform-origin: center bottom;
+}
+
+.hotel {
+	width: 28px;
+	height: 20px;
+	vertical-align: middle;
+	float: right;
+	filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+	transform-origin: center bottom;
+}
+
+/* Added by buyHouse() to the newest building element after updateOwned rebuilds.
+   Scale-only animation keeps it composite-only; "both" preserves end state. */
+.house-fresh,
+.hotel-fresh {
+	animation: building-pop-in var(--dur-card) var(--ease-out) both;
+}
+
+@keyframes building-pop-in {
+	0%   { opacity: 0; transform: scale(0) translateZ(0); }
+	60%  { opacity: 1; transform: scale(1.18) translateZ(0); }
+	100% { opacity: 1; transform: scale(1) translateZ(0); }
+}
+
+/* ============================================================
+   UNIFIED SIDE PANEL
+   One container on the right of the board that combines:
+     • Settings (lang / mute / help) — sp-header
+     • Players bank with rank + net worth — sp-players (holds #moneybarwrap)
+     • Turn / dice / Roll button + Buy/Manage/Trade tabs — sp-control
+   The panel is anchored to the stage; its three sections stack vertically.
+   Bigger base font for readability.
+   ============================================================ */
+#sidepanel {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 420px;
+	max-height: calc(100% - 32px);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	z-index: 12;
+	font-family: var(--font-ui);
+	font-size: 15px;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#sp-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 8px 10px;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-card);
+}
+
+#sp-players,
+#sp-control {
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lifted);
+	padding: 12px;
+	font-size: 15px;
+}
+
+/* While the setup screen is showing, hide the gameplay sections of the panel.
+   The header (lang/mute/help) stays visible since those settings are useful
+   even pre-game. JS removes the body[data-setup] flag once setup() runs. */
+body[data-phase="setup"] #sp-players,
+body[data-phase="setup"] #sp-control { display: none; }
+
+/* =====================================================================
+   AI TURN LOCK — disable gameplay interactions while the AI is playing.
+   Header (lang/mute/help) and the stats modal stay clickable; only the
+   action-surfaces are blocked so accidental clicks can't corrupt state.
+   ===================================================================== */
+body[data-await="ai"] #sp-control {
+	pointer-events: none;
+	filter: saturate(0.8);
+	opacity: 0.92;
+	position: relative;
+}
+body[data-await="ai"] #sp-control::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: var(--radius-lg);
+	pointer-events: none;
+	z-index: 50;
+}
+
+/* "IA pensando…" chip overlaid on top of the control section. */
+body[data-await="ai"] #sp-control::before {
+	content: attr(data-ai-label);
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: rgba(20, 20, 30, 0.9);
+	color: #fff;
+	font-family: var(--font-ui);
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 10px 18px 10px 36px;
+	border-radius: 999px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35),
+	            0 0 0 1px rgba(255, 255, 255, 0.1);
+	z-index: 60;
+	pointer-events: none;
+	white-space: nowrap;
+}
+/* Spinner inside the chip — three dots morphing. */
+body[data-await="ai"] #sp-control {
+	background-image: none;
+}
+
+/* Animated spinner dot to the left of the label text. CSS-only via
+   pseudo on the parent — uses a conic-gradient masked ring. */
+body[data-await="ai"] #sp-players::after {
+	content: '';
+	display: none;
+}
+
+/* Dice: prevent grab/click and slightly fade them so the user sees it's
+   not their turn to throw. */
+body[data-await="ai"] .die {
+	pointer-events: none;
+	filter: saturate(0.6) brightness(0.92);
+}
+
+/* Money-bar rows stay clickable (they open stats — informational, safe). */
+/* Cells stay hover-able (deed tooltip) but click ripple is skipped by JS. */
+
+/* The original #moneybarwrap was absolute-positioned to the stage; now that
+   it lives inside #sp-players we want it to fill the section naturally. */
+#sidepanel #moneybarwrap {
+	position: static;
+	min-width: 0;
+	bottom: auto;
+	right: auto;
+}
+#sidepanel #moneybar {
+	display: block;
+	background: transparent;
+	box-shadow: none;
+	padding: 0;
+	border-radius: 0;
+}
+#sidepanel #moneybar table {
+	width: 100%;
+	border-spacing: 0 6px;
+}
+#sidepanel .moneybarcell {
+	width: auto;
+	min-width: 0;
+	font-size: 14px;
+	padding: 11px 14px 9px;
+	/* Ledger-style: parchment gradient + faint divider. Tokens swap to a
+	   deeper card palette in dark mode so the rows stay legible. */
+	background:
+		linear-gradient(180deg, var(--ledger-bg-start) 0%, var(--ledger-bg-end) 100%);
+	border-radius: var(--radius-md);
+	box-shadow:
+		inset 0 0 0 1px var(--ledger-border),
+		0 1px 2px rgba(0, 0, 0, 0.05);
+	position: relative;
+}
+#sidepanel .moneybarcell div:last-child {
+	font-size: 19px;
+	font-family: 'Courier New', 'Consolas', monospace;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+/* Subtle dotted underline under the cash amount, like ledger entries. */
+#sidepanel .moneybarcell .mb-meta {
+	font-size: 11px;
+	padding-top: 4px;
+	margin-top: 6px;
+	border-top: 1px dashed var(--ledger-divider);
+}
+#sidepanel .mb-nw   { font-size: 12px; font-family: 'Courier New', monospace; }
+
+/* Hide the legacy "View stats" row in the moneybar — we'll surface it via
+   a dedicated button inside the control section instead. */
+#sidepanel #moneybarrowbutton { display: none !important; }
+
+/* The arrow column became redundant once active-row highlight landed.
+   Hiding the column reclaims ~30px and lets the cash row be wider. */
+#sidepanel .moneybararrowcell { display: none !important; }
+
+/* The original #control was absolute-positioned; in the panel it just flows.
+   Keep display controlled by the same JS-set inline style that hides it
+   during setup — do NOT force display:block here. */
+#sidepanel #control {
+	position: static;
+	top: auto;
+	right: auto;
+	padding: 0;
+	border: none;
+	box-shadow: none;
+	background: transparent;
+	font-size: 14px;
+}
+#sidepanel #control table { width: 100%; }
+#sidepanel #control td { padding: 0; }
+
+/* Bigger primary CTA + tab labels for readability inside the panel. */
+#sidepanel #nextbutton {
+	font-size: 16px;
+	padding: 12px 20px;
+	font-weight: 700;
+	width: 100%;
+}
+#sidepanel #resignbutton {
+	font-size: 14px;
+	margin-top: 6px;
+}
+#sidepanel #menu {
+	width: auto;
+	margin: 0 0 10px;
+}
+#sidepanel #menutable {
+	border-radius: var(--radius-md);
+	height: 40px;
+}
+#sidepanel .menu-item {
+	height: 40px;
+	transition: background var(--dur-hover) var(--ease-out);
+}
+#sidepanel #menu a {
+	font-size: 14px;
+	font-weight: 700;
+	padding-top: 12px;
+	letter-spacing: 0.03em;
+}
+
+/* Active-tab indicator — JS adds .menu-item-active to the clicked tab.
+   Renders a brighter background + a thin bottom rule for affordance.
+   The `:hover` selectors below have equal specificity so we duplicate
+   the rule with :hover to keep the active highlight on mouse-over too.
+   Avoids !important. */
+.menu-item.menu-item-active,
+.menu-item.menu-item-active:hover {
+	background: rgba(255, 255, 255, 0.22);
+	box-shadow: inset 0 -3px 0 0 var(--gold);
+}
+.menu-item.menu-item-active a,
+.menu-item.menu-item-active:hover a { color: #fff; }
+
+/* Smooth fade-in for tab content swap. JS toggles display; we tag the
+   container so it animates from translateY(4px)+0 opacity to identity. */
+#sidepanel #buy,
+#sidepanel #manage,
+#sidepanel #trade {
+	animation: tab-fade-in var(--dur-modal) var(--ease-out) both;
+}
+@keyframes tab-fade-in {
+	from { opacity: 0; transform: translateY(4px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tighter Manage tab layout: button row centered, owned list scrollable. */
+#sidepanel #manage #option {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 8px 0;
+	border-bottom: 1px dashed var(--hairline);
+	margin-bottom: 8px;
+	justify-content: flex-start;
+}
+#sidepanel #manage #option input[type="button"] {
+	flex: 1;
+	min-width: 90px;
+	margin: 0;
+}
+#sidepanel #manage #buildings {
+	display: none;        /* tiny duplicate decoration; saves space */
+}
+#sidepanel #owned {
+	max-height: 280px;
+	overflow-y: auto;
+	font-size: 13px;
+	scroll-behavior: smooth;
+}
+
+/* Custom scrollbars on the panel's scrollable lists — thin, themed. */
+#sidepanel #owned::-webkit-scrollbar,
+#sidepanel #alert::-webkit-scrollbar,
+#stats::-webkit-scrollbar,
+#help-modal::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+#sidepanel #owned::-webkit-scrollbar-thumb,
+#sidepanel #alert::-webkit-scrollbar-thumb,
+#stats::-webkit-scrollbar-thumb,
+#help-modal::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.18);
+	border-radius: 4px;
+}
+#sidepanel #owned::-webkit-scrollbar-thumb:hover,
+#sidepanel #alert::-webkit-scrollbar-thumb:hover,
+#stats::-webkit-scrollbar-thumb:hover,
+#help-modal::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.3);
+}
+#sidepanel #owned::-webkit-scrollbar-track,
+#sidepanel #alert::-webkit-scrollbar-track,
+#stats::-webkit-scrollbar-track,
+#help-modal::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* Native browser tooltips look ugly. We can't restyle title=...,
+   but we can style our custom .data-tip wrappers consistently. */
+[data-tip] {
+	position: relative;
+}
+[data-tip]::after {
+	content: attr(data-tip);
+	position: absolute;
+	bottom: calc(100% + 6px);
+	left: 50%;
+	transform: translateX(-50%) translateY(4px);
+	background: var(--ink);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 500;
+	padding: 4px 8px;
+	border-radius: 4px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+	z-index: 200;
+}
+[data-tip]:hover::after {
+	opacity: 1;
+	transform: translateX(-50%) translateY(0);
+}
+#sidepanel #pname,
+#sidepanel #pmoney {
+	font-size: 18px;
+	font-weight: 700;
+}
+#sidepanel #quickstats {
+	padding: 10px 12px;
+	font-size: 15px;
+}
+#sidepanel #landed {
+	font-size: 14px;
+	line-height: 1.5;
+}
+/* Action history removed by request — kept in DOM for legacy code paths
+   (AI alertList) but invisible. */
+#sidepanel #alert { display: none !important; }
+#sidepanel input[type="button"] {
+	font-size: 14px;
+	padding: 8px 14px;
+}
+/* The legacy control table forced 2 columns (left content, right quickstats).
+   In the new panel, stack vertically for a cleaner narrow column. */
+/* Force the OUTER 2-column control table to stack vertically inside the
+   narrow panel, BUT leave the inner #menutable alone — its 3 menu items
+   must stay in one row for the Buy/Manage/Trade tabs to be visible. */
+#sidepanel #control > table,
+#sidepanel #control > table > tbody,
+#sidepanel #control > table > tbody > tr,
+#sidepanel #control > table > tbody > tr > td {
+	display: block;
+	width: 100%;
+}
+#sidepanel #control > table > tbody > tr > td {
+	vertical-align: top;
+}
+/* Inner menu table must remain a row — restore default table rendering. */
+#sidepanel #menutable,
+#sidepanel #menutable tbody,
+#sidepanel #menutable tr { display: table; width: 100%; }
+#sidepanel #menutable tbody { display: table-row-group; }
+#sidepanel #menutable tr    { display: table-row; }
+#sidepanel #menutable .menu-item { display: table-cell; }
+/* Dice base size, perspective and face transforms are defined globally now
+   (search for "DESIGN INVARIANTS") so re-parenting tray↔body never changes
+   the cube. No sidepanel-scoped overrides for dice. */
+
+/* Dice tray — centered row of dice inside the control panel. Tagged from
+   JS so the original markup stays untouched. */
+.dice-tray {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 16px;
+	padding: 12px 0 8px;
+	margin: 4px 0 10px;
+	border-top: 1px dashed var(--hairline);
+	border-bottom: 1px dashed var(--hairline);
+}
+
+/* Section heading shared by #sp-players and #sp-control. */
+.sp-section-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ink-faint);
+	margin-bottom: 8px;
+}
+
+/* ============================================================
+   Money bar (legacy positioning kept as fallback when JS hasn't
+   run yet or the panel isn't mounted)
+   ============================================================ */
+#moneybarwrap {
+	position: absolute;
+	min-width: 200px;
+	bottom: 16px;
+	right: 16px;
+	top: auto;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#moneybar {
+	border: none;
+	background: var(--surface-card);
+	margin: 0;
+	padding: 12px;
+	border-radius: var(--radius-lg);
+	display: none;
+	z-index: 14;
+	position: relative;
+	cursor: default;
+	box-shadow: var(--shadow-lifted);
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#moneybar table {
+	font-weight: 500;
+	border-spacing: 3px;
+	font-family: var(--font-ui);
+}
+
+.moneybarcell {
+	width: 140px;
+	min-width: 140px;
+	padding: 10px 14px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	font-size: 13px;
+	color: var(--ink-muted);
+	text-align: left;
+	background: var(--surface);
+	transition: background var(--dur-hover) var(--ease-out);
+	position: relative;
+}
+
+/* Rank badge + asset stats appended by __ensureRowMeta. */
+.mb-meta {
+	margin-top: 6px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	color: var(--ink-faint);
+	letter-spacing: 0.02em;
+}
+.mb-rank {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 22px;
+	height: 18px;
+	padding: 0 6px;
+	border-radius: 999px;
+	font-weight: 800;
+	font-size: 10px;
+	color: #fff;
+	background: var(--ink-faint);
+	letter-spacing: 0;
+}
+.mb-rank-1 { background: linear-gradient(135deg, #f5d76e, var(--gold)); color: #4a3500; }
+.mb-rank-2 { background: linear-gradient(135deg, #d3d3d3, #a8a8a8); color: #3a3a3a; }
+.mb-rank-3 { background: linear-gradient(135deg, #d4a373, #a47551); color: #3a2a1a; }
+
+.mb-stats {
+	display: inline-flex;
+	gap: 8px;
+	align-items: baseline;
+	margin-left: auto;
+}
+.mb-prop {
+	color: var(--ink-muted);
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+.mb-prop-icon { font-size: 10px; }
+.mb-nw {
+	color: var(--ink);
+	font-weight: 700;
+	font-size: 11px;
+}
+
+.moneybarcell div:first-child {
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.moneybarcell div:last-child {
+	color: var(--money);
+	font-weight: 700;
+	font-size: 17px;
+	margin-top: 4px;
+	letter-spacing: 0.01em;
+}
+
+/* The span inside .moneybarcell holds the dollar amount; inline-block lets
+   the .money-pulse-* classes scale it without affecting layout. */
+.moneybarcell span[id$="money"],
+#pmoney,
+#quickstats span {
+	display: inline-block;
+	transform-origin: center;
+	transform: translateZ(0);
+}
+
+.moneybararrowcell {
+	background: transparent;
+	width: 30px;
+	border: none;
+	text-align: right;
+	padding: 0;
+}
+
+.money-bar-arrow {
+	height: 28px;
+	width: 28px;
+	opacity: 0;
+	transition: opacity var(--dur-hover) var(--ease-out);
+}
+
+/* Money pulse — added by JS when a player's amount changes */
+.money-pulse-up,
+.money-pulse-down {
+	animation: money-pulse var(--dur-token) var(--ease-out);
+}
+@keyframes money-pulse {
+	0%   { transform: scale(1); }
+	40%  { transform: scale(1.08); }
+	100% { transform: scale(1); }
+}
+.money-pulse-up   { color: var(--money) !important; }
+.money-pulse-down { color: var(--warning) !important; }
+
+/* ============================================================
+   Control panel (Buy / Manage / Trade tabs + alerts + quickstats + dice)
+   Anchored to the stage's top-right column so it never covers the board.
+   ============================================================ */
+#control {
+	position: absolute;
+	z-index: 9;
+	top: 16px;
+	right: 16px;
+	left: auto;
+	border: 1px solid var(--hairline);
+	padding: 14px;
+	display: none;
+	background: var(--surface-card);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lifted);
+	font-family: var(--font-ui);
+}
+
+/* When any modal is open, dim the dock's primary CTA so the user knows
+   the click won't go through to the game. */
+body[data-modal-open] #nextbutton {
+	opacity: 0.45;
+	pointer-events: none;
+}
+
+#menu {
+	width: 290px;
+	height: 36px;
+	margin: 0 10px 0;
+}
+
+#menutable {
+	padding: 0;
+	text-align: left;
+	font-family: var(--font-ui);
+	color: var(--surface-card);
+	font-weight: 600;
+	font-size: 14px;
+	border: none;
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
+	height: 36px;
+	width: 100%;
+	margin: 0;
+	background: var(--accent);
+	background-image: linear-gradient(180deg, var(--accent-bright), var(--accent));
+	overflow: hidden;
+	box-shadow: var(--shadow-subtle);
+}
+
+#menutable td {
+	vertical-align: middle;
+	border: none;
+}
+
+#menu a {
+	color: rgba(255, 255, 255, 0.92);
+	text-decoration: none;
+	display: block;
+	height: 100%;
+	width: 100%;
+	padding-top: 10px;
+	box-sizing: border-box;
+	letter-spacing: 0.02em;
+	transition: color var(--dur-hover) var(--ease-out);
+}
+
+.menu-item {
+	padding: 0;
+	border-collapse: collapse;
+	text-align: center;
+	display: table-cell;
+	background-color: transparent;
+	background-image: none;
+	border: none;
+	border-right: 1px solid rgba(255, 255, 255, 0.18);
+	height: 36px;
+	min-width: 90px;
+	width: 96px;
+	max-width: 96px;
+	overflow: hidden;
+	transition: background var(--dur-hover) var(--ease-out);
+}
+
+.menu-item:last-child { border-right: none; }
+
+.menu-item:hover {
+	background-image: none;
+	background-color: rgba(255, 255, 255, 0.12);
+}
+
+.menu-item:hover a {
+	color: #FFFFFF;
+}
+
+#trade-menu-item { color: rgba(255, 255, 255, 0.92); }
+#buy-menu-item { color: rgba(255, 255, 255, 0.92); }
+
+/* Quick stats + dice column */
+#quickstats {
+	font-size: 13px;
+	font-weight: 600;
+	font-family: var(--font-ui);
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	margin: 5px;
+	padding: 8px 10px;
+	width: 100px;
+	background: var(--surface);
+	color: var(--ink);
+}
+
+#pname {
+	background-color: transparent;
+	color: var(--ink);
+}
+
+/* ============================================================
+   Quickstats card — active-player chip inside the control panel.
+   Renders avatar + name + cash + current cell + turn-order strip.
+   ============================================================ */
+#sidepanel #quickstats {
+	width: auto;
+	margin: 0 0 12px;
+	padding: 12px;
+	font-size: 15px;
+}
+.qs-card {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.qs-avatar {
+	width: 48px;
+	height: 48px;
+	flex: 0 0 48px;
+	border-radius: 50%;
+	background-size: 80% 80%;
+	background-position: center;
+	background-repeat: no-repeat;
+	box-shadow:
+		0 2px 6px rgba(0, 0, 0, 0.3),
+		inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.4),
+		0 0 0 2px rgba(255, 255, 255, 0.6);
+	position: relative;
+}
+/* Animated dashed ring around the active player's avatar — rotates like
+   a "thinking" indicator so the player knows the game is waiting on them.
+   Uses a conic gradient masked to a ring so it animates with transform. */
+.qs-avatar::after {
+	content: '';
+	position: absolute;
+	inset: -6px;
+	border-radius: 50%;
+	background: conic-gradient(from 0deg,
+		var(--gold) 0deg, var(--gold) 20deg,
+		transparent 20deg, transparent 60deg,
+		var(--gold) 60deg, var(--gold) 80deg,
+		transparent 80deg, transparent 120deg,
+		var(--gold) 120deg, var(--gold) 140deg,
+		transparent 140deg, transparent 180deg,
+		var(--gold) 180deg, var(--gold) 200deg,
+		transparent 200deg, transparent 240deg,
+		var(--gold) 240deg, var(--gold) 260deg,
+		transparent 260deg, transparent 300deg,
+		var(--gold) 300deg, var(--gold) 320deg,
+		transparent 320deg, transparent 360deg);
+	-webkit-mask: radial-gradient(circle, transparent 22px, #000 23px, #000 26px, transparent 27px);
+	        mask: radial-gradient(circle, transparent 22px, #000 23px, #000 26px, transparent 27px);
+	pointer-events: none;
+	opacity: 0;
+	animation: qs-ring-spin 4s linear infinite;
+	transition: opacity 200ms ease-out;
+}
+/* Only show the spinning ring when it's a human's turn and we're waiting
+   on them to act (JS sets body[data-await="human"]). */
+body[data-await="human"] .qs-avatar::after { opacity: 0.85; }
+@keyframes qs-ring-spin {
+	from { transform: rotate(0deg); }
+	to   { transform: rotate(360deg); }
+}
+.qs-info {
+	flex: 1;
+	min-width: 0;
+}
+.qs-name-row {
+	font-size: 16px;
+	font-weight: 800;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	line-height: 1.2;
+}
+.qs-money {
+	font-size: 20px;
+	font-weight: 800;
+	color: var(--money);
+	letter-spacing: -0.01em;
+	margin-top: 2px;
+}
+.qs-loc {
+	margin-top: 4px;
+	font-size: 12px;
+	color: var(--ink-muted);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.qs-loc-icon { font-size: 11px; }
+.qs-loc-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Up-next strip below the card. */
+.qs-turn-order {
+	margin-top: 10px;
+	padding-top: 8px;
+	border-top: 1px dashed var(--hairline);
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--ink-faint);
+}
+.qs-turn-order-label {
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	font-weight: 600;
+	margin-right: 2px;
+}
+.qs-turn-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 3px 8px;
+	background: var(--surface);
+	border: 1px solid var(--hairline);
+	border-radius: 999px;
+	color: var(--ink-muted);
+	font-weight: 600;
+	max-width: 110px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.qs-turn-chip-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	box-shadow: inset 0 -1px 1px rgba(0,0,0,0.25);
+}
+
+/* Alerts panel */
+#alert {
+	width: 307px;
+	height: 96px;
+	margin: 0;
+	padding: 4px 6px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
+	font-family: var(--font-ui);
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--ink-muted);
+	background: var(--surface);
+	overflow-y: auto;
+	box-sizing: border-box;
+	contain: layout paint;
+}
+
+#alert div {
+	padding: 4px 6px;
+	border-bottom: 1px solid var(--hairline);
+	animation: alert-fade-in var(--dur-hover) var(--ease-out);
+}
+
+#alert div:last-child {
+	border-bottom: none;
+	color: var(--ink);
+	font-weight: 500;
+}
+
+/* Icon-prefixed rows + turn-change separators added by addAlert(). */
+.alert-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 5px 6px !important;
+	border-bottom: 1px solid var(--hairline);
+	color: var(--ink-muted);
+	transition: background 120ms var(--ease-out);
+}
+.alert-row:hover {
+	background: var(--hover-overlay);
+	color: var(--ink);
+}
+.alert-icon {
+	flex: 0 0 18px;
+	font-size: 13px;
+	line-height: 1.4;
+	text-align: center;
+	opacity: 0.85;
+}
+.alert-msg {
+	flex: 1;
+	font-size: 13px;
+	line-height: 1.4;
+}
+.alert-turn-sep {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 6px;
+	padding: 4px 6px 4px 6px !important;
+	border-top: 1px solid var(--hairline-strong);
+	border-bottom: none !important;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--ink-faint);
+	background: rgba(0, 0, 0, 0.02);
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+.alert-turn-sep:first-child { margin-top: 0; border-top: none; }
+.alert-turn-dot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	box-shadow: inset 0 -1px 1px rgba(0,0,0,0.25);
+}
+
+@keyframes alert-fade-in {
+	from { opacity: 0; transform: translateY(-2px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+#landed {
+	padding: 8px;
+	border: 1px solid var(--hairline);
+	border-top: none;
+	border-radius: 0 0 var(--radius-md) var(--radius-md);
+	width: 302px;
+	background: var(--surface-card);
+	margin: 0;
+	text-align: center;
+	font-size: 13px;
+	color: var(--ink);
+	box-sizing: border-box;
+}
+
+/* Buy + Auction dual-button layout when landing on an unowned property. */
+#landed #buybtn-landed.primary-buy {
+	background: var(--accent);
+	background-image: linear-gradient(180deg, var(--accent-bright), var(--accent));
+	color: #fff;
+	border-color: var(--accent);
+	box-shadow: 0 2px 6px rgba(27, 94, 63, 0.25);
+}
+#landed #buybtn-landed.primary-buy:hover {
+	background: var(--accent-bright);
+}
+#landed #auctionbtn-landed {
+	background: transparent;
+	color: var(--ink-muted);
+	border-color: var(--hairline-strong);
+}
+#landed #auctionbtn-landed:hover {
+	color: var(--ink);
+	background: var(--surface);
+	border-color: var(--ink-muted);
+}
+.landed-hint {
+	margin-top: 6px;
+	font-size: 11px;
+	color: var(--ink-muted);
+}
+
+/* Manage panel */
+#manage {
+	width: 308px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	display: none;
+	background: var(--surface-card);
+	box-sizing: border-box;
+}
+
+#option {
+	border-bottom: 1px solid var(--hairline);
+	background: var(--surface);
+	display: none;
+	vertical-align: middle;
+	padding: 8px;
+	text-align: center;
+	min-height: 26px;
+}
+
+#buildings {
+	margin: auto;
+	height: 22px;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+#buildings .house {
+	width: 25px;
+	height: 19px;
+	vertical-align: top;
+	float: none;
+}
+
+#buildings .hotel {
+	width: 26px;
+	height: 19px;
+	vertical-align: top;
+	float: none;
+}
+
+#owned {
+	padding: 6px 0;
+	background: var(--surface-card);
+	text-align: center;
+	max-height: 390px;
+	overflow-y: auto;
+	border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+#owned .propertycellname {
+	vertical-align: top;
+}
+
+/* ============================================================
+   Dice — real 3D cubes (preserve-3d + 6 background-image faces).
+   The .die parent provides perspective. Inner .die-cube rotates; faces
+   are placed once at construction time by updateDice() in monopoly.js.
+
+   ┌──────────────────────────────────────────────────────────┐
+   │ DESIGN INVARIANTS — DO NOT BREAK                         │
+   │   1. Cube + faces are 56×56 EVERYWHERE (no per-parent    │
+   │      overrides) so re-parenting (tray ↔ body airborne)   │
+   │      doesn't resize the cube and flatten the 3D effect.  │
+   │   2. translateZ on faces is exactly half the cube size   │
+   │      (28px for 56px) — the faces sit flush against each  │
+   │      side. Any mismatch creates visible gaps/overlap.    │
+   │   3. perspective + transform-style:preserve-3d are set   │
+   │      on the .die wrapper, NOT scoped to any container,   │
+   │      so 3D rendering survives DOM re-parenting.          │
+   │   4. .die uses display:flex when visible so the cube is  │
+   │      centered regardless of the parent's text-align.     │
+   └──────────────────────────────────────────────────────────┘
+   ============================================================ */
+.die {
+	display: none;
+	width: 56px;
+	height: 56px;
+	margin: 0 10px;
+	box-sizing: border-box;
+	position: relative;
+	/* Perspective lower = more dramatic 3D foreshortening. 300 reads cube
+	   clearly; 600 was too flat. */
+	-webkit-perspective: 320px;
+	        perspective: 320px;
+	-webkit-transform-style: preserve-3d;
+	        transform-style: preserve-3d;
+	cursor: grab;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+	-webkit-tap-highlight-color: transparent;
+	transition: transform 200ms var(--ease-out), filter 200ms var(--ease-out);
+	/* Static drop-shadow so the die has weight even idle. */
+	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+}
+.die.die-show,
+[style*="display: inline-block"].die,
+[style*="display: block"].die { display: inline-block; }
+
+/* When jQuery .show() has been called on the die, restore flex so the cube
+   centers cleanly regardless of parent. We use a sibling selector since
+   jQuery sets inline display. */
+.dice-tray .die { display: inline-block; }
+
+.die:hover {
+	transform: translateZ(0) scale(1.08);
+	filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.3));
+}
+
+/* Hover glow ring — gold halo behind the die that fades in. */
+.die::before {
+	content: '';
+	position: absolute;
+	inset: -6px;
+	border-radius: 12px;
+	background: radial-gradient(circle, rgba(212, 175, 55, 0.55) 0%, transparent 70%);
+	opacity: 0;
+	transition: opacity 200ms var(--ease-out);
+	pointer-events: none;
+	z-index: -1;
+}
+.die:hover::before { opacity: 1; }
+
+/* .die-grabbing was used by the old in-place spin handler. The new throw
+   system uses .die-airborne and inline transforms. Kept as a guard CSS in
+   case any future grab handler reuses the class. */
+.die.die-grabbing,
+.die.die-grabbing:hover {
+	cursor: grabbing;
+	transform: translateZ(0) scale(1.12);
+	filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.4));
+}
+.die.die-grabbing::before { opacity: 1; }
+
+/* Airborne die — being thrown. Still inside its tray slot (no re-parent),
+   but lifted via z-index + a beefy drop-shadow so it reads as "in the air".
+   Transitions are managed inline by the throw handler. */
+.die.die-airborne {
+	cursor: grabbing;
+	pointer-events: none;          /* let mouse events flow to document */
+	filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.45))
+	        drop-shadow(0 6px 8px rgba(0, 0, 0, 0.3));
+}
+.die.die-airborne::before { opacity: 0 !important; }
+
+/* Tray with dice in-flight — overflow visible so the cubes can fly out
+   without being clipped, and z-index high so the airborne dice sit on
+   top of the rest of the panel. */
+.dice-tray.dice-tray-throwing {
+	overflow: visible !important;
+	z-index: 9999;
+	position: relative;
+}
+
+/* Fallback look if JS hasn't injected the cube yet (e.g. images disabled).
+   Only applied to plain .die.die-no-img — __ensureDieCube removes the
+   class once the cube exists. */
+.die.die-no-img {
+	border-radius: var(--radius-sm);
+	font-weight: 700;
+	font-family: var(--font-ui);
+	border: 1px solid var(--hairline-strong);
+	padding: 6px 11px;
+	background: var(--surface-card);
+	box-shadow: var(--shadow-card);
+	color: var(--ink);
+	width: auto;
+	height: auto;
+	perspective: none;
+}
+
+.die-cube {
+	position: absolute;
+	top: 0; left: 0;
+	width: 56px;
+	height: 56px;
+	-webkit-transform-style: preserve-3d;
+	        transform-style: preserve-3d;
+	transform: rotateX(-22deg) rotateY(-32deg);   /* default "showing-3-faces" pose */
+	transition: transform 780ms var(--ease-smooth);
+	will-change: transform;
+}
+
+/* Subtle "I'm interactive" breath when waiting on a human's roll. Disabled
+   mid-tumble + while being grabbed/airborne. */
+body[data-await="human"] .die:not(.die-toss):not(.die-grabbing):not(.die-airborne) {
+	animation: die-breathing 2.6s ease-in-out infinite;
+}
+@keyframes die-breathing {
+	0%, 100% { transform: translateZ(0) scale(1)    rotate(0deg); }
+	50%      { transform: translateZ(0) scale(1.03) rotate(-1deg); }
+}
+
+.die-face {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 56px;
+	height: 56px;
+	background-color: #FAFAF7;
+	background-size: 72% 72%;
+	background-position: center;
+	background-repeat: no-repeat;
+	/* Slight rounding for the "ivory die" feel without leaving gaps at edges. */
+	border-radius: 4px;
+	/* Beveled edges + ambient occlusion so the cube reads as a solid object
+	   regardless of which face is up. Layered inset shadows: outer crisp
+	   bevel, mid soft shading, bottom darker corner. */
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+		inset 0 0 0 2px rgba(255, 255, 255, 0.5),
+		inset 0 -8px 12px rgba(0, 0, 0, 0.10),
+		inset 0  8px 12px rgba(255, 255, 255, 0.35);
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+}
+
+/* Six cube faces, sum of opposite faces = 7 (standard die).
+   1=front, 6=back; 2=top, 5=bottom; 3=right, 4=left.
+   translateZ MUST equal half the cube size (56/2 = 28). */
+.die-face-1 { transform: rotateY(  0deg) translateZ(28px); background-image: url('images/Die_1.png'); }
+.die-face-6 { transform: rotateY(180deg) translateZ(28px); background-image: url('images/Die_6.png'); }
+.die-face-2 { transform: rotateX( 90deg) translateZ(28px); background-image: url('images/Die_2.png'); }
+.die-face-5 { transform: rotateX(-90deg) translateZ(28px); background-image: url('images/Die_5.png'); }
+.die-face-3 { transform: rotateY(-90deg) translateZ(28px); background-image: url('images/Die_3.png'); }
+.die-face-4 { transform: rotateY( 90deg) translateZ(28px); background-image: url('images/Die_4.png'); }
+
+/* ============================================================
+   Buttons (input[type=button])
+   ============================================================ */
+input[type="button"] {
+	font-family: var(--font-ui);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+	background: var(--surface-card);
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
+	padding: 7px 14px;
+	margin: 2px;
+	cursor: pointer;
+	transform: translateZ(0);
+	box-shadow: var(--shadow-subtle);
+	transition:
+		transform var(--dur-hover) var(--ease-out),
+		box-shadow var(--dur-hover) var(--ease-out),
+		background var(--dur-hover) var(--ease-out);
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+input[type="button"]:hover {
+	transform: translate3d(0, -1px, 0);
+	box-shadow: var(--shadow-card);
+	background: var(--surface-card);
+	border-color: var(--ink-muted);
+}
+
+input[type="button"]:active {
+	transform: translate3d(0, 1px, 0);
+	box-shadow: var(--shadow-subtle);
+	transition-duration: var(--dur-micro);
+	transition-timing-function: var(--ease-press);
+}
+
+input[type="button"]:focus-visible {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 2px;
+}
+
+input[type="button"]:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+	transform: none;
+	box-shadow: none;
+	background: var(--surface);
+	color: var(--ink-faint);
+}
+input[type="button"]:disabled:hover { transform: none; }
+
+/* Primary action (Roll Dice / End Turn) */
+#nextbutton {
+	background: var(--accent);
+	background-image: linear-gradient(180deg, var(--accent-bright), var(--accent));
+	color: #fff;
+	border-color: var(--accent);
+	box-shadow: 0 2px 6px rgba(27, 94, 63, 0.25);
+}
+#nextbutton:hover {
+	background: var(--accent-bright);
+	background-image: linear-gradient(180deg, #38936D, var(--accent-bright));
+	box-shadow: 0 4px 12px rgba(27, 94, 63, 0.30);
+}
+
+#resignbutton {
+	color: var(--warning);
+}
+#resignbutton:hover {
+	color: #fff;
+	background: var(--warning);
+	border-color: var(--warning);
+}
+
+/* ============================================================
+   Popup (modal)
+   ============================================================ */
+#popupwrap {
+	position: absolute;
+	top: 255px;
+	left: 0;
+	width: 100%;
+	display: none;
+	background-color: transparent;
+	z-index: 13;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#popup {
+	width: 440px;
+	min-width: 440px;
+	max-width: 560px;
+	font-family: var(--font-ui);
+	font-size: 18px;
+	line-height: 1.5;
+	padding: 32px 30px 28px;
+	text-align: center;
+	word-wrap: break-word;
+	border: none;
+	border-radius: var(--radius-xl);
+	background: var(--surface-card);
+	display: block;
+	z-index: 13;
+	margin: auto;
+	color: var(--ink);
+	box-shadow: var(--shadow-lifted);
+	contain: layout paint;
+	animation: popup-in var(--dur-modal) var(--ease-out);
+	-webkit-user-select: none;
+	user-select: none;
+}
+/* Heading inside popups (first <p><strong> or <h2>): bigger and bolder so it
+   acts as the headline a player reads from across the table. */
+#popup p:first-child,
+#popup p:first-of-type {
+	font-size: 22px;
+	font-weight: 600;
+	margin: 0 0 12px;
+}
+#popup p strong { font-weight: 800; }
+#popup input[type="button"] {
+	font-size: 16px;
+	padding: 10px 22px;
+	margin: 6px 4px 0;
+	min-width: 110px;
+	border-radius: var(--radius-md);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+
+@keyframes popup-in {
+	from { opacity: 0; transform: scale(0.96) translateZ(0); }
+	to   { opacity: 1; transform: scale(1) translateZ(0); }
+}
+
+#popuptext {
+	overflow-x: auto;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	hyphens: auto;
+}
+
+#popupclose input {
+	margin: 0;
+	background: var(--warning);
+	color: #fff;
+	border-color: var(--warning);
+	height: 22px;
+	width: 22px;
+	padding: 0;
+	border-radius: 50%;
+}
+
+#popupbackground {
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	background-color: #000;
+	opacity: 0.4;
+	display: none;
+	z-index: 10;
+}
+
+#popupdrag {
+	width: 100%;
+	height: 16px;
+	position: absolute;
+	top: -16px;
+	cursor: move;
+}
+
+/* ============================================================
+   Stats modal
+   ============================================================ */
+#statswrap {
+	position: absolute;
+	top: 250px;
+	left: 0;
+	width: 100%;
+	display: none;
+	background-color: transparent;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#stats {
+	max-width: 914px;
+	min-width: 280px;
+	font-family: var(--font-ui);
+	font-size: 14px;
+	padding: 18px;
+	text-align: center;
+	word-wrap: break-word;
+	line-height: 1.5;
+	border: none;
+	border-radius: var(--radius-lg);
+	background: var(--surface-card);
+	display: block;
+	z-index: 17;
+	margin: auto;
+	position: relative;
+	top: 0;
+	left: 0;
+	color: var(--ink);
+	box-shadow: var(--shadow-lifted);
+	contain: layout paint;
+	animation: popup-in var(--dur-modal) var(--ease-out);
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+@media (max-width: 480px) {
+	#stats {
+		min-width: auto;
+		max-width: 100%;
+		margin: 0 12px;
+	}
+}
+
+#statstext {
+	overflow: hidden;
+	min-height: 70px;
+}
+
+/* Subtle keyboard hint under the stats title. Same color token as deed
+   captions so it reads as a quiet aside, not a CTA. */
+#stats .modal-hint {
+	display: block;
+	font-size: 11px;
+	color: var(--ink-faint);
+	margin-top: 6px;
+	letter-spacing: 0.02em;
+}
+
+#statsclose {
+	display: block;
+	position: absolute;
+	top: -28px;
+	right: -28px;
+	width: 32px;
+	height: 32px;
+	border: none;
+	cursor: pointer;
+	overflow: visible;
+	z-index: 17;
+	transition: transform var(--dur-hover) var(--ease-out);
+}
+#statsclose:hover {
+	transform: scale(1.1);
+}
+
+#statsbackground {
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	background-color: #000;
+	opacity: 0.4;
+	display: none;
+	z-index: 16;
+}
+
+#statsdrag {
+	width: 100%;
+	height: 16px;
+	position: absolute;
+	top: -16px;
+	cursor: move;
+}
+
+/* ============================================================
+   Deed tooltip
+   ============================================================ */
+#deed {
+	display: none;
+	position: fixed;
+	border: none;
+	width: 235px;
+	height: 275px;
+	/* Aged-ivory paper look: cream gradient + subtle paper grain.
+	   The deed is INTENTIONALLY paper-coloured in both themes (it's a
+	   real-world Monopoly card). All inner text must therefore stay dark
+	   regardless of the active theme — see the --deed-* token overrides
+	   scoped to #deed * below. */
+	background:
+		radial-gradient(circle at 20% 25%, rgba(110, 70, 30, 0.04) 0%, transparent 30%),
+		radial-gradient(circle at 75% 70%, rgba(110, 70, 30, 0.05) 0%, transparent 30%),
+		linear-gradient(180deg, #fefdf6 0%, #fbf6e7 100%);
+	border-radius: 5px;
+	/* Double bezel frame + lifted shadow for "card on the table" feel. */
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+		inset 0 0 0 3px #fefdf6,
+		inset 0 0 0 4px rgba(0, 0, 0, 0.35),
+		0 18px 36px rgba(0, 0, 0, 0.35),
+		0 4px 8px rgba(0, 0, 0, 0.2);
+	z-index: 18;
+	font-family: var(--font-ui);
+	color: #1a1a1a;
+	contain: layout paint;
+	-webkit-user-select: none;
+	user-select: none;
+	/* Re-bind theme tokens to fixed dark-on-paper values for everything
+	   inside the deed. Children that use var(--ink)/--ink-muted/--ink-faint/
+	   --accent/--gold continue to work; they just resolve to dark-paper
+	   appropriate colours regardless of the active theme. */
+	--ink:       #1A1A1A;
+	--ink-muted: #525252;
+	--ink-faint: #8A8A8A;
+	--accent:       #1B5E3F;
+	--accent-bright:#2E7D5C;
+	--money:        #2E7D5C;
+	--money-bright: #43A578;
+	--gold:         #C9962F;
+	--hairline:        rgba(0, 0, 0, 0.08);
+	--hairline-strong: rgba(0, 0, 0, 0.15);
+}
+
+#deed td { border: none; }
+
+#deed-header {
+	width: 215px;
+	height: 48px;
+	margin: 9px;
+	/* Painted color block per group — JS sets backgroundColor; we layer
+	   a darker gradient + thin gold pinstripe to feel like ink on cardstock. */
+	background-image: linear-gradient(180deg,
+		rgba(255, 255, 255, 0.18) 0%,
+		transparent 40%,
+		rgba(0, 0, 0, 0.15) 100%);
+	text-align: center;
+	text-transform: uppercase;
+	font-family: var(--font-ui);
+	border-radius: 3px;
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+		inset 0 0 0 2px rgba(255, 255, 255, 0.45),
+		0 2px 4px rgba(0, 0, 0, 0.18);
+	color: #fff;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+#deed-name {
+	font-size: 15px;
+	font-weight: 700;
+}
+
+#deed-table {
+	margin: 9px;
+	width: 217px;
+	border-spacing: 1px;
+}
+
+#deed-mortgaged {
+	font-family: var(--font-ui);
+	font-size: 16px;
+	text-align: center;
+}
+
+#deed-mortgaged-name {
+	font-size: 18px;
+	font-weight: 700;
+	text-transform: uppercase;
+	margin: 30px 20px 20px;
+}
+
+#deed-special {
+	font-family: var(--font-ui);
+	text-align: justify;
+}
+
+#deed-special-name {
+	text-align: center;
+	font-size: 18px;
+	font-weight: 700;
+	border-style: solid;
+	border-width: 2px 0;
+	text-transform: uppercase;
+	margin: 50px 20px 20px;
+}
+
+#deed-special-text {
+	margin: 20px;
+	font-size: 15px;
+}
+
+#deed-special-footer {
+	margin: 0 20px;
+	width: 195px;
+	position: absolute;
+	bottom: 20px;
+	font-size: 14px;
+}
+
+.deed-special-mortgage-value {
+	float: right;
+}
+
+#deed-price-row {
+	font-weight: 700;
+	font-size: 13px;
+	letter-spacing: 0.04em;
+	color: var(--accent);
+	padding-bottom: 4px;
+}
+
+/* Owner & current-rent decorations added by __deedDecorateOwnerInfo /
+   __deedHighlightCurrentRent. The wrapping rows are toggled visible from JS. */
+#deed-owner-cell,
+#deed-currentrent-cell {
+	padding: 6px 4px 4px;
+	font-size: 12px;
+}
+
+.deed-owner-line {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--ink);
+}
+.deed-owner-line-inline {
+	margin-bottom: 6px;
+}
+.deed-owner-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	box-shadow: inset 0 -1px 1px rgba(0,0,0,0.3), 0 1px 1px rgba(0,0,0,0.25);
+}
+.deed-owner-label { color: var(--ink-muted); }
+.deed-owner-name  { color: var(--ink); }
+.deed-owner-unowned {
+	display: inline-block;
+	font-size: 11px;
+	color: var(--ink-faint);
+	font-style: italic;
+}
+.deed-group-pill {
+	font-size: 11px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 999px;
+	letter-spacing: 0.04em;
+}
+
+#deed-currentrent-cell {
+	background: linear-gradient(180deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.08));
+	border-radius: 6px;
+	padding: 6px 10px;
+}
+.deed-cr-label  { color: var(--ink-muted); }
+.deed-cr-amount { color: var(--accent); font-size: 14px; }
+.deed-cr-sub    { color: var(--ink-faint); font-style: italic; font-size: 11px; }
+
+/* Highlight the row matching the property's current state. */
+#deed-table tr.deed-rent-current td {
+	background: rgba(212, 175, 55, 0.20);
+	font-weight: 700;
+	position: relative;
+}
+#deed-table tr.deed-rent-current td:first-child::before {
+	content: '▶';
+	color: var(--gold);
+	margin-right: 4px;
+	font-size: 9px;
+}
+
+#deed-special-price {
+	text-align: center;
+	font-weight: 700;
+	font-size: 14px;
+	letter-spacing: 0.04em;
+	color: var(--accent);
+	margin: 8px 20px 4px;
+}
+
+#deedcolor {
+	background: var(--surface-card);
+	width: 100%;
+	height: 48px;
+}
+
+#deedname {
+	margin-top: 10px;
+	font-weight: 700;
+	font-size: 20px;
+	background: var(--surface-card);
+}
+
+/* ============================================================
+   Trade dialog
+   ============================================================ */
+#trade {
+	border: none;
+	display: none;
+	width: 680px;
+	margin: 16px auto;
+	background: var(--surface-card);
+	border-radius: var(--radius-lg);
+	padding: 22px 24px;
+	z-index: 14;
+	box-shadow: var(--shadow-lifted);
+	font-family: var(--font-ui);
+	color: var(--ink);
+}
+
+/* Mini header for the trade dialog. Generated dynamically; safe even
+   if absent. */
+#trade::before {
+	content: '🤝  ' attr(data-i18n-title);
+	display: block;
+	font-size: 18px;
+	font-weight: 800;
+	color: var(--accent);
+	letter-spacing: -0.01em;
+	margin-bottom: 6px;
+}
+#trade::after {
+	content: attr(data-i18n-hint);
+	display: block;
+	margin-bottom: 14px;
+	font-size: 12px;
+	color: var(--ink-faint);
+}
+
+/* Idle-state placeholder affordance for editable money/bid inputs. Without
+   this, dark-mode picks up the parent's green money color and the field
+   reads as already filled. Faint + low opacity keeps the cue subtle. */
+#bid::placeholder,
+#trade-leftp-money::placeholder,
+#trade-rightp-money::placeholder {
+	color: var(--ink-faint);
+	opacity: 0.6;
+}
+
+#trade > .trade-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+
+#trade > .trade-grid > .trade-buttons {
+	grid-column: 1 / -1;
+}
+
+#trade-leftp-name,
+#trade-rightp-name {
+	font-size: 15px;
+	font-weight: 800;
+	color: var(--ink);
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
+	background: var(--surface);
+}
+
+#trade-leftp-name option,
+#trade-rightp-name option {
+	font-size: 14px;
+	font-weight: 500;
+}
+
+#trade-leftp-money,
+#trade-rightp-money {
+	width: 90%;
+	font-family: var(--font-ui);
+	font-size: 16px;
+	font-weight: 700;
+	padding: 8px 10px;
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-sm);
+	color: var(--money);
+	background: var(--surface);
+}
+
+.trade-cell {
+	border: none;
+	border-radius: var(--radius-md);
+	min-height: 32px;
+	padding: 10px 12px;
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.trade-cell:hover {
+	box-shadow: inset 0 0 0 1px var(--accent-bright);
+}
+
+/* The buttons row (proposetrade, canceltrade, acceptrtrade, rejecttrade) */
+#proposetradebutton,
+#accepttradebutton {
+	background: var(--accent);
+	background-image: linear-gradient(180deg, var(--accent-bright), var(--accent));
+	color: #fff;
+	border-color: var(--accent);
+	font-weight: 700;
+	padding: 10px 18px;
+}
+#canceltradebutton,
+#rejecttradebutton {
+	background: var(--surface);
+	color: var(--warning);
+	border-color: var(--warning);
+	padding: 10px 18px;
+}
+#canceltradebutton:hover,
+#rejecttradebutton:hover {
+	background: var(--warning);
+	color: #fff;
+}
+
+.propertycellcheckbox {
+	width: 20px;
+	height: 20px;
+	border: none;
+	vertical-align: middle;
+}
+
+.propertycellcolor {
+	padding: 0;
+	width: 22px;
+	height: 22px;
+	border-width: 1px;
+	border-style: solid;
+	border-color: var(--surface-card);
+	border-radius: 3px;
+}
+
+.propertycellname {
+	height: 22px;
+	width: 250px;
+	border: none;
+	cursor: default;
+	text-align: left;
+	vertical-align: middle;
+	font-size: 12px;
+	color: var(--ink);
+}
+
+.propertycelldeed {
+	width: 18px;
+	height: 20px;
+	border: 1px solid var(--hairline);
+	cursor: pointer;
+	display: none;
+}
+
+/* ============================================================
+   Stats grid (per-player property tables in #stats popup)
+   ============================================================ */
+.statscell {
+	border: 2px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
+	padding: 12px;
+	vertical-align: top;
+	width: 218px;
+	min-width: 120px;
+	background: var(--surface);
+}
+
+.statsplayername {
+	font-weight: 700;
+	font-size: 20px;
+	font-family: var(--font-ui);
+	color: var(--ink);
+	margin-bottom: 4px;
+}
+
+/* New mini-header inside each player stats card. */
+.stats-player-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding-bottom: 10px;
+	margin-bottom: 10px;
+	border-bottom: 1px dashed var(--hairline);
+}
+.stats-player-avatar {
+	width: 42px;
+	height: 42px;
+	flex: 0 0 42px;
+	border-radius: 50%;
+	background-size: 80% 80%;
+	background-position: center;
+	background-repeat: no-repeat;
+	box-shadow:
+		0 2px 5px rgba(0, 0, 0, 0.3),
+		inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+		inset 0 1px 1px rgba(255, 255, 255, 0.4),
+		0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+.stats-player-meta { flex: 1; min-width: 0; }
+.stats-player-name {
+	font-weight: 800;
+	font-size: 15px;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.stats-player-cash {
+	font-weight: 800;
+	font-size: 18px;
+	color: var(--money);
+	letter-spacing: -0.01em;
+}
+.stats-player-sub {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 2px;
+	font-size: 11px;
+	color: var(--ink-faint);
+}
+.stats-player-nw   { font-weight: 700; }
+.stats-player-rank {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 22px;
+	height: 18px;
+	padding: 0 6px;
+	border-radius: 999px;
+	font-weight: 800;
+	font-size: 10px;
+	color: #fff;
+	background: var(--ink-faint);
+}
+.stats-rank-1 { background: linear-gradient(135deg, #f5d76e, var(--gold)); color: #4a3500; }
+.stats-rank-2 { background: linear-gradient(135deg, #d3d3d3, #a8a8a8); color: #3a3a3a; }
+.stats-rank-3 { background: linear-gradient(135deg, #d4a373, #a47551); color: #3a2a1a; }
+
+.statscellcolor {
+	padding: 0;
+	width: 22px;
+	height: 20px;
+	border: none;
+	border-radius: 3px;
+}
+
+.statscellname {
+	height: 20px;
+	border: none;
+	cursor: default;
+	text-align: left;
+	min-width: 172px;
+	font-size: 12px;
+	color: var(--ink);
+}
+
+/* ============================================================
+   Setup screen
+   ============================================================ */
+#setup {
+	display: none;
+	max-width: 620px;
+	margin: 40px auto;
+	padding: 32px 36px;
+	background: var(--surface-card);
+	border-radius: var(--radius-xl);
+	box-shadow: var(--shadow-lifted), 0 0 0 1px var(--hairline);
+	font-family: var(--font-ui);
+	font-size: 15px;
+	color: var(--ink);
+	position: relative;
+}
+#setup::before {
+	content: '';
+	display: block;
+	height: 64px;
+	margin: -32px -36px 16px;
+	background: url('images/monopoly logo.png') center center / contain no-repeat,
+	            linear-gradient(180deg, rgba(27, 94, 63, 0.08), transparent);
+	border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+#setup > div { margin-bottom: 14px; }
+
+#setup select,
+#setup input[type="text"] {
+	font-family: var(--font-ui);
+	font-size: 14px;
+	padding: 7px 10px;
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-sm);
+	background: var(--surface-card);
+	color: var(--ink);
+	margin: 0 4px;
+	transition: border-color var(--dur-hover) var(--ease-out);
+}
+
+#setup select:focus,
+#setup input[type="text"]:focus {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 1px;
+	border-color: var(--accent-bright);
+}
+
+.player-input {
+	display: none;
+	padding: 12px 14px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	background: var(--surface);
+	margin-bottom: 10px;
+	font-size: 14px;
+}
+.player-input .player-label {
+	font-weight: 700;
+	display: inline-block;
+	min-width: 90px;
+	color: var(--ink);
+}
+.player-input input[type="text"] {
+	min-width: 120px;
+}
+.player-avatar-select {
+	font-size: 16px;
+	padding: 4px 6px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--hairline-strong);
+	background: var(--surface-card);
+	cursor: pointer;
+}
+
+/* Quick presets row above the start button. */
+#setup-presets {
+	display: flex;
+	gap: 8px;
+	margin: 6px 0 14px;
+	flex-wrap: wrap;
+}
+.setup-preset {
+	flex: 1;
+	min-width: 110px;
+	padding: 8px 10px;
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
+	background: var(--surface);
+	color: var(--ink);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	cursor: pointer;
+	text-align: center;
+	transition: background var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+}
+.setup-preset:hover {
+	background: var(--surface-card);
+	border-color: var(--accent-bright);
+	transform: translateY(-1px);
+}
+.setup-preset.setup-preset-active {
+	background: linear-gradient(180deg, rgba(46, 125, 92, 0.12), rgba(46, 125, 92, 0.04));
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px rgba(46, 125, 92, 0.15);
+}
+
+/* House rules collapsible block. Closed by default to keep setup clean. */
+#house-rules-block {
+	margin: 12px 0 14px;
+	background: var(--surface);
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	padding: 10px 14px;
+}
+#house-rules-block summary {
+	cursor: pointer;
+	font-weight: 700;
+	font-size: 13px;
+	color: var(--ink);
+	letter-spacing: 0.02em;
+	padding: 2px 0;
+	-webkit-user-select: none;
+	user-select: none;
+	outline: none;
+}
+#house-rules-block summary::marker { color: var(--accent); }
+#house-rules-block[open] summary { margin-bottom: 8px; }
+.house-rules-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px 12px;
+}
+.house-rule {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 8px;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition: background var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out);
+}
+.house-rule:hover {
+	background: var(--surface-card);
+	border-color: var(--hairline-strong);
+}
+.house-rule input[type="checkbox"] {
+	margin-top: 3px;
+	flex-shrink: 0;
+	accent-color: var(--accent);
+	cursor: pointer;
+}
+.house-rule-text { flex: 1; min-width: 0; }
+.house-rule-text strong {
+	display: block;
+	font-weight: 700;
+	font-size: 12px;
+	color: var(--ink);
+}
+.house-rule-text small {
+	display: block;
+	font-size: 11px;
+	color: var(--ink-muted);
+	line-height: 1.35;
+	margin-top: 2px;
+}
+.house-rule input[type="checkbox"]:checked ~ .house-rule-text strong {
+	color: var(--accent);
+}
+
+/* Speed mode: scale CSS animation/transition durations via a CSS var.
+   Applied to body when rule-speed-mode is on. */
+body.speed-mode * {
+	animation-duration: 0.5s !important;
+	transition-duration: 100ms !important;
+}
+/* Some keyframes need to stay long (confetti, victory, etc.) so we except them. */
+body.speed-mode .confetti-piece,
+body.speed-mode #victory-overlay,
+body.speed-mode #victory-overlay *,
+body.speed-mode #board-logo {
+	animation-duration: unset !important;
+}
+
+/* Free Parking jackpot badge on the FP cell when rule is active. */
+.cell-fp-pot {
+	position: absolute;
+	top: 4px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: linear-gradient(180deg, var(--gold), #b08824);
+	color: #fff;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 10px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35),
+	            inset 0 -1px 1px rgba(0, 0, 0, 0.25),
+	            inset 0 1px 1px rgba(255, 255, 255, 0.35);
+	z-index: 4;
+	pointer-events: none;
+	white-space: nowrap;
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+	animation: fp-pot-pop var(--dur-card) var(--ease-out);
+}
+@keyframes fp-pot-pop {
+	0%   { transform: translateX(-50%) scale(0.5); opacity: 0; }
+	60%  { transform: translateX(-50%) scale(1.15); opacity: 1; }
+	100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+.setup-preset strong {
+	display: block;
+	font-size: 13px;
+	font-weight: 800;
+	color: var(--accent);
+	margin-bottom: 2px;
+}
+.setup-preset span {
+	display: block;
+	font-size: 11px;
+	color: var(--ink-muted);
+}
+
+#setup input[type="button"] {
+	background: var(--accent);
+	background-image: linear-gradient(180deg, var(--accent-bright), var(--accent));
+	color: #fff;
+	border-color: var(--accent);
+	padding: 10px 22px;
+	font-size: 14px;
+	box-shadow: 0 4px 12px rgba(27, 94, 63, 0.22);
+}
+
+/* ============================================================
+   Enlarge popup (kept for back-compat — created in monopoly.js)
+   ============================================================ */
+#enlarge-wrap {
+	border: none;
+	z-index: 0;
+}
+
 .enlarge {
 	width: 150px;
 	height: 200px;
 	display: none;
-	background-color: white;
-	border: 2px solid black;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
 	text-align: center;
 	font-size: 12px;
-	font-family: arial, sans-serif;
+	font-family: var(--font-ui);
 	position: fixed;
 	z-index: 15;
+	box-shadow: var(--shadow-card);
 }
 
 .enlarge-color {
-	background: white;
+	background: var(--surface-card);
 	width: 100%;
 	height: 40px;
 }
 
 .enlarge-name {
-	font-weight: bold;
-	font-size: 20px;
-	background-color: white;
+	font-weight: 700;
+	font-size: 18px;
+	background: var(--surface-card);
 	height: 45px;
 }
 
 .enlarge-price {
-	background-color: white;
+	background: var(--surface-card);
 	vertical-align: bottom;
 	height: 25px;
 }
@@ -649,177 +3943,894 @@ td {
 	width: 150px;
 }
 
-.moneybarcell {
-	width: 83px;
-	min-width: 83px;
+#propertystats {
+	margin-right: 110px;
 }
 
-.moneybararrowcell {
-	background: white;
-	width: 30px;
-	border: none;
-	text-align: right;
-	padding: 0px;
+/* ============================================================
+   Toast notifications (transient, viewport-anchored bottom-right).
+   Created on demand by UI.toast(); auto-removed on toast-out animationend.
+   ============================================================ */
+#ui-overlay {
+	position: fixed;
+	bottom: 24px;
+	right: 24px;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 12px;
+	pointer-events: none;
+	z-index: 200;
+	max-width: 460px;
 }
 
-.money-bar-arrow {
-	height: 30px;
-	width: 30px;
-}
-.propertycellcheckbox {
-	width: 20px;
-	height: 20px;
-	border: none;
-	vertical-align: middle;
-}
-
-.propertycellcolor {
-	padding: 0px;
-	width: 20px;
-	height: 20px;
-	border-width: 1px;
-	border-style: solid;
-	border-color: white;
-}
-
-.propertycellname {
-	height: 20px;
-	width: 250px;
-	border: none;
-	cursor: default;
-	text-align: left;
-	vertical-align: middle;
+/* Larger, more readable toasts — tabletop game contexts where 2-4 people
+   are looking at the screen need bigger type and a thicker accent strip. */
+.toast {
+	pointer-events: auto;
+	min-width: 280px;
+	max-width: 460px;
+	padding: 16px 22px;
+	background: var(--surface-card);
+	color: var(--ink);
+	font-family: var(--font-ui);
+	font-size: 18px;
+	font-weight: 600;
+	line-height: 1.35;
+	border-radius: var(--radius-lg);
+	border-left: 5px solid var(--ink-faint);
+	box-shadow: var(--shadow-lifted);
+	transform: translateZ(0);
+	contain: layout paint;
+	animation: toast-in var(--dur-modal) var(--ease-out) both;
 }
 
-.propertycelldeed {
-	width: 18px;
-	height: 20px;
-	border: 1px solid grey;
-	cursor: pointer;
-	display: none;
+.toast-info     { border-left-color: var(--ink-muted); }
+.toast-success  { border-left-color: var(--money); }
+.toast-warning  { border-left-color: var(--gold); }
+.toast-danger   { border-left-color: var(--warning); }
+
+.toast-out {
+	animation: toast-out var(--dur-modal) var(--ease-out) both;
 }
 
-.statscellcolor {
-	padding: 0px;
-	width: 22px;
-	height: 20px;
-	border: none;
+@keyframes toast-in {
+	from { opacity: 0; transform: translate3d(0, 12px, 0); }
+	to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes toast-out {
+	from { opacity: 1; transform: translate3d(0, 0, 0); }
+	to   { opacity: 0; transform: translate3d(0, 12px, 0); }
 }
 
-.statscellname {
-	height: 20px;
-	border: none;
-	cursor: default;
-	text-align: left;
-	min-width: 172px;
+/* ============================================================
+   Generic modal class (forward-compatible — UI.openModal() targets
+   elements with .modal-open). The existing popup/stats elements
+   still use $().show() for now; this is for incremental migration.
+   ============================================================ */
+.modal-open {
+	display: block !important;
+	animation: popup-in var(--dur-modal) var(--ease-out) both;
 }
 
-.statsplayername {
-	font-weight: bold;
+/* Card-flip entrance for Chance / Community Chest popups.
+   Added by chanceCommunityChest() in monopoly.js, removed by popup() on next open.
+   Styled to look like a physical Monopoly card (cream background, ink border).
+   Significantly larger than the default popup so a 4-player tabletop session
+   can read it from across the room. */
+#popup.popup-card {
+	animation: card-flip-in var(--dur-card) var(--ease-out) both;
+	transform-origin: center center;
+	width: 540px;
+	min-width: 540px;
+	max-width: 620px;
+	background:
+		radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.07), transparent 70%),
+		repeating-linear-gradient(45deg,
+			#fff7d8 0px, #fff7d8 6px,
+			#fcf1cb 6px, #fcf1cb 12px),
+		#fff7d8;
+	border: 1px solid rgba(110, 70, 30, 0.5);
+	box-shadow:
+		var(--shadow-lifted),
+		inset 0 0 0 6px #fff7d8,
+		inset 0 0 0 7px rgba(110, 70, 30, 0.55),
+		inset 0 0 0 9px #fff7d8,
+		inset 0 0 0 10px rgba(110, 70, 30, 0.25),
+		0 14px 30px rgba(0, 0, 0, 0.18),
+		0 30px 60px -20px rgba(0, 0, 0, 0.28);
+	padding: 44px 40px 32px;
+	color: #2a1f00;
+	font-weight: 600;
+	letter-spacing: 0.01em;
 	font-size: 24px;
+	line-height: 1.4;
+}
+/* The "T Í T U L O D E P R O P I E D A D"-style heading inside the chance
+   card flips the existing first-paragraph rule (which was scoped to the
+   normal popup) because the card has fixed-paper colours. */
+#popup.popup-card p:first-of-type {
+	font-size: 26px;
+	font-weight: 700;
+	color: #2a1f00;
+}
+/* Card header ornament — small decorative line above the text. */
+#popup.popup-card::before {
+	content: '';
+	display: block;
+	width: 60px;
+	height: 2px;
+	margin: 0 auto 14px;
+	background: rgba(110, 70, 30, 0.4);
+	border-radius: 2px;
+}
+/* The OK button on a card should look like a stamp. */
+#popup.popup-card input[type="button"] {
+	margin-top: 8px;
+	background: #c0392b;
+	background-image: linear-gradient(180deg, #d44a3a, #a52a1f);
+	color: #fff;
+	border-color: #8a2419;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 
-.statscell {
-	border: 2px solid black;
-	padding: 8px;
-	vertical-align: top;
-	width: 202px;
-	min-width: 115px;
+@keyframes card-flip-in {
+	from {
+		opacity: 0;
+		transform: perspective(1200px) rotateY(-92deg) scale(.94);
+	}
+	60% {
+		opacity: 1;
+	}
+	to {
+		opacity: 1;
+		transform: perspective(1200px) rotateY(0deg) scale(1);
+	}
 }
 
-.trade-cell {
+/* ============================================================
+   Turn-change banner — slides in from top of stage for ~1.5s when
+   the active player changes. Created and removed by __showTurnBanner.
+   ============================================================ */
+#turn-banner {
+	position: absolute;
+	top: 24px;
+	left: 50%;
+	transform: translate3d(-50%, -50px, 0);
+	z-index: 50;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: 999px;
+	padding: 10px 22px;
+	font-family: var(--font-ui);
+	font-weight: 700;
+	font-size: 16px;
+	color: var(--ink);
+	box-shadow: var(--shadow-lifted);
+	pointer-events: none;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	opacity: 0;
+	animation: turn-banner-cycle 1800ms var(--ease-out) forwards;
+}
+#turn-banner .tb-dot {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.25),
+		inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+@keyframes turn-banner-cycle {
+	0%   { opacity: 0; transform: translate3d(-50%, -50px, 0); }
+	15%  { opacity: 1; transform: translate3d(-50%, 0, 0); }
+	75%  { opacity: 1; transform: translate3d(-50%, 0, 0); }
+	100% { opacity: 0; transform: translate3d(-50%, -30px, 0); }
+}
+
+/* ============================================================
+   Roll Dice — gentle pulse when it's the human's turn and they
+   haven't rolled yet. Removed once the dice are rolled (JS toggles
+   the .btn-pulse-attn class).
+   ============================================================ */
+#nextbutton.btn-pulse-attn {
+	animation: btn-pulse 1.5s ease-in-out infinite;
+}
+@keyframes btn-pulse {
+	0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+	50%      { transform: translate3d(0, -2px, 0) scale(1.04); }
+}
+
+/* ============================================================
+   Ripple effect on button clicks — JS injects a span on mousedown.
+   ============================================================ */
+input[type="button"] { position: relative; overflow: hidden; }
+.btn-ripple {
+	position: absolute;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.55);
+	pointer-events: none;
+	transform: scale(0);
+	animation: ripple 520ms var(--ease-out) forwards;
+}
+@keyframes ripple {
+	to { transform: scale(8); opacity: 0; }
+}
+
+/* ============================================================
+   Stats modal property rows — subtle highlight on hover so the
+   user can scan a player's portfolio at a glance.
+   ============================================================ */
+.statscell tr {
+	transition: background var(--dur-hover) var(--ease-out);
+	cursor: default;
+}
+.statscell tr:hover {
+	background: rgba(255, 215, 0, 0.15);
+}
+
+/* ============================================================
+   Confetti — celebration overlay shown on win. Generated by JS
+   (__launchConfetti) which inserts 60 .confetti-piece spans with
+   randomized horizontal positions / colors / delays.
+   ============================================================ */
+.confetti {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 9999;
+	overflow: hidden;
+	contain: layout paint;
+}
+
+.confetti-piece {
+	position: absolute;
+	top: -30px;
+	width: 8px;
+	height: 14px;
+	border-radius: 2px;
+	opacity: 0;
+	animation: confetti-fall linear forwards;
+	/* will-change deliberately omitted — 60 long-running transform/opacity
+	   pieces already get auto-promoted to composite layers by the browser
+	   heuristics, and pinning will-change here would reserve ~500KB-1MB of
+	   GPU memory for the whole game session for a one-shot celebration. */
+}
+
+@keyframes confetti-fall {
+	0%   { opacity: 0;   transform: translate3d(0, 0, 0) rotate(0deg); }
+	8%   { opacity: 0.95; }
+	100% { opacity: 0.85; transform: translate3d(0, 110vh, 0) rotate(720deg); }
+}
+
+/* ============================================================
+   GAME-START INTRO — cinematic reveal on setup()
+   The stage gets .stage-intro for ~900ms (scale-in + soft 3D tilt),
+   the board gets .board-intro (longer, with a sweeping shine across),
+   and each token drops into GO with .token-drop-in.
+   ============================================================ */
+#game-stage.stage-intro {
+	animation: stage-intro 800ms var(--ease-out) both;
+}
+@keyframes stage-intro {
+	0%   { opacity: 0; filter: blur(6px); }
+	30%  { opacity: 1; filter: blur(0); }
+	100% { opacity: 1; filter: blur(0); }
+}
+
+#board.board-intro {
+	animation: board-intro var(--dur-intro) var(--ease-smooth) both;
+	transform-origin: center center;
+}
+@keyframes board-intro {
+	0%   { opacity: 0; transform: perspective(1800px) rotateX(28deg) scale(.86); }
+	55%  { opacity: 1; transform: perspective(1800px) rotateX(-3deg) scale(1.02); }
+	75%  {             transform: perspective(1800px) rotateX(1deg)  scale(1.005); }
+	100% { opacity: 1; transform: perspective(1800px) rotateX(0deg)  scale(1); }
+}
+
+/* Soft sweeping shine across the board on intro */
+#board.board-intro::before {
+	content: '';
+	position: absolute;
+	inset: -6px;
+	border-radius: 14px;
+	background: linear-gradient(110deg,
+		transparent 30%,
+		rgba(255, 255, 255, 0.55) 48%,
+		rgba(255, 255, 255, 0.0) 66%,
+		transparent 70%);
+	mix-blend-mode: screen;
+	pointer-events: none;
+	z-index: 30;
+	animation: board-shine var(--dur-intro) var(--ease-out) both;
+}
+@keyframes board-shine {
+	0%   { opacity: 0; transform: translateX(-60%); }
+	30%  { opacity: 1; }
+	100% { opacity: 0; transform: translateX(60%); }
+}
+
+/* Tokens dropping into GO on game start */
+.token.token-drop-in {
+	animation: token-drop 720ms var(--ease-bounce) both;
+}
+@keyframes token-drop {
+	0%   { opacity: 0; transform: translate3d(0, -240px, 0) scale(1.4); }
+	55%  { opacity: 1; transform: translate3d(0, 4px, 0) scale(1); }
+	70%  {             transform: translate3d(0, -8px, 0) scale(0.96); }
+	85%  {             transform: translate3d(0, 2px, 0) scale(1.02); }
+	100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Intro splash banner — short "Game On" + edition cue */
+#intro-splash {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 1000;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 64px;
+	letter-spacing: 0.06em;
+	color: #fff;
+	text-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+	animation: intro-splash 1500ms var(--ease-out) both;
+	white-space: nowrap;
+}
+@keyframes intro-splash {
+	0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+	25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+	55%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+	100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
+}
+
+/* ============================================================
+   TURN-CHANGE — enhanced banner with sweep + board border flash
+   ============================================================ */
+#turn-banner {
+	overflow: hidden;
+	position: absolute;
+}
+#turn-banner::after {
+	content: '';
+	position: absolute;
+	top: 0; bottom: 0;
+	left: -40%;
+	width: 30%;
+	background: linear-gradient(110deg,
+		transparent,
+		rgba(255, 255, 255, 0.85),
+		transparent);
+	transform: skewX(-18deg);
+	pointer-events: none;
+	animation: tb-sweep 1400ms 200ms var(--ease-out) forwards;
+}
+@keyframes tb-sweep {
+	0%   { left: -40%; opacity: 0; }
+	20%  { opacity: 1; }
+	100% { left: 140%; opacity: 0; }
+}
+
+/* Board frame flashes briefly with the active player's color on turn change. */
+#board.board-turn-flash {
+	animation: board-turn-flash 720ms var(--ease-out);
+}
+@keyframes board-turn-flash {
+	0%   { box-shadow: 0 0 0 0 var(--turn-color, var(--accent-bright)); }
+	40%  { box-shadow: 0 0 0 6px var(--turn-color, var(--accent-bright)); }
+	100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Active token — add a second slow concentric ring for "spotlight" feel */
+.token.token-active::before {
+	content: '';
+	position: absolute;
+	left: -12px;
+	top: -12px;
+	right: -12px;
+	bottom: -12px;
+	border-radius: 50%;
+	border: 2px solid var(--token-ring, rgba(255, 255, 255, 0.7));
+	box-sizing: border-box;
+	pointer-events: none;
+	animation: token-spotlight 2.4s ease-out infinite;
+	z-index: -1;
+}
+@keyframes token-spotlight {
+	0%   { opacity: 0.0; transform: scale(0.5) translateZ(0); }
+	30%  { opacity: 0.9; }
+	100% { opacity: 0;   transform: scale(1.6) translateZ(0); }
+}
+
+/* Money-bar row of the active player — stronger visual cue: tinted bg,
+   lifted shadow, accent left border + soft pulse glow. */
+.moneybarcell.moneybar-active {
+	box-shadow:
+		0 0 0 2px var(--row-color, var(--accent)) inset,
+		0 0 0 4px rgba(var(--row-color-rgb, 27, 94, 63), 0.10),
+		0 4px 14px rgba(0, 0, 0, 0.10);
+	transform: translateY(-2px);
+	background: linear-gradient(180deg, var(--ledger-active-top), var(--surface));
+	transition: transform var(--dur-hover) var(--ease-out),
+	            box-shadow var(--dur-hover) var(--ease-out),
+	            background var(--dur-hover) var(--ease-out);
+	position: relative;
+}
+.moneybarcell.moneybar-active::before {
+	content: '▶';
+	position: absolute;
+	left: -16px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--row-color, var(--accent));
+	font-size: 13px;
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+	animation: mb-active-arrow 1.4s ease-in-out infinite;
+}
+@keyframes mb-active-arrow {
+	0%, 100% { transform: translateY(-50%) translateX(0); opacity: 0.85; }
+	50%      { transform: translateY(-50%) translateX(3px); opacity: 1; }
+}
+
+/* Net-worth mini bar — visual comparison of each player's net worth
+   relative to the leader. Width set via inline style --nw-pct. */
+.mb-nw-bar {
+	height: 3px;
+	background: rgba(0, 0, 0, 0.06);
+	border-radius: 2px;
+	overflow: hidden;
+	margin-top: 6px;
+}
+.mb-nw-bar-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--row-color, var(--money)), var(--row-color, var(--money-bright)));
+	width: var(--nw-pct, 0%);
+	border-radius: 2px;
+	transition: width 380ms var(--ease-out);
+}
+
+/* ============================================================
+   DICE — small "toss" pulse when re-rolled (cube already tumbles
+   in 3D; this adds an extra scale punch so it feels physical)
+   ============================================================ */
+.die.die-toss {
+	animation: die-toss 780ms var(--ease-smooth);
+}
+@keyframes die-toss {
+	0%   { transform: translate3d(0, 0, 0) scale(1); }
+	22%  { transform: translate3d(0, -22px, 0) scale(1.08); }
+	60%  { transform: translate3d(0, 2px, 0) scale(0.96); }
+	78%  { transform: translate3d(0, -4px, 0) scale(1.02); }
+	100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* ============================================================
+   TOKEN HOP — small upward arc bump during sliding moves
+   Layered ON TOP of the FLIP transform via the .token-hop class.
+   ============================================================ */
+.token.token-hop {
+	animation: token-hop 520ms cubic-bezier(.4, 0, .6, 1);
+}
+@keyframes token-hop {
+	0%   { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
+	50%  { filter: drop-shadow(0 14px 4px rgba(0, 0, 0, 0.18)); }
+	100% { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
+}
+
+/* ============================================================
+   MONEY — floating +/- delta label that drifts up and fades
+   ============================================================ */
+.money-floater {
+	position: absolute;
+	pointer-events: none;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 18px;
+	z-index: 50;
+	white-space: nowrap;
+	animation: money-floater var(--dur-intro) var(--ease-smooth) forwards;
+	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+	letter-spacing: 0.02em;
+}
+.money-floater-up   { color: var(--money); }
+.money-floater-down { color: var(--warning); }
+@keyframes money-floater {
+	0%   { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.9); }
+	18%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.1); }
+	35%  {             transform: translate3d(0, -10px, 0) scale(1); }
+	100% { opacity: 0; transform: translate3d(0, -42px, 0) scale(0.95); }
+}
+
+/* ============================================================
+   ELIMINATION — token shrinks/fades, money row collapses
+   ============================================================ */
+.token.token-eliminating {
+	animation: token-eliminate var(--dur-celebration) var(--ease-press) forwards;
+	pointer-events: none;
+}
+@keyframes token-eliminate {
+	0%   { opacity: 1; transform: scale(1) rotate(0deg); filter: grayscale(0); }
+	60%  { opacity: 1; transform: scale(1.4) rotate(8deg); filter: grayscale(.5); }
+	100% { opacity: 0; transform: scale(0) rotate(-90deg); filter: grayscale(1); }
+}
+.moneybar-eliminating {
+	animation: row-collapse 520ms var(--ease-press) forwards;
+	transform-origin: center top;
+}
+@keyframes row-collapse {
+	0%   { opacity: 1; transform: scaleY(1); filter: grayscale(0); }
+	50%  { opacity: 0.4; transform: scaleY(1); filter: grayscale(1); }
+	100% { opacity: 0; transform: scaleY(0); filter: grayscale(1); }
+}
+
+/* ============================================================
+   VICTORY — full-screen overlay with crown, name reveal, rays
+   Used by __showVictory(player). Confetti still piggy-backs.
+   ============================================================ */
+#victory-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9000;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	background: radial-gradient(circle at 50% 45%,
+		rgba(30, 30, 50, 0.0) 0%,
+		rgba(20, 20, 40, 0.55) 45%,
+		rgba(10, 10, 20, 0.78) 100%);
+	animation: fade-in var(--dur-celebration) var(--ease-out) both;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#victory-overlay::before {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 1400px;
+	height: 1400px;
+	margin-left: -700px;
+	margin-top: -700px;
+	background: conic-gradient(from 0deg,
+		rgba(255, 215, 0, 0.18) 0deg,
+		transparent 18deg,
+		rgba(255, 215, 0, 0.18) 36deg,
+		transparent 54deg,
+		rgba(255, 215, 0, 0.18) 72deg,
+		transparent 90deg,
+		rgba(255, 215, 0, 0.18) 108deg,
+		transparent 126deg,
+		rgba(255, 215, 0, 0.18) 144deg,
+		transparent 162deg,
+		rgba(255, 215, 0, 0.18) 180deg,
+		transparent 198deg,
+		rgba(255, 215, 0, 0.18) 216deg,
+		transparent 234deg,
+		rgba(255, 215, 0, 0.18) 252deg,
+		transparent 270deg,
+		rgba(255, 215, 0, 0.18) 288deg,
+		transparent 306deg,
+		rgba(255, 215, 0, 0.18) 324deg,
+		transparent 342deg);
+	pointer-events: none;
+	animation: vo-rays 16s linear infinite, fade-in 900ms var(--ease-out) both;
+	mix-blend-mode: screen;
+}
+@keyframes vo-rays { to { transform: rotate(360deg); } }
+
+.victory-crown {
+	font-size: 120px;
+	line-height: 1;
+	filter: drop-shadow(0 8px 24px rgba(212, 175, 55, 0.65));
+	animation: crown-in 900ms var(--ease-bounce) both,
+	           crown-float 3.4s ease-in-out 900ms infinite;
+}
+@keyframes crown-in {
+	0%   { opacity: 0; transform: translateY(-60px) scale(0.4) rotate(-12deg); }
+	60%  { opacity: 1; transform: translateY(8px)  scale(1.2) rotate(4deg); }
+	100% { opacity: 1; transform: translateY(0)   scale(1)   rotate(0deg); }
+}
+@keyframes crown-float {
+	0%, 100% { transform: translateY(0) rotate(0deg); }
+	50%      { transform: translateY(-12px) rotate(2deg); }
+}
+
+.victory-title {
+	margin-top: 18px;
+	font-family: var(--font-ui);
+	font-weight: 900;
+	font-size: 22px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--gold);
+	text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+	animation: vt-in 700ms 400ms var(--ease-out) both;
+}
+@keyframes vt-in {
+	from { opacity: 0; transform: translateY(12px); letter-spacing: 0.05em; }
+	to   { opacity: 1; transform: translateY(0); letter-spacing: 0.18em; }
+}
+
+.victory-name {
+	margin-top: 6px;
+	font-family: var(--font-ui);
+	font-weight: 900;
+	font-size: 76px;
+	color: #fff;
+	text-shadow:
+		0 0 24px rgba(255, 215, 0, 0.55),
+		0 8px 32px rgba(0, 0, 0, 0.7);
+	animation: vn-in 800ms 600ms var(--ease-bounce) both;
+	display: inline-block;
+}
+@keyframes vn-in {
+	0%   { opacity: 0; transform: scale(0.5) rotateX(60deg); }
+	60%  { opacity: 1; transform: scale(1.15) rotateX(-8deg); }
+	100% { opacity: 1; transform: scale(1) rotateX(0); }
+}
+
+.victory-career {
+	margin-top: 10px;
+	font-family: var(--font-ui);
+	font-weight: 700;
+	font-size: 14px;
+	color: var(--gold);
+	letter-spacing: 0.06em;
+	text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+	animation: vt-in 700ms 900ms var(--ease-bounce) both;
+}
+
+.victory-sub {
+	margin-top: 20px;
+	font-family: var(--font-ui);
+	font-weight: 500;
+	font-size: 16px;
+	color: rgba(255, 255, 255, 0.78);
+	letter-spacing: 0.04em;
+	animation: vt-in 700ms 1100ms var(--ease-out) both;
+}
+
+.victory-cta {
+	margin-top: 32px;
+	pointer-events: auto;
+	padding: 12px 28px;
+	border-radius: 999px;
+	background: var(--gold);
+	color: #2a1f00;
+	font-family: var(--font-ui);
+	font-weight: 800;
+	font-size: 14px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 	border: none;
-	border-radius: 3px;
-	width: 308px;
-	height: 26px;
-	vertical-align: middle;
+	cursor: pointer;
+	box-shadow: 0 8px 24px rgba(212, 175, 55, 0.5);
+	animation: vt-in 700ms 1400ms var(--ease-out) both;
+	transition: transform var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out);
+}
+.victory-cta:hover {
+	transform: translateY(-2px) scale(1.04);
+	box-shadow: 0 12px 32px rgba(212, 175, 55, 0.65);
 }
 
-.cell-anchor {
+.victory-stats-link {
+	margin-top: 14px;
+	pointer-events: auto;
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.35);
+	color: rgba(255, 255, 255, 0.85);
+	font-family: var(--font-ui);
+	font-weight: 600;
+	font-size: 13px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 8px 20px;
+	border-radius: 999px;
+	cursor: pointer;
+	animation: vt-in 700ms 1600ms var(--ease-out) both;
+	transition: background var(--dur-hover) var(--ease-out),
+	            color var(--dur-hover) var(--ease-out),
+	            border-color var(--dur-hover) var(--ease-out),
+	            transform var(--dur-hover) var(--ease-out);
+}
+.victory-stats-link:hover {
+	background: rgba(255, 255, 255, 0.12);
+	color: #fff;
+	border-color: rgba(255, 255, 255, 0.55);
+	transform: translateY(-1px);
+}
+
+/* ============================================================
+   Reduced motion — kill 3D / scale / slide effects, keep fades
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	.cell-position {
+		animation: none;
+	}
+
+	#popup, #stats {
+		animation: none;
+	}
+}
+
+/* ============================================================
+   Layout helpers (extracted from inline style=).
+   Kept narrow and named so they read like documentation:
+   .tx-l/.tx-r — table cell alignment in #deed-table
+   .is-hidden  — static "hidden by default" marker; jQuery .show()/.hide()
+                 must keep working on these elements, so we deliberately
+                 DON'T use !important here. The inline `style="display:..."`
+                 jQuery sets wins on specificity.
+   .bare-cell  — table cells used purely for layout, no border
+   ============================================================ */
+.tx-l { text-align: left; }
+.tx-r { text-align: right; }
+.is-hidden { display: none; }
+.bare-cell { border: none; vertical-align: top; }
+
+/* Deed card structure that was previously inline. */
+#deed-table .deed-row-h-houses { /* shared between With N Houses rows */ }
+#deed-table .deed-h-label { text-align: left; }
+#deed-table .deed-h-value { text-align: right; }
+.deed-titledeed-text { margin: 5px; font-size: 11px; line-height: 1.3; }
+.deed-group-rule { font-size: 9px; font-style: italic; margin-top: 5px; line-height: 1.4; }
+.deed-hotel-row > div:first-child { margin-bottom: 8px; }
+#deed-mortgaged > .deed-mortgaged-note { font-style: italic; font-size: 13px; margin: 10px; }
+
+/* Popup/stats wrappers around the drag handles need positioning context
+   so their children's absolute drag handles resolve against the popup. */
+.popup-row { position: relative; }
+
+/* Setup form spacing chunks. */
+.setup-section-mb-20 { margin-bottom: 20px; }
+.setup-section-my-20 { margin: 20px 0; }
+#edition-select-row { margin: 8px 0 14px; }
+#edition-select-row label { margin-right: 6px; }
+
+/* Control panel layout — table cells that should not show borders. */
+#control td.bare-cell-left  { text-align: left; vertical-align: top; border: none; }
+#control td.bare-cell-right { vertical-align: top; border: none; }
+#control td.bare-cell-bot   { border: none; }
+#control .roll-bar { padding-top: 8px; position: relative; }
+#trade .trade-grid { gap: 3px; }
+
+/* ============================================================
+   Auto-accept countdown ring (added inside popups by popup() when an
+   `autoMs` option is passed). A circular SVG ring rendered next to the
+   primary button drains as the timer ticks. Pure compositor-friendly
+   stroke-dashoffset animation — no JS interval needed for the visual.
+   ============================================================ */
+.auto-accept-row {
+	margin-top: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	font-size: 14px;
+	color: var(--ink-muted);
+}
+.auto-accept-ring {
+	position: relative;
+	width: 48px;
+	height: 48px;
+	flex: 0 0 48px;
+}
+.auto-accept-ring svg {
 	width: 100%;
 	height: 100%;
+	transform: rotate(-90deg);  /* start the drain from 12 o'clock */
+}
+.auto-accept-ring .auto-track {
+	fill: none;
+	stroke: var(--hairline-strong);
+	stroke-width: 4;
+}
+.auto-accept-ring .auto-bar {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 4;
+	stroke-linecap: round;
+	stroke-dasharray: 138.23;   /* 2 × π × r where r = 22  → 138.23 */
+	stroke-dashoffset: 0;
+	transition: stroke-dashoffset linear;
+}
+/* When the auto-accept is cancelled (user interacted), the ring greys out
+   instantly so the player knows their interaction was registered. */
+.auto-accept-ring.auto-cancelled .auto-bar {
+	stroke: var(--ink-faint);
+	opacity: 0.45;
+}
+.auto-accept-ring .auto-num {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 800;
+	font-size: 18px;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+}
+.auto-accept-ring.auto-cancelled .auto-num { color: var(--ink-faint); }
+.auto-accept-label {
+	flex: 1 1 auto;
+	text-align: left;
+	font-size: 13px;
+	letter-spacing: 0.02em;
+}
+.auto-accept-label .auto-hint { color: var(--ink-faint); display: block; font-size: 11px; margin-top: 2px; }
+/* Inside a chance-card popup the ring should match the cream palette. */
+#popup.popup-card .auto-accept-ring .auto-track { stroke: rgba(110, 70, 30, 0.25); }
+#popup.popup-card .auto-accept-ring .auto-bar   { stroke: #8b4513; }
+#popup.popup-card .auto-accept-ring .auto-num   { color: #2a1f00; }
+#popup.popup-card .auto-accept-label            { color: #5a3d1f; }
+
+/* ============================================================
+   Auto-roll countdown on the "Tirar dados" button.
+   Subtle progress bar at the bottom of the button + tabular-numeric
+   countdown that decrements once per second. Cancels on any human
+   interaction (mousemove, key, click) — see _initDiceAutoRoll().
+   ============================================================ */
+#nextbutton.auto-roll-armed {
 	position: relative;
-	bottom: 0px;
-	left: 0px;
+	overflow: hidden;
 }
-
-.cell-name {
+#nextbutton.auto-roll-armed::after {
+	content: '';
 	position: absolute;
-	bottom: 0px;
-	left: 0px;
-	text-align: center;
-	width: 100%;
+	left: 0; bottom: 0;
+	height: 4px;
+	width: var(--auto-pct, 100%);
+	background: linear-gradient(90deg, var(--accent-bright), var(--accent));
+	transition: width 1s linear;
+	pointer-events: none;
 }
-
-.cell-position-holder {
-	width: 100%;
-	height: 100%;
-	z-index: 1;
-	position: relative;
-}
-
-.cell-position {
-	height: 12px;
-	width: 12px;
+.auto-roll-badge {
 	position: absolute;
-	top: 0px;
-	left: 0px;
+	right: -6px;
+	top: -10px;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background: var(--accent);
+	color: #fff;
+	font-weight: 800;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 0 2px var(--surface-card);
+	animation: auto-roll-pulse 1s ease-in-out infinite;
+	z-index: 5;
+	pointer-events: none;
 }
-
-.cell-owner {
-	background-size: cover;
-	display: none;
-	position: absolute;
+@keyframes auto-roll-pulse {
+	0%, 100% { transform: scale(1); }
+	50%      { transform: scale(1.08); }
 }
-
-.board-top .cell-owner {
-	background-image: url("images/hori-bar.png");
-
-	height: 15px;
-	left: 0px;
-
-
-
-	top: -25px;
-	width: 72px;
-
-}
-
-.board-bottom .cell-owner {
-	background-image: url("images/hori-bar.png");
-	bottom: -25px;
-
-	height: 15px;
-
-
-
-
-	left: 0px;
-	width: 72px;
-}
-
-.board-left .cell-owner {
-	background-image: url("images/vert-bar.png");
-
-	height: 68px;
-	left: -25px;
-
-
-
-	top: 0px;
-	width: 15px;
-
-}
-
-.board-right .cell-owner {
-	background-image: url("images/vert-bar.png");
-
-	height: 68px;
-	right: -25px;
-
-
-
-	top: 0px;
-	width: 15px;
-
+.auto-roll-badge.dim {
+	background: var(--ink-faint);
+	animation: none;
+	opacity: 0.45;
 }
