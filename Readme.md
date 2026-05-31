@@ -125,14 +125,31 @@ window.__AUTO_ROLL_MS = 10000;
 ```text
 .
 ├── index.html                  ← entry point único
-├── styles.css                  ← todos los estilos + tokens de tema + dark mode
-├── monopoly.js                 ← motor de juego, UI, render, animaciones
-├── ai.js                       ← bots AIEasy / AINormal / AIHard (IIFE)
-├── ui.js                       ← Sound, toasts, modal/keyboard helpers
+├── styles.css                  ← todos los estilos + tokens de tema + dark mode (~5600 líneas)
+├── manifest.webmanifest        ← PWA manifest (instalable)
+├── sw.js                       ← service worker (cache-first, offline-ready)
+│
+│  ── Motor de juego (split en Sprint 5) ──
+├── engine.js                   ← Game ctor + estado + dados + flujo de turno (~1400 líneas)
+├── players.js                  ← clase Player + tokens (~100 líneas)
+├── animations.js               ← walk, dice 3D, shake, zoom, confetti, splash (~1850 líneas)
+├── render.js                   ← board paint + money bar + property cards (~1000 líneas)
+├── monopoly.js                 ← shell delgado + boot sequence + UI handlers (~2600 líneas)
+│
+│  ── IA y assets ──
+├── ai.js                       ← bots AIEasy / AINormal / AIHard / AIAdaptive (IIFE)
+├── ai-worker.js                ← Web Worker para evaluación de trades (off-main-thread)
+├── ui.js                       ← Sound, toasts, modal/keyboard helpers (vanilla DOM)
 ├── i18n.js                     ← diccionario EN/ES + t() + tn() + escape()
 ├── edition-common.js           ← Square / Card / utiltext compartidos
 ├── classicedition.js           ← datos del tablero clásico
 ├── newyorkcityedition.js       ← datos del tablero NYC
+│
+├── tools/                      ← harness de smoke tests headless (CDP)
+│   ├── cdp.js
+│   ├── harness.js
+│   ├── run-tests.{sh,bat}
+│   └── tests/                  ← 5 tests independientes
 ├── audio/
 │   ├── music-classic.mp3       ← música de fondo Classic (96 kbps VBR)
 │   ├── music-nyc.mp3           ← música de fondo NYC
@@ -146,16 +163,19 @@ window.__AUTO_ROLL_MS = 10000;
 
 ## Stack técnico
 
-- **HTML5** semántico + `<!DOCTYPE html>` + meta CSP
-- **CSS** vanilla con custom properties (`:root`) — un solo archivo de ~4600 líneas
+- **HTML5** semántico + `<!DOCTYPE html>` + meta CSP + Web App Manifest (PWA instalable)
+- **CSS** vanilla con custom properties (`:root`) — un solo archivo de ~5600 líneas
   - Sistema de temas con tokens (`--surface`, `--ink`, `--accent`, `--ledger-bg-start`…)
   - `@media (prefers-color-scheme: dark)` + clases `.theme-light` / `.theme-dark` para forzar
-- **JavaScript** ES5-compatible (sin Babel ni transpilador) — vanilla DOM, sin jQuery
+- **JavaScript** ES5-compatible (sin Babel ni transpilador) — **100% vanilla DOM, sin jQuery**
+  - **5 módulos de motor**: `engine.js` + `players.js` + `animations.js` + `render.js` + `monopoly.js`
+  - **Web Worker** (`ai-worker.js`) para no bloquear el hilo principal en evaluación de trades de IA
+  - **Service Worker** (`sw.js`) cache-first para funcionar offline tras la primera carga
 - **Web Audio API** + HTMLAudioElement para SFX y música
 - **Cache busting** vía `?v=YYYYMMDDx` en los `<script>`/`<link>` para invalidar tras releases
 
 Sin build tools, sin npm install, sin transpilation, sin bundler.
-Funciona offline una vez cargado.
+Funciona offline una vez cargado (PWA).
 
 ---
 
@@ -181,6 +201,24 @@ Cada test es independiente: `node tools/tests/01-setup-to-game.js` etc.
 ## Compatibilidad
 
 Probado en Edge / Chrome / Firefox modernos. iOS Safari requiere primer gesto del usuario antes de reproducir audio (manejado automáticamente). El layout escala via `fitStage()` a viewport landscape o portrait (rota 90° en mobile vertical).
+
+---
+
+## Sprint roadmap completion
+
+Los 7 sprints del roadmap de mejora profunda están **completos y mergeados a main**:
+
+| # | Sprint                                              | Estado | Highlight                                              |
+|---|-----------------------------------------------------|--------|--------------------------------------------------------|
+| 1 | Money rolling + turn glow + dice pulse + haptics    | OK     | Microinteracciones que dan vida al tablero             |
+| 2 | Token bounce + screen shake + camera zoom + flip 3D | OK     | Feedback físico en cada movimiento y carta             |
+| 3 | Splash screen + Monopoly confetti                   | OK     | Cinemática de arranque y celebración de victoria       |
+| 4 | PWA (manifest + service worker)                     | OK     | Instalable, funciona offline tras primera carga        |
+| 5 | Split de `monopoly.js` en 5 módulos                 | OK     | `engine` + `players` + `animations` + `render` + shell |
+| 6 | Drop jQuery 1.11 → vanilla DOM                      | OK     | -30 KB de dependencias, cero librerías externas        |
+| 7 | AI Worker (off-main-thread)                         | OK     | Evaluación de trades de IA en `ai-worker.js`           |
+
+Los **5 smoke tests** (`tools/run-tests.sh`) pasan en verde tras cada sprint.
 
 ---
 
