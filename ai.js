@@ -155,6 +155,53 @@ function __aiActivePlayerCount() {
 	return pcount;
 }
 
+// How many full monopolies a player owns.
+function __aiMonopolyCount(playerIdx) {
+	var n = 0;
+	for (var g = 1; g <= 10; g++) if (__aiOwnsGroup(playerIdx, g)) n++;
+	return n;
+}
+
+// Total liquid value the player could raise NOW (cash + mortgage value of
+// unmortgaged props + half-price of every house). Used for cash-stress checks.
+function __aiLiquidity(playerIdx) {
+	if (!player[playerIdx]) return 0;
+	var liq = player[playerIdx].money;
+	for (var i = 0; i < 40; i++) {
+		var sq = square[i];
+		if (sq.owner !== playerIdx) continue;
+		if (!sq.mortgage && sq.house === 0 && !sq.hotel) liq += Math.round(sq.price * 0.5);
+		if (sq.house > 0) liq += sq.house * Math.round((sq.houseprice || 0) * 0.5);
+		if (sq.hotel)     liq += 5 * Math.round((sq.houseprice || 0) * 0.5);
+	}
+	return liq;
+}
+
+// Properties this player owns that are NOT in a monopoly of theirs — these
+// are "loose" assets safe to trade away or mortgage first.
+function __aiLooseProps(playerIdx) {
+	var out = [];
+	for (var i = 0; i < 40; i++) {
+		var sq = square[i];
+		if (sq.owner !== playerIdx) continue;
+		if (sq.groupNumber === 1 || sq.groupNumber === 2) continue; // railroads/utilities
+		if (__aiOwnsGroup(playerIdx, sq.groupNumber)) continue;
+		out.push(i);
+	}
+	return out;
+}
+
+// Number of houses currently on the board (each hotel returned its 4 houses
+// to the bank when upgraded, so they don't count). Monopoly's bank starts
+// with 32 houses; if (32 - built) is low, the house-shortage trick is biting.
+function __aiHousesInBank() {
+	var built = 0;
+	for (var i = 0; i < 40; i++) {
+		if (square[i].house > 0 && !square[i].hotel) built += square[i].house;
+	}
+	return Math.max(0, 32 - built);
+}
+
 
 // ============================================================
 //  EASY — "naive kid"
@@ -258,10 +305,11 @@ function AIEasy(p) {
 			}
 			if (s.house === minH) candidates.push(i);
 		}
-		// Buy ONE house on a random eligible lot per turn.
+		// Buy ONE house on a random eligible lot per turn. Bump the cash
+		// floor to $150 so we don't auto-bankrupt on the very next rent hit.
 		if (candidates.length > 0) {
 			var pick = candidates[Math.floor(Math.random() * candidates.length)];
-			if (p.money > square[pick].houseprice + 50) buyHouse(pick);
+			if (p.money > square[pick].houseprice + 150) buyHouse(pick);
 		}
 		return false;
 	};
@@ -275,13 +323,20 @@ function AIEasy(p) {
 	};
 
 	this.payDebt = function () {
-		// Panic mode: mortgage random eligible properties until solvent.
+		// Slightly less panicked: mortgage LOOSE props (not part of any
+		// monopoly) before touching grouped ones. Easy still doesn't sort
+		// by price/ROI — just preserves what little structure it has.
+		var loose = __aiLooseProps(p.index);
+		loose.sort(function () { return Math.random() - 0.5; });
+		for (var k = 0; k < loose.length && p.money < 0; k++) {
+			if (!square[loose[k]].mortgage && square[loose[k]].house === 0) mortgage(loose[k]);
+		}
+		// Then random eligible properties (any group).
 		var owned = [];
 		for (var i = 0; i < 40; i++) {
 			var sq = square[i];
 			if (sq.owner === p.index && !sq.mortgage && sq.house === 0) owned.push(i);
 		}
-		// Shuffle for randomness.
 		owned.sort(function () { return Math.random() - 0.5; });
 		for (var k = 0; k < owned.length && p.money < 0; k++) mortgage(owned[k]);
 
@@ -337,11 +392,13 @@ function AINormal(p) {
 	this.constructor.count++;
 	p.name = __pickAIName();
 
-	// Cash reserve scales with game state.
+	// Cash reserve scales with game state AND the current rent danger.
 	function reserve() {
 		var base = 80;
-		// Mid-game (lots owned), keep more cash for rent hits.
 		base += __aiOwnedCount(p.index) * 15;
+		// If an opponent threatens a heavy rent, keep more liquidity.
+		var threat = __aiMaxOpponentRent(p.index);
+		if (threat > 200) base += Math.min(150, Math.round((threat - 200) * 0.3));
 		return base;
 	}
 
@@ -499,11 +556,15 @@ function AINormal(p) {
 	};
 
 	this.postBail = function () {
-		// Mid-late game: stay if has rent danger and a jail card.
-		if (__aiOwnedCount(p.index) >= 5) {
-			return (p.communityChestJailCard || p.chanceJailCard) && p.jailroll === 2;
+		// Stay in jail when the board is dangerous: high rent threat AND
+		// either a jail card or healthy cash. Last roll always pays out.
+		if (p.jailroll === 2) return true;
+		var threat = __aiMaxOpponentRent(p.index);
+		var ownedLate = __aiOwnedCount(p.index) >= 4;
+		if (threat >= 150 && ownedLate) {
+			// Stay unless burning the $50 bail is the only way out.
+			return false;
 		}
-		// Early game: always try to get out.
 		return true;
 	};
 
@@ -579,11 +640,14 @@ function AIHard(p) {
 	this.constructor.count++;
 	p.name = __pickAIName();
 
-	// Dynamic reserve based on biggest rent danger from opponents.
+	// Dynamic reserve based on biggest rent danger AND own monopoly count
+	// (more monopolies = more construction obligations).
 	function reserve() {
 		var owned = __aiOwnedCount(p.index);
+		var monos = __aiMonopolyCount(p.index);
 		var maxRent = __aiMaxOpponentRent(p.index);
-		return Math.max(100 + owned * 25, Math.round(maxRent * 0.7));
+		var base = 100 + owned * 25 + monos * 40;
+		return Math.max(base, Math.round(maxRent * 0.8));
 	}
 
 	this.buyProperty = function (index) {
@@ -593,15 +657,27 @@ function AIHard(p) {
 		// Always buy a monopoly-completer.
 		if (__aiCompletesGroup(p.index, index)) return true;
 
-		// DEFENSIVE: if NOT buying it lets an opponent complete their group,
-		// snipe it even at a thin margin (block).
 		var g = s.groupNumber;
+
+		// DEFENSIVE LV1: snipe if not buying lets an opponent complete their group.
 		if (g >= 3) {
 			for (var pp = 1; pp <= pcount; pp++) {
 				if (pp === p.index) continue;
 				if (__aiOwnedInGroup(pp, g) === __aiGroupSize(g) - 1) {
-					// Opponent has 2 of 3 (or 1 of 2). This is their final piece.
 					if (p.money >= s.price + 50) return true;
+				}
+			}
+		}
+
+		// DEFENSIVE LV2 (anti-stripe): if an opponent already owns 1+ in this
+		// group AND we own none, buying this property OURSELVES breaks their
+		// monopoly chance. Worth it on high-ROI groups when comfortable on cash.
+		if (g >= 3 && __aiOwnedInGroup(p.index, g) === 0) {
+			for (var pp = 1; pp <= pcount; pp++) {
+				if (pp === p.index) continue;
+				if (__aiOwnedInGroup(pp, g) >= 1) {
+					var gvDef = __AI_GROUP_VALUE[g] || 5;
+					if (gvDef >= 7 && p.money >= s.price + reserve() + 60) return true;
 				}
 			}
 		}
@@ -814,11 +890,8 @@ function AIHard(p) {
 
 	this.bid = function (property, currentBid) {
 		var s = square[property];
-		// Base ceiling: 1.3× price for normal stuff.
 		var cap = s.price * 1.3;
-		// Monopoly completer: pay UP TO 2.2× face value (very aggressive).
 		if (__aiCompletesGroup(p.index, property)) cap = s.price * 2.2;
-		// DEFENSIVE: if it would complete an OPPONENT's group, bid hard to block.
 		var blockBid = false;
 		for (var pp = 1; pp <= pcount; pp++) {
 			if (pp === p.index) continue;
@@ -827,35 +900,49 @@ function AIHard(p) {
 				cap = Math.max(cap, s.price * 1.5);
 			}
 		}
-		// High-ROI groups warrant a premium.
 		var gv = __AI_GROUP_VALUE[s.groupNumber] || 5;
 		if (gv >= 8) cap *= 1.2;
 
-		var increment = blockBid
-			? Math.round(20 + Math.random() * 40)   // aggressive bumps
-			: Math.round(10 + Math.random() * 25);
-		var bid = currentBid + increment;
+		// Stepped increment: chunky bumps while well below cap, tiny bumps
+		// near the ceiling so we don't overshoot.
+		var headroom = cap - currentBid;
+		var increment;
+		if (headroom > cap * 0.4)      increment = blockBid ? 30 + Math.random() * 50 : 20 + Math.random() * 30;
+		else if (headroom > cap * 0.15) increment = blockBid ? 15 + Math.random() * 25 : 10 + Math.random() * 15;
+		else                            increment = blockBid ? 5  + Math.random() * 10 : 3  + Math.random() * 7;
+		var bid = currentBid + Math.round(increment);
 		if (bid > cap) return -1;
-		if (bid + 80 > p.money) return -1;
+		// Never bid past liquidity safety: keep reserve + 60.
+		if (bid + reserve() + 60 > p.money) return -1;
 		return bid;
 	};
 }
 AIHard.count = 0;
 
 // ============================================================
-//  ADAPTIVE — dynamic difficulty
+//  ADAPTIVE — dynamic difficulty (v2)
 //
-//  Tracks the human's net worth versus the average non-human player
-//  and switches its internal level between Easy / Normal / Hard so the
-//  match stays competitive:
+//  Scores the human's relative dominance against a composite signal:
 //
-//    human leads avg AI by >30%  → Hard
-//    parity (±30%)                → Normal
-//    human trails avg AI by >30% → Easy
+//    score = 0.55·netWorthRatio + 0.25·monopolyRatio
+//          + 0.10·liquidityRatio + 0.10·trend
 //
-//  Re-evaluates at the start of every other AI turn. To preserve the
-//  fairness illusion the level change isn't announced unless the engine
-//  is in debug mode (window.__AI_ADAPTIVE_DEBUG === true).
+//  Where each ratio is human-side / average-other-non-self-AI-side, normalized
+//  so 1.0 = parity. Trend is the slope of the last 3 raw scores (positive = the
+//  human is pulling ahead). The score is mapped to a level with hysteresis:
+//
+//    upgrade Normal → Hard  when score > 1.30 (and stays ≥1.20 to keep Hard)
+//    downgrade Normal → Easy when score < 0.75 (and stays ≤0.85 to keep Easy)
+//
+//  This widens the inner band so the bot doesn't flip levels every two turns
+//  on noise; only sustained advantage triggers a change.
+//
+//  A 4-turn warmup keeps everything at Normal until enough state has built up
+//  to be meaningful (otherwise the very first eval would flip on starter cash
+//  divisions).
+//
+//  Silent by default. Set window.__AI_ADAPTIVE_DEBUG = true to log
+//  transitions to the console.
 // ============================================================
 function __aiNetWorth(playerIdx) {
 	if (!player[playerIdx]) return 0;
@@ -863,12 +950,10 @@ function __aiNetWorth(playerIdx) {
 	for (var i = 0; i < 40; i++) {
 		var sq = square[i];
 		if (sq.owner !== playerIdx) continue;
-		// Mortgaged property is worth its mortgage redemption value (55%).
 		net += sq.mortgage ? Math.round(sq.price * 0.45) : sq.price;
 		if (sq.house > 0) net += sq.house * (sq.houseprice || 0);
-		if (sq.hotel)    net += 5 * (sq.houseprice || 0);
+		if (sq.hotel)     net += 5 * (sq.houseprice || 0);
 	}
-	// Jail cards have some option value.
 	if (player[playerIdx].communityChestJailCard) net += 25;
 	if (player[playerIdx].chanceJailCard)         net += 25;
 	return net;
@@ -879,21 +964,28 @@ function AIAdaptive(p) {
 	this.constructor.count++;
 	p.name = __pickAIName();
 
-	// Each sub-AI constructor overwrites p.name. Save the name and restore
-	// it after every construction so the adaptive bot keeps its identity.
+	// Save name once and restore after each sub-construction (each sub-AI's
+	// constructor calls __pickAIName and overwrites p.name).
 	var savedName = p.name;
 	this._easy   = new AIEasy(p);   p.name = savedName;
 	this._normal = new AINormal(p); p.name = savedName;
 	this._hard   = new AIHard(p);   p.name = savedName;
-	// Roll back the count bumps from the sub-AI constructors — only the
-	// adaptive instance should count toward the public registry.
+	// Only AIAdaptive.count should reflect this player.
 	AIEasy.count--;
 	AINormal.count--;
 	AIHard.count--;
 
 	this._level = 'normal';
-	var turnsSinceEval = 0;
+	var turnCount = 0;
+	var scoreHistory = []; // raw composite scores, max 4 entries
 	var self = this;
+
+	// Hysteresis thresholds: cross outer to enter the level, fall back through
+	// inner to leave it. Asymmetric bands prevent ping-ponging.
+	var UP_ENTER   = 1.30, UP_LEAVE   = 1.20; // Hard ↔ Normal
+	var DOWN_ENTER = 0.75, DOWN_LEAVE = 0.85; // Easy ↔ Normal
+	var WARMUP_TURNS = 4;
+	var EVAL_EVERY   = 2;
 
 	function active() {
 		if (self._level === 'easy') return self._easy;
@@ -901,30 +993,73 @@ function AIAdaptive(p) {
 		return self._normal;
 	}
 
-	function reEvaluate() {
-		// Find the human(s). If there is no human in this game, stay Normal.
-		var humanNet = 0, humanCount = 0;
-		var aiNet = 0,    aiCount = 0;
+	function ratioVs(humanVal, aiVal) {
+		if (aiVal <= 0 && humanVal <= 0) return 1;
+		if (aiVal <= 0) return 2;            // human has it, AI doesn't → "dominating"
+		return humanVal / aiVal;
+	}
+
+	function computeScore() {
+		var humanNet = 0, humanMonos = 0, humanLiq = 0, humanCount = 0;
+		var aiNet = 0,    aiMonos = 0,    aiLiq = 0,    aiCount = 0;
 		for (var i = 1; i <= pcount; i++) {
 			var pp = player[i];
 			if (!pp || pp.bankrupt) continue;
-			var nw = __aiNetWorth(i);
-			if (pp.human) { humanNet += nw; humanCount++; }
-			else if (i !== p.index) { aiNet += nw; aiCount++; }
+			var nw  = __aiNetWorth(i);
+			var mn  = __aiMonopolyCount(i);
+			var lq  = __aiLiquidity(i);
+			if (pp.human) { humanNet += nw; humanMonos += mn; humanLiq += lq; humanCount++; }
+			else if (i !== p.index) { aiNet += nw; aiMonos += mn; aiLiq += lq; aiCount++; }
 		}
-		if (humanCount === 0) { self._level = 'normal'; return; }
-		var avgHuman = humanNet / humanCount;
-		var avgAI    = aiCount > 0 ? aiNet / aiCount : __aiNetWorth(p.index);
-		var ratio    = avgHuman / Math.max(1, avgAI);
+		if (humanCount === 0) return null;
+		var avgH_net = humanNet / humanCount;
+		var avgH_mn  = humanMonos / humanCount;
+		var avgH_lq  = humanLiq / humanCount;
+		var avgA_net = aiCount > 0 ? aiNet / aiCount : __aiNetWorth(p.index);
+		var avgA_mn  = aiCount > 0 ? aiMonos / aiCount : __aiMonopolyCount(p.index);
+		var avgA_lq  = aiCount > 0 ? aiLiq / aiCount : __aiLiquidity(p.index);
+		var rNet  = ratioVs(avgH_net, avgA_net);
+		var rMono = ratioVs(avgH_mn + 0.5, avgA_mn + 0.5); // +0.5 smooths the 0-monopolies case
+		var rLiq  = ratioVs(avgH_lq, avgA_lq);
 
+		// Trend: slope of last (up to) 3 net-worth ratios. Captured separately
+		// from current score so a slowly-rising human triggers earlier.
+		scoreHistory.push(rNet);
+		if (scoreHistory.length > 4) scoreHistory.shift();
+		var trend = 1.0;
+		if (scoreHistory.length >= 3) {
+			var first = scoreHistory[0];
+			var last  = scoreHistory[scoreHistory.length - 1];
+			// Map slope into a ~[0.8, 1.2] multiplier.
+			var slope = (last - first) / (scoreHistory.length - 1);
+			trend = 1 + Math.max(-0.2, Math.min(0.2, slope * 0.8));
+		}
+
+		var composite = 0.55 * rNet + 0.25 * rMono + 0.10 * rLiq + 0.10 * trend;
+		return { score: composite, rNet: rNet, rMono: rMono, rLiq: rLiq, trend: trend };
+	}
+
+	function reEvaluate() {
+		var info = computeScore();
+		if (!info) return;
+		var s = info.score;
 		var prev = self._level;
-		if      (ratio > 1.30) self._level = 'hard';
-		else if (ratio < 0.70) self._level = 'easy';
-		else                   self._level = 'normal';
-
+		// Hysteresis-driven transition table.
+		if (prev === 'hard') {
+			if (s < UP_LEAVE) self._level = (s < DOWN_ENTER ? 'easy' : 'normal');
+		} else if (prev === 'easy') {
+			if (s > DOWN_LEAVE) self._level = (s > UP_ENTER ? 'hard' : 'normal');
+		} else {
+			if      (s > UP_ENTER)   self._level = 'hard';
+			else if (s < DOWN_ENTER) self._level = 'easy';
+		}
 		if (self._level !== prev && window.__AI_ADAPTIVE_DEBUG === true) {
 			console.log('[adaptive ' + p.name + '] ' + prev + ' → ' + self._level +
-				' (ratio human/AI = ' + ratio.toFixed(2) + ')');
+				' (score=' + s.toFixed(2) +
+				' net=' + info.rNet.toFixed(2) +
+				' mono=' + info.rMono.toFixed(2) +
+				' liq=' + info.rLiq.toFixed(2) +
+				' trend=' + info.trend.toFixed(2) + ')');
 		}
 	}
 
@@ -935,17 +1070,17 @@ function AIAdaptive(p) {
 	this.payDebt     = function ()    { return active().payDebt(); };
 	this.bid         = function (i, b){ return active().bid(i, b); };
 
-	// beforeTurn is the once-per-turn hook — perfect place to re-evaluate.
-	// Skipping the first call so we don't switch off the default Normal until
-	// some game state has actually accumulated.
 	this.beforeTurn = function () {
-		turnsSinceEval++;
-		if (turnsSinceEval >= 2) {
-			turnsSinceEval = 0;
+		turnCount++;
+		// Warmup: don't even sample until the board has some state.
+		if (turnCount > WARMUP_TURNS && (turnCount % EVAL_EVERY === 0)) {
 			reEvaluate();
 		}
 		return active().beforeTurn();
 	};
+
+	// Exposed for tests / debugging.
+	this._currentLevel = function () { return self._level; };
 }
 AIAdaptive.count = 0;
 
