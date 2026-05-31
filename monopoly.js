@@ -2658,7 +2658,12 @@ function __walkPlayerSteps(playerSlot, startPos, steps, done) {
 		var cellEl = document.getElementById('cell' + cellIdx);
 		if (!hostEl || !cellEl) {
 			if (i < steps) tok.__walkTimer = setTimeout(function () { step(i + 1); }, STEP_MS);
-			else safeDone();
+			else {
+				// Final-step DOM missing: snap token to the logical destination
+				// so the visual never lags p.position when the cell vanished.
+				try { __snapTokenToPosition(playerSlot); } catch (e) {}
+				safeDone();
+			}
 			return;
 		}
 		var insetX = 6, insetY = 6;
@@ -3351,7 +3356,7 @@ function __attachThrow(primary, partner) {
 		// flingPair() would clobber the active die1/die2 mid-walk, leaving
 		// the next roll with stale dice values and the token moving the
 		// wrong number of cells.
-		if (window.__walking) { return; }
+		if (window.__walking) { __diceThrowing = false; return; }
 		// Stop the idle spin — flingPair takes over rotation control.
 		if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = null; }
 		// 1) Roll the dice now. Values are needed up-front so the cubes
@@ -4198,8 +4203,6 @@ function advanceToNearestUtility() {
 function advanceToNearestRailroad() {
 	var p = player[turn];
 
-	updatePosition();
-
 	if (p.position < 15) {
 		p.position = 15;
 	} else if (p.position < 25) {
@@ -4951,7 +4954,7 @@ function _exitJailAndWalkTo(p, die1, die2) {
 //   - otherwise → stay in jail this turn
 function _handleJailTurn(p, die1, die2) {
 	p.jailroll++;
-	updateDice(die1, die2);
+	updateDice();
 
 	if (die1 == die2) {
 		document.getElementById("jail").style.border = "1px solid black";
@@ -4989,7 +4992,8 @@ function _handleJailTurn(p, die1, die2) {
 
 // Normal non-jail movement: advance, pay GO salary if wrapped, walk.
 function _handleNormalMove(p, die1, die2) {
-	updateDice(die1, die2);
+	// Doubles path already tumbled the dice in roll(); skip to avoid a second tumble/sound.
+	if (die1 !== die2) updateDice();
 
 	var startPos = p.position;
 	var moveAmount = die1 + die2;
@@ -5050,7 +5054,7 @@ function roll() {
 	}
 
 	if (die1 == die2 && !p.jail) {
-		updateDice(die1, die2);
+		updateDice();
 		if (doublecount < 3) {
 			document.getElementById("nextbutton").value = t('ui.rollAgain');
 			document.getElementById("nextbutton").title = t('ui.rollAgainTitle');
