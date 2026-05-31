@@ -206,17 +206,33 @@ function AIEasy(p) {
 		if (p.money < s.price + 30) return false;    // tiny safety net
 		// Impulsive: 70% chance to buy, 100% if completes a group.
 		if (__aiCompletesGroup(p.index, index)) return true;
+		// Mild defensive instinct (still naïve): if an opponent owns N-1 of
+		// this group, sniping it for ~free is too tempting to pass up.
+		var g = s.groupNumber;
+		if (g >= 3) {
+			for (var pp = 1; pp <= pcount; pp++) {
+				if (pp === p.index) continue;
+				if (__aiOwnedInGroup(pp, g) === __aiGroupSize(g) - 1 && p.money >= s.price + 40) return true;
+			}
+		}
 		return Math.random() > 0.30;
 	};
 
 	this.acceptTrade = function (tradeObj) {
-		// Naive: only checks if the money offer is positive. Ignores property
-		// value and strategic blocking. Random fudge for unpredictability.
+		// Naive: mostly looks at money + rough property value.
 		var money = tradeObj.getMoney();
+		var initiator = tradeObj.getInitiator();
+		var prop = [];
 		var roughValue = money;
 		for (var i = 0; i < 40; i++) {
 			var sign = tradeObj.getProperty(i);
+			prop[i] = sign;
 			if (sign) roughValue += sign * square[i].price * 0.4;
+		}
+		// Newly-learned rule: don't gift a monopoly. Even a "kid" notices
+		// after losing once. Refuse unless overcompensated by a lot.
+		if (__aiTradeGivesOpponentMonopoly(initiator.index, prop) && roughValue < 200) {
+			return false;
 		}
 		// Slightly biased toward accepting (kids love trading cards).
 		if (roughValue > -100 && Math.random() > 0.35) return true;
@@ -253,7 +269,8 @@ function AIEasy(p) {
 	this.onLand = function () { return false; };
 
 	this.postBail = function () {
-		// Impatient: always wants out immediately.
+		// Impatient: always wants out immediately. Engine auto-prefers the
+		// jail card over $50 when one is available.
 		return true;
 	};
 
@@ -333,10 +350,20 @@ function AINormal(p) {
 		if (s.price === 0 || p.money < s.price) return false;
 		// Always buy a monopoly-completer if affordable.
 		if (__aiCompletesGroup(p.index, index)) return p.money >= s.price + 20;
+		// Defensive block: snipe a property that would complete an opponent's
+		// monopoly. Casual players notice this kind of threat.
+		var g = s.groupNumber;
+		if (g >= 3) {
+			for (var pp = 1; pp <= pcount; pp++) {
+				if (pp === p.index) continue;
+				if (__aiOwnedInGroup(pp, g) === __aiGroupSize(g) - 1 && p.money >= s.price + 30) return true;
+			}
+		}
 		// Otherwise, respect the cash reserve.
-		var gv = __AI_GROUP_VALUE[s.groupNumber] || 5;
+		var gv = __AI_GROUP_VALUE[g] || 5;
 		var rsv = reserve();
 		if (gv >= 7) rsv -= 20;     // slightly more eager on high-ROI
+		if (gv <= 4) rsv += 30;     // wary of low-ROI (utilities, browns)
 		return p.money > s.price + rsv;
 	};
 
@@ -380,17 +407,19 @@ function AINormal(p) {
 	};
 
 	this.beforeTurn = function () {
-		// Even-build on owned groups, capped to comfort.
-		for (var i = 0; i < 40; i++) {
-			var s = square[i];
-			if (s.owner !== p.index || s.groupNumber < 3) continue;
-			if (!__aiOwnsGroup(p.index, s.groupNumber)) continue;
+		// Build on owned groups in ROI order — orange/red/yellow first, browns last.
+		var roiOrder = [6, 7, 8, 9, 10, 5, 4, 3];
+		for (var pi = 0; pi < roiOrder.length; pi++) {
+			var groupNum = roiOrder[pi];
+			if (!__aiOwnsGroup(p.index, groupNum)) continue;
 
-			var leastIdx = -1, leastH = 6, blocked = false;
-			for (var j = 0; j < s.group.length; j++) {
-				var g = square[s.group[j]];
-				if (g.mortgage) { blocked = true; break; }
-				if (g.house < leastH) { leastH = g.house; leastIdx = s.group[j]; }
+			// Even-build: find the lot with the fewest houses in the group.
+			var leastIdx = -1, leastH = 6, blocked = false, groupLots = null;
+			for (var i = 0; i < 40; i++) {
+				if (square[i].groupNumber !== groupNum || square[i].owner !== p.index) continue;
+				if (!groupLots) groupLots = square[i].group;
+				if (square[i].mortgage) { blocked = true; break; }
+				if (square[i].house < leastH) { leastH = square[i].house; leastIdx = i; }
 			}
 			if (!blocked && leastIdx >= 0 && leastH < 5 &&
 			    p.money > square[leastIdx].houseprice + 100) {
@@ -409,10 +438,47 @@ function AINormal(p) {
 	};
 
 	var utilityForRailroadFlag = true; // pitch only once per game
+	var pitchedTo = {};                 // recipient idx → true (one pitch per opp)
 	this.onLand = function () {
-		if (!utilityForRailroadFlag) return false;
 		if (game.getDie(1) === game.getDie(2)) return false;
-		var prop = new Array(40).fill(0);
+
+		// Pitch 1: trade a property we own for one that completes a group of ours.
+		// Looks for groups where we own N-1; finds the missing piece's owner
+		// and offers any spare unimproved property + small cash.
+		for (var myG = 3; myG <= 10; myG++) {
+			var owned = __aiOwnedInGroup(p.index, myG);
+			if (owned === 0 || owned !== __aiGroupSize(myG) - 1) continue;
+			var missing = -1, ownerIdx = -1;
+			for (var i = 0; i < 40; i++) {
+				if (square[i].groupNumber === myG && square[i].owner !== p.index && square[i].owner !== 0) {
+					missing = i; ownerIdx = square[i].owner; break;
+				}
+			}
+			if (missing < 0 || pitchedTo[ownerIdx]) continue;
+			// Find a spare unimproved property we can give away (not part of a monopoly).
+			var offering = -1;
+			for (var i = 0; i < 40; i++) {
+				var sq = square[i];
+				if (sq.owner !== p.index || sq.house > 0 || sq.mortgage) continue;
+				if (sq.groupNumber === 1 || sq.groupNumber === 2) continue;
+				if (__aiOwnsGroup(p.index, sq.groupNumber)) continue;
+				offering = i; break;
+			}
+			if (offering < 0) continue;
+			var prop = new Array(40).fill(0);
+			prop[missing] = -1;
+			prop[offering] = 1;
+			var diff = square[missing].price - square[offering].price;
+			var cash = Math.max(0, Math.round(diff * 0.5));
+			if (cash > p.money - reserve()) cash = Math.max(0, p.money - reserve());
+			pitchedTo[ownerIdx] = true;
+			game.trade(new Trade(p, player[ownerIdx], cash, prop, 0, 0));
+			return true;
+		}
+
+		// Pitch 2 (legacy): utility-for-railroad swap, once per game.
+		if (!utilityForRailroadFlag) return false;
+		var prop2 = new Array(40).fill(0);
 		var requestedRailroad = null;
 		var offeredUtility = null;
 		var rails = [5, 15, 25, 35];
@@ -424,9 +490,9 @@ function AINormal(p) {
 		else if (square[28].owner === p.index && square[12].owner !== p.index) offeredUtility = 28;
 		if (requestedRailroad && offeredUtility) {
 			utilityForRailroadFlag = false;
-			prop[requestedRailroad] = -1;
-			prop[offeredUtility] = 1;
-			game.trade(new Trade(p, player[square[requestedRailroad].owner], 0, prop, 0, 0));
+			prop2[requestedRailroad] = -1;
+			prop2[offeredUtility] = 1;
+			game.trade(new Trade(p, player[square[requestedRailroad].owner], 0, prop2, 0, 0));
 			return true;
 		}
 		return false;
@@ -472,6 +538,14 @@ function AINormal(p) {
 		var s = square[property];
 		var ceiling = s.price * 1.1;
 		if (__aiCompletesGroup(p.index, property)) ceiling = s.price * 1.6;
+		// Defensive bid: outbid when an opponent is one short of completing this group.
+		for (var pp = 1; pp <= pcount; pp++) {
+			if (pp === p.index) continue;
+			if (__aiOwnedInGroup(pp, s.groupNumber) === __aiGroupSize(s.groupNumber) - 1) {
+				ceiling = Math.max(ceiling, s.price * 1.3);
+				break;
+			}
+		}
 		var bid = currentBid + Math.round(15 + Math.random() * 20);
 		if (bid > ceiling) return -1;
 		if (bid + reserve() > p.money) return -1;
@@ -536,6 +610,8 @@ function AIHard(p) {
 		var gv = __AI_GROUP_VALUE[g] || 5;
 		if (gv >= 8) rsv -= 60;   // pay more for top ROI groups
 		if (gv <= 4) rsv += 50;   // wary of low-ROI
+		// Snipe high-ROI when we own one of the group (working toward monopoly).
+		if (gv >= 8 && __aiOwnedInGroup(p.index, g) >= 1) rsv -= 40;
 		return p.money > s.price + rsv;
 	};
 
@@ -578,7 +654,11 @@ function AIHard(p) {
 	};
 
 	this.beforeTurn = function () {
-		var multiplayer = __aiActivePlayerCount() >= 4;
+		var activePlayers = __aiActivePlayerCount();
+		var multiplayer = activePlayers >= 4;
+		// Endgame heuristic: two players left → all-in on hotels to crush the
+		// other side with rent. The house-shortage trick is moot 1-on-1.
+		var endgame = activePlayers === 2;
 
 		// Build on owned groups, prioritizing by ROI.
 		var prio = [6, 7, 8, 9, 10, 5, 4, 3];
@@ -586,10 +666,13 @@ function AIHard(p) {
 			var g = prio[pi];
 			if (!__aiOwnsGroup(p.index, g)) continue;
 
-			// House-shortage strategy: in 4+ player games, cap at 3 houses
-			// per lot until late game to keep the bank's 32-house pool
-			// exhausted (opponents can't build).
-			var houseCap = (multiplayer && p.money < 1500) ? 3 : 5;
+			// House cap rules:
+			//  - 2-player endgame: always go to hotels (cap 5) — maximum rent.
+			//  - 4+ players & cash < 1500: cap at 3 to exploit the bank's
+			//    32-house pool shortage (opponents can't build).
+			//  - Otherwise: full hotels.
+			var houseCap = 5;
+			if (multiplayer && p.money < 1500 && !endgame) houseCap = 3;
 
 			while (true) {
 				var leastIdx = -1, leastH = 6, blocked = false;
@@ -599,7 +682,9 @@ function AIHard(p) {
 					if (square[i].house < leastH) { leastH = square[i].house; leastIdx = i; }
 				}
 				if (blocked || leastIdx < 0 || leastH >= houseCap) break;
-				if (p.money < square[leastIdx].houseprice + reserve()) break;
+				// Endgame: spend down to a thinner reserve to fund hotels fast.
+				var rsv = endgame ? Math.max(80, reserve() - 200) : reserve();
+				if (p.money < square[leastIdx].houseprice + rsv) break;
 				buyHouse(leastIdx);
 			}
 		}
@@ -625,9 +710,10 @@ function AIHard(p) {
 	var pitchedTradeTo = {}; // recipient idx → true (don't spam same player)
 
 	this.onLand = function () {
-		// Find a group we're 1 short of completing. Find the missing
-		// property's owner. Offer them something they need + cash.
-		for (var myG = 1; myG <= 10; myG++) {
+		// Order candidate groups by ROI so the most valuable pitch fires first.
+		var pitchOrder = [6, 7, 8, 1, 9, 10, 5, 4, 3, 2];
+		for (var pi = 0; pi < pitchOrder.length; pi++) {
+			var myG = pitchOrder[pi];
 			var mine = __aiOwnedInGroup(p.index, myG);
 			if (mine === 0 || mine === __aiGroupSize(myG)) continue;
 			if (__aiGroupSize(myG) - mine !== 1) continue;
@@ -641,11 +727,9 @@ function AIHard(p) {
 			if (missing < 0 || ownerIdx === 0 || ownerIdx === p.index) continue;
 			if (pitchedTradeTo[ownerIdx]) continue;
 
-			// Find a property we own that completes THEIR group (sweetener).
-			// The property belongs to theirG, where opponent owns N-1, so by
-			// construction it can't be part of any monopoly of ours — no need
-			// to check that. But skip mortgaged props (transfer cost would
-			// fall on the recipient and tank the offer's appeal).
+			// Try first to sweeten with a property that COMPLETES the opponent's group.
+			// Fall back to any spare unimproved property if none qualifies (still useful
+			// as a small bribe — Hard now refuses to be limited to perfect-sweetener pitches).
 			var offering = -1;
 			for (var theirG = 1; theirG <= 10; theirG++) {
 				if (__aiOwnedInGroup(ownerIdx, theirG) !== __aiGroupSize(theirG) - 1) continue;
@@ -657,14 +741,27 @@ function AIHard(p) {
 				}
 				if (offering >= 0) break;
 			}
-			if (offering < 0) continue;
+			if (offering < 0) {
+				// Fallback: any spare property we own that's NOT part of a monopoly of ours.
+				for (var i = 0; i < 40; i++) {
+					var sq = square[i];
+					if (sq.owner !== p.index || sq.house > 0 || sq.hotel > 0 || sq.mortgage) continue;
+					if (__aiOwnsGroup(p.index, sq.groupNumber)) continue;
+					offering = i; break;
+				}
+			}
 
 			var prop = new Array(40).fill(0);
 			prop[missing] = -1;
-			prop[offering] = 1;
-			// Sweeten with cash equal to half the price difference, capped.
-			var cash = Math.max(0, Math.round((square[missing].price - square[offering].price) * 0.6));
+			if (offering >= 0) prop[offering] = 1;
+			// Cash sweetener: 60% of the value gap (or full price if we have no
+			// property to offer). Capped to keep our reserve intact.
+			var priceGap = square[missing].price - (offering >= 0 ? square[offering].price : 0);
+			var cash = Math.max(0, Math.round(priceGap * 0.6));
+			if (offering < 0) cash = Math.max(cash, Math.round(square[missing].price * 0.7));
 			if (cash > p.money - reserve()) cash = Math.max(0, p.money - reserve());
+			// Don't pitch a deal we literally can't afford.
+			if (cash === 0 && offering < 0) continue;
 			pitchedTradeTo[ownerIdx] = true;
 			game.trade(new Trade(p, player[ownerIdx], cash, prop, 0, 0));
 			return true;
