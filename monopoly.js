@@ -5393,15 +5393,23 @@ function fitStage() {
 	if (!stage) return;
 	var vw = window.innerWidth;
 	var vh = window.innerHeight;
-	var sw = 1520, sh = 1100;
+	// MUST match the width/height declared on #game-stage in styles.css.
+	// Aspect 1.63:1 — closer to landscape laptops/monitors than the old
+	// 1.38:1, so the scale picks the height-bound dimension less often
+	// and the stage actually fills the screen sideways.
+	var sw = 1600, sh = 980;
+	// Tiny margin between the stage and the viewport edge — keeps the
+	// scaled stage from kissing the bezel. 1.5 % of the smaller dimension
+	// = ~16 px on a 1080p display, scales gracefully on 4K / mobile.
+	var marginPx = Math.max(12, Math.round(Math.min(vw, vh) * 0.015));
 	var portrait = vh > vw;
 	var scale, rotateDeg, cos, sin;
 	if (portrait) {
-		scale = Math.min(vh / sw, vw / sh);
+		scale = Math.min((vh - marginPx * 2) / sw, (vw - marginPx * 2) / sh);
 		rotateDeg = 90;
 		cos = 0; sin = 1;
 	} else {
-		scale = Math.min(vw / sw, vh / sh);
+		scale = Math.min((vw - marginPx * 2) / sw, (vh - marginPx * 2) / sh);
 		rotateDeg = 0;
 		cos = 1; sin = 0;
 	}
@@ -5958,10 +5966,39 @@ function _initThemeToggle() {
 	});
 }
 
+// Settings dropdown — wraps the gear button + the popover (#settings-menu).
+// Click on the gear toggles .open, clicking outside or pressing Esc closes
+// it. The buttons inside the menu (mute / theme / help / lang) keep their
+// own wiring from _initThemeToggle / mute listener / etc; this function
+// only manages the open/closed state of the container.
+function _initSettingsMenu() {
+	var btn  = document.getElementById('settings-btn');
+	var menu = document.getElementById('settings-menu');
+	if (!btn || !menu) return;
+	function open()  { menu.classList.add('open');    menu.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true');  }
+	function close() { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true');  btn.setAttribute('aria-expanded','false'); }
+	function toggle(){ menu.classList.contains('open') ? close() : open(); }
+	btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
+	// Outside click closes — capture so we beat any inner handlers.
+	document.addEventListener('mousedown', function (e) {
+		if (!menu.classList.contains('open')) return;
+		if (menu.contains(e.target) || btn.contains(e.target)) return;
+		close();
+	}, true);
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && menu.classList.contains('open')) { e.preventDefault(); close(); }
+	});
+	// Clicks on the lang/sound/help/theme rows shouldn't close the menu
+	// reflexively — let the user pick multiple settings without re-opening.
+	// We only close on the outside-click path above.
+	window.__closeSettingsMenu = close;
+}
+
 window.onload = function() {
 	__renderPlayerSetup();
 	_initI18N();
 	_initThemeToggle();
+	_initSettingsMenu();
 
 	fitStage();
 	window.addEventListener('resize', fitStage);
@@ -6192,22 +6229,13 @@ window.onload = function() {
 		var existing = document.getElementById('sidepanel');
 		if (existing) return; // run only once
 
-		// Right-side panel: settings header + Actions (turn + dice + tabs).
+		// Right-side panel: Actions only (turn + dice + tabs). The settings
+		// gear used to live inside an sp-header; it now stays in the fixed
+		// #topbar at the viewport corner so it's reachable from every screen
+		// (setup, in-game, victory) without us juggling DOM ownership.
+
 		var panel = document.createElement('div');
 		panel.id = 'sidepanel';
-
-		var header = document.createElement('div');
-		header.id = 'sp-header';
-		panel.appendChild(header);
-
-		// Move language toolbar + mute + help buttons from the floating topbar
-		// into the new panel header. The topbar itself becomes empty and is
-		// hidden via CSS so it doesn't leave a ghost in the viewport corner.
-		var topbar = document.getElementById('topbar');
-		if (topbar) {
-			while (topbar.firstChild) header.appendChild(topbar.firstChild);
-			topbar.style.display = 'none';
-		}
 
 		// Control section: holds tabs + buy/manage + dice + roll button.
 		var controlSection = document.createElement('div');

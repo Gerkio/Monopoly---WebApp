@@ -218,8 +218,13 @@ body::before {
 	position: fixed;
 	top: 50%;
 	left: 50%;
-	width: 1520px;
-	height: 1100px;
+	/* Design dimensions. Aspect ~1.65:1 matches 16:10 / 16:9 landscape
+	   displays better than the legacy 1520x1100 (1.38:1) — fitStage() now
+	   scales generously to fill modern viewports horizontally instead of
+	   leaving ~430 px of wood texture on either side. Keep the values in
+	   sync with the `sw` / `sh` constants inside fitStage(). */
+	width: 1600px;
+	height: 980px;
 	/* z-index MUST be > body::after (wood texture, z-index: 0) and
 	   body::before (vignette, z-index: 1), otherwise the wood layer paints
 	   on top of the stage and hides the board + sidepanel entirely. */
@@ -227,13 +232,11 @@ body::before {
 	transform: translate(-50%, -50%);
 	transform-origin: center center;
 	will-change: transform;
-	/* fitStage() in monopoly.js overrides transform on load + resize.
-	   Stage is 1520 wide: board on left (940 px with margins), then a generous
-	   gap (~140 px), then the right column (control + moneybar) anchored right. */
 }
 
-/* Top-right toolbar wrapping language + mute. Outside the stage so it stays
-   in viewport orientation. */
+/* Settings cluster (gear button + dropdown menu). Replaces the previous
+   row of EN/ES/mute/help/theme chips which ate horizontal space the game
+   could use. Lives outside the stage so it stays in viewport orientation. */
 #topbar {
 	position: fixed;
 	top: 12px;
@@ -245,6 +248,70 @@ body::before {
 	font-family: var(--font-ui);
 	-webkit-user-select: none;
 	user-select: none;
+}
+#settings-btn {
+	width: 36px;
+	height: 36px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+}
+#settings-btn:hover { transform: rotate(30deg); }
+#settings-btn[aria-expanded="true"] { background: var(--surface-card); }
+/* Popover: anchored under the gear via position:absolute right:0. */
+#settings-menu {
+	position: absolute;
+	top: 48px;
+	right: 0;
+	display: none;
+	min-width: 200px;
+	padding: 8px;
+	background: var(--surface-card);
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lifted);
+	flex-direction: column;
+	gap: 4px;
+	transform-origin: top right;
+	animation: settings-pop var(--dur-modal) var(--ease-out) both;
+}
+#settings-menu.open { display: flex; }
+@keyframes settings-pop {
+	from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+	to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.settings-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	border-radius: var(--radius-md);
+	font-size: 14px;
+	color: var(--ink);
+	transition: background var(--dur-hover) var(--ease-out);
+}
+.settings-row-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+	width: 100%;
+	font-family: inherit;
+	color: inherit;
+}
+.settings-row-btn:hover { background: var(--hover-overlay); }
+.settings-row-label {
+	font-weight: 600;
+	flex: 1 1 auto;
+}
+.settings-row-lang .settings-lang-buttons {
+	display: inline-flex;
+	gap: 4px;
+}
+.settings-row-lang .lang-btn {
+	min-width: 36px;
+	padding: 4px 8px;
 }
 @media (max-width: 600px) {
 	#topbar {
@@ -3023,15 +3090,22 @@ input[type="button"]:disabled:hover { transform: none; }
    ============================================================ */
 #popupwrap {
 	position: absolute;
-	top: 255px;
+	/* Vertically centered in the stage (top:50% + flex) so the popup never
+	   hides under the board when the stage gets shorter on small viewports.
+	   The fixed 255 px offset of the original layout left the bottom half
+	   of tall popups outside the viewport on 1366x768 laptops. */
+	top: 50%;
 	left: 0;
 	width: 100%;
+	transform: translateY(-50%);
 	display: none;
 	background-color: transparent;
 	z-index: 13;
 	-webkit-user-select: none;
 	user-select: none;
+	pointer-events: none;
 }
+#popupwrap > #popup { pointer-events: auto; }
 
 #popup {
 	width: 440px;
@@ -3706,8 +3780,10 @@ input[type="button"]:disabled:hover { transform: none; }
 #setup {
 	display: none;
 	/* Wider card so a 2-column player roster can breathe; the inner grid
-	   collapses to 1 column on narrow viewports via auto-fit. */
-	max-width: 1080px;
+	   collapses to 1 column on narrow viewports via auto-fit. Sized to
+	   the new 1600 px stage so the setup screen uses the full horizontal
+	   span minus a comfortable gutter. */
+	max-width: 1400px;
 	margin: 24px auto;
 	padding: 24px 32px;
 	background: var(--surface-card);
