@@ -6192,6 +6192,7 @@ window.onload = function() {
 		var existing = document.getElementById('sidepanel');
 		if (existing) return; // run only once
 
+		// Right-side panel: settings header + Actions (turn + dice + tabs).
 		var panel = document.createElement('div');
 		panel.id = 'sidepanel';
 
@@ -6208,19 +6209,6 @@ window.onload = function() {
 			topbar.style.display = 'none';
 		}
 
-		// Players section wrapper (the existing moneybar gets relocated here).
-		var playersSection = document.createElement('div');
-		playersSection.id = 'sp-players';
-		var playersLabel = document.createElement('div');
-		playersLabel.className = 'sp-section-label';
-		playersLabel.setAttribute('data-i18n', 'panel.playersLabel');
-		playersLabel.textContent = 'Players';
-		playersSection.appendChild(playersLabel);
-		panel.appendChild(playersSection);
-
-		var moneybarwrap = document.getElementById('moneybarwrap');
-		if (moneybarwrap) playersSection.appendChild(moneybarwrap);
-
 		// Control section: holds tabs + buy/manage + dice + roll button.
 		var controlSection = document.createElement('div');
 		controlSection.id = 'sp-control';
@@ -6235,6 +6223,27 @@ window.onload = function() {
 		if (control) controlSection.appendChild(control);
 
 		stage.appendChild(panel);
+
+		// LEFT-side panel: roster of players. Sitting opposite the action
+		// panel balances the layout — the old single-column right rail
+		// crowded the right edge while the wood texture to the left of the
+		// board sat empty. The two panels mirror each other now.
+		var panelLeft = document.createElement('div');
+		panelLeft.id = 'sidepanel-left';
+
+		var playersSection = document.createElement('div');
+		playersSection.id = 'sp-players';
+		var playersLabel = document.createElement('div');
+		playersLabel.className = 'sp-section-label';
+		playersLabel.setAttribute('data-i18n', 'panel.playersLabel');
+		playersLabel.textContent = 'Players';
+		playersSection.appendChild(playersLabel);
+		panelLeft.appendChild(playersSection);
+
+		var moneybarwrap = document.getElementById('moneybarwrap');
+		if (moneybarwrap) playersSection.appendChild(moneybarwrap);
+
+		stage.appendChild(panelLeft);
 
 		// Tag the dice-wrapping div with .dice-tray so CSS can style it.
 		var die0 = document.getElementById('die0');

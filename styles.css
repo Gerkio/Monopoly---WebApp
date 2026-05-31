@@ -1755,7 +1755,7 @@ td {
 	position: absolute;
 	top: 16px;
 	right: 16px;
-	width: 420px;
+	width: 320px;
 	max-height: calc(100% - 32px);
 	display: flex;
 	flex-direction: column;
@@ -1765,6 +1765,36 @@ td {
 	font-size: 15px;
 	-webkit-user-select: none;
 	user-select: none;
+}
+
+/* Left-side panel — mirror of #sidepanel, dedicated to the player roster.
+   Same visual treatment but anchored at left:16px so the layout reads as
+   "players ↔ board ↔ actions". Built by the sidepanel IIFE in monopoly.js.
+   Width kept at 320 px to match the right rail; the board centers between
+   them naturally because the stage is 1520 px and the board is ~900 px. */
+#sidepanel-left {
+	position: absolute;
+	top: 16px;
+	left: 16px;
+	width: 320px;
+	max-height: calc(100% - 32px);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	z-index: 12;
+	font-family: var(--font-ui);
+	font-size: 15px;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* Board centers within the gap between the two rails. We swap the legacy
+   `float: left` to `margin: 16px auto` so the board lives in the center
+   regardless of how wide each rail ends up. The board's intrinsic table
+   width (~880 px) plus 320 px rails + gutters still fits in 1520 stage. */
+#board {
+	margin: 16px auto;
+	float: none;
 }
 
 #sp-header {
@@ -1862,24 +1892,28 @@ body[data-await="ai"] .die {
 
 /* The original #moneybarwrap was absolute-positioned to the stage; now that
    it lives inside #sp-players we want it to fill the section naturally. */
-#sidepanel #moneybarwrap {
+#sidepanel #moneybarwrap,
+#sidepanel-left #moneybarwrap {
 	position: static;
 	min-width: 0;
 	bottom: auto;
 	right: auto;
 }
-#sidepanel #moneybar {
+#sidepanel #moneybar,
+#sidepanel-left #moneybar {
 	display: block;
 	background: transparent;
 	box-shadow: none;
 	padding: 0;
 	border-radius: 0;
 }
-#sidepanel #moneybar table {
+#sidepanel #moneybar table,
+#sidepanel-left #moneybar table {
 	width: 100%;
 	border-spacing: 0 6px;
 }
-#sidepanel .moneybarcell {
+#sidepanel .moneybarcell,
+#sidepanel-left .moneybarcell {
 	width: auto;
 	min-width: 0;
 	font-size: 14px;
@@ -1894,28 +1928,33 @@ body[data-await="ai"] .die {
 		0 1px 2px rgba(0, 0, 0, 0.05);
 	position: relative;
 }
-#sidepanel .moneybarcell div:last-child {
+#sidepanel .moneybarcell div:last-child,
+#sidepanel-left .moneybarcell div:last-child {
 	font-size: 19px;
 	font-family: 'Courier New', 'Consolas', monospace;
 	font-weight: 700;
 	letter-spacing: -0.02em;
 }
 /* Subtle dotted underline under the cash amount, like ledger entries. */
-#sidepanel .moneybarcell .mb-meta {
+#sidepanel .moneybarcell .mb-meta,
+#sidepanel-left .moneybarcell .mb-meta {
 	font-size: 11px;
 	padding-top: 4px;
 	margin-top: 6px;
 	border-top: 1px dashed var(--ledger-divider);
 }
-#sidepanel .mb-nw   { font-size: 12px; font-family: 'Courier New', monospace; }
+#sidepanel .mb-nw,
+#sidepanel-left .mb-nw   { font-size: 12px; font-family: 'Courier New', monospace; }
 
 /* Hide the legacy "View stats" row in the moneybar — we'll surface it via
    a dedicated button inside the control section instead. */
-#sidepanel #moneybarrowbutton { display: none !important; }
+#sidepanel #moneybarrowbutton,
+#sidepanel-left #moneybarrowbutton { display: none !important; }
 
 /* The arrow column became redundant once active-row highlight landed.
    Hiding the column reclaims ~30px and lets the cash row be wider. */
-#sidepanel .moneybararrowcell { display: none !important; }
+#sidepanel .moneybararrowcell,
+#sidepanel-left .moneybararrowcell { display: none !important; }
 
 /* The original #control was absolute-positioned; in the panel it just flows.
    Keep display controlled by the same JS-set inline style that hides it
