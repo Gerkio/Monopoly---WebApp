@@ -3666,9 +3666,11 @@ input[type="button"]:disabled:hover { transform: none; }
    ============================================================ */
 #setup {
 	display: none;
-	max-width: 620px;
-	margin: 40px auto;
-	padding: 32px 36px;
+	/* Wider card so a 2-column player roster can breathe; the inner grid
+	   collapses to 1 column on narrow viewports via auto-fit. */
+	max-width: 1080px;
+	margin: 24px auto;
+	padding: 24px 32px;
 	background: var(--surface-card);
 	border-radius: var(--radius-xl);
 	box-shadow: var(--shadow-lifted), 0 0 0 1px var(--hairline);
@@ -3676,18 +3678,47 @@ input[type="button"]:disabled:hover { transform: none; }
 	font-size: 15px;
 	color: var(--ink);
 	position: relative;
+	/* Scroll the card itself instead of pushing the Start button off the
+	   bottom of the screen. The header (::before logo) stays pinned by
+	   virtue of being a pseudo-element inside the scroll area too — that's
+	   fine; the player table dominates the height and is the main concern. */
+	max-height: calc(100vh - 48px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
+/* Custom scrollbar so it doesn't fight the card visual. */
+#setup::-webkit-scrollbar { width: 10px; }
+#setup::-webkit-scrollbar-track { background: transparent; }
+#setup::-webkit-scrollbar-thumb {
+	background: var(--hairline-strong);
+	border-radius: 999px;
+	border: 2px solid var(--surface-card);
+}
+#setup::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 #setup::before {
 	content: '';
 	display: block;
-	height: 64px;
-	margin: -32px -36px 16px;
+	height: 60px;
+	margin: -24px -32px 12px;
 	background: url('images/monopoly logo.png') center center / contain no-repeat,
 	            linear-gradient(180deg, rgba(27, 94, 63, 0.08), transparent);
 	border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+	flex-shrink: 0;
 }
 
-#setup > div { margin-bottom: 14px; }
+#setup > div { margin-bottom: 12px; }
+
+/* Two-column (or more, depending on viewport) grid for player blocks.
+   Reduces vertical scroll dramatically when 6-8 players are configured:
+   what used to be a single 8-row stack becomes a 2x4 grid that fits on
+   one screen in most desktop sizes. auto-fit collapses to one column on
+   narrow viewports so mobile keeps working. */
+#player-setup-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+	gap: 10px;
+	margin-bottom: 12px;
+}
 
 #setup select,
 #setup input[type="text"] {
@@ -3711,21 +3742,22 @@ input[type="button"]:disabled:hover { transform: none; }
 
 .player-input {
 	display: none;
-	padding: 12px 14px;
+	padding: 10px 12px;
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-md);
 	background: var(--surface);
-	margin-bottom: 10px;
 	font-size: 14px;
+	/* Margin-bottom removed: parent grid handles spacing via `gap`. The
+	   margin-bottom on hidden display:none siblings was a no-op anyway. */
 }
 .player-input .player-label {
 	font-weight: 700;
 	display: inline-block;
-	min-width: 90px;
+	min-width: 80px;
 	color: var(--ink);
 }
 .player-input input[type="text"] {
-	min-width: 120px;
+	min-width: 110px;
 }
 .player-avatar-select {
 	font-size: 16px;
