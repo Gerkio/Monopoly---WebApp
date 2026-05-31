@@ -218,13 +218,13 @@ body::before {
 	position: fixed;
 	top: 50%;
 	left: 50%;
-	/* Design dimensions. Aspect ~1.65:1 matches 16:10 / 16:9 landscape
-	   displays better than the legacy 1520x1100 (1.38:1) — fitStage() now
-	   scales generously to fill modern viewports horizontally instead of
-	   leaving ~430 px of wood texture on either side. Keep the values in
-	   sync with the `sw` / `sh` constants inside fitStage(). */
-	width: 1600px;
-	height: 980px;
+	/* Design dimensions. Aspect 1.94:1 (deliberately wider than the 16:9
+	   = 1.78 viewport) so fitStage is always WIDTH-bound — the stage
+	   stretches to ~95 % of the viewport horizontally on virtually any
+	   modern landscape monitor. The extra-wide canvas leaves enough
+	   vertical headroom for the board (~870 px) + headers + padding. */
+	width: 1820px;
+	height: 940px;
 	/* z-index MUST be > body::after (wood texture, z-index: 0) and
 	   body::before (vignette, z-index: 1), otherwise the wood layer paints
 	   on top of the stage and hides the board + sidepanel entirely. */
@@ -1822,7 +1822,11 @@ td {
 	position: absolute;
 	top: 16px;
 	right: 16px;
-	width: 320px;
+	/* 420 px to fill the extra horizontal real estate of the new 1820 px
+	   stage. Players/actions get more breathing room and the board still
+	   centers naturally: 1820 - 2*(420+16) = 948 px in the middle, plenty
+	   for the ~880 px wide board. */
+	width: 420px;
 	max-height: calc(100% - 32px);
 	display: flex;
 	flex-direction: column;
@@ -1836,14 +1840,12 @@ td {
 
 /* Left-side panel — mirror of #sidepanel, dedicated to the player roster.
    Same visual treatment but anchored at left:16px so the layout reads as
-   "players ↔ board ↔ actions". Built by the sidepanel IIFE in monopoly.js.
-   Width kept at 320 px to match the right rail; the board centers between
-   them naturally because the stage is 1520 px and the board is ~900 px. */
+   "players ↔ board ↔ actions". Built by the sidepanel IIFE in monopoly.js. */
 #sidepanel-left {
 	position: absolute;
 	top: 16px;
 	left: 16px;
-	width: 320px;
+	width: 420px;
 	max-height: calc(100% - 32px);
 	display: flex;
 	flex-direction: column;
@@ -3779,13 +3781,18 @@ input[type="button"]:disabled:hover { transform: none; }
    ============================================================ */
 #setup {
 	display: none;
-	/* Wider card so a 2-column player roster can breathe; the inner grid
-	   collapses to 1 column on narrow viewports via auto-fit. Sized to
-	   the new 1600 px stage so the setup screen uses the full horizontal
-	   span minus a comfortable gutter. */
-	max-width: 1400px;
-	margin: 24px auto;
-	padding: 24px 32px;
+	/* When shown JS sets display:flex (see #setup .setup-section-my-20
+	   below — the Start button uses margin-top:auto to anchor at the
+	   bottom of the card, which requires flex column). The card grows
+	   to ~95 % of the 1820×940 stage so it fills the space instead of
+	   floating small in a sea of wood. */
+	flex-direction: column;
+	max-width: 1700px;
+	margin: 16px auto;
+	padding: 32px 44px 36px;
+	min-height: calc(100% - 32px);
+	box-sizing: border-box;
+	font-size: 16px;
 	background: var(--surface-card);
 	border-radius: var(--radius-xl);
 	box-shadow: var(--shadow-lifted), 0 0 0 1px var(--hairline);
@@ -3823,6 +3830,14 @@ input[type="button"]:disabled:hover { transform: none; }
 
 #setup > div { margin-bottom: 12px; }
 
+/* Push the Start-game button (and the noF5 footer) to the bottom of the
+   card so the available vertical space is shared between the players
+   grid and the bottom-grid + the CTA, rather than leaving 300 px empty
+   under the footer. Applied via JS-set inline display:block so we keep
+   the rule self-contained here. */
+#setup .setup-section-my-20 { margin-top: auto; }
+#setup #noF5 { margin-top: 12px; }
+
 /* Two-column (or more, depending on viewport) grid for player blocks.
    Reduces vertical scroll dramatically when 6-8 players are configured:
    what used to be a single 8-row stack becomes a 2x4 grid that fits on
@@ -3830,9 +3845,32 @@ input[type="button"]:disabled:hover { transform: none; }
    narrow viewports so mobile keeps working. */
 #player-setup-list {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
 	gap: 10px;
+	margin-bottom: 16px;
+}
+
+/* Bottom row of the setup card: edition + presets + house rules side by
+   side. On a wide 1820 px stage this puts everything visible at once
+   below the players grid instead of stacking and leaving the right half
+   of the card empty. Collapses to a single column on narrow viewports. */
+#setup-bottom-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+	gap: 16px;
+	align-items: start;
 	margin-bottom: 12px;
+}
+#setup-bottom-grid > * { margin-bottom: 0; }
+#setup-bottom-grid #setup-presets { flex-wrap: wrap; }
+#setup-bottom-grid #house-rules-block { grid-column: 1 / -1; }
+/* When the screen is wide enough (≥ ~1200 px) we let the house-rules
+   panel sit as a 3rd column so the whole bottom row is on one line. */
+@media (min-width: 1200px) {
+	#setup-bottom-grid {
+		grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.6fr) minmax(380px, 2fr);
+	}
+	#setup-bottom-grid #house-rules-block { grid-column: auto; }
 }
 
 #setup select,

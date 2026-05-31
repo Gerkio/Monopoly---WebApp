@@ -5394,14 +5394,13 @@ function fitStage() {
 	var vw = window.innerWidth;
 	var vh = window.innerHeight;
 	// MUST match the width/height declared on #game-stage in styles.css.
-	// Aspect 1.63:1 — closer to landscape laptops/monitors than the old
-	// 1.38:1, so the scale picks the height-bound dimension less often
-	// and the stage actually fills the screen sideways.
-	var sw = 1600, sh = 980;
-	// Tiny margin between the stage and the viewport edge — keeps the
-	// scaled stage from kissing the bezel. 1.5 % of the smaller dimension
-	// = ~16 px on a 1080p display, scales gracefully on 4K / mobile.
-	var marginPx = Math.max(12, Math.round(Math.min(vw, vh) * 0.015));
+	// Aspect 1.94:1 — deliberately wider than the 16:9 viewport so the
+	// scale calculation below is ALWAYS width-bound. Result: the stage
+	// fills ~95 % of the viewport horizontally and uses 87-92 % of the
+	// height, instead of leaving a wide horizontal margin of empty wood.
+	var sw = 1820, sh = 940;
+	// Viewport gutter ~12 px on a 1080p screen.
+	var marginPx = Math.max(8, Math.round(Math.min(vw, vh) * 0.012));
 	var portrait = vh > vw;
 	var scale, rotateDeg, cos, sin;
 	if (portrait) {
@@ -6203,7 +6202,11 @@ window.onload = function() {
 	$("#nextbutton").click(game.next);
 
 	$("#noscript").hide();
-	$("#setup, #noF5").show();
+	// setup uses flex column so .setup-section-my-20 can margin-top:auto
+	// the Start button to the bottom of the card; jQuery .show() would
+	// hard-set display:block and defeat that. Set display explicitly here.
+	document.getElementById('setup').style.display = 'flex';
+	$('#noF5').show();
 
 	_initBoardCells();
 
