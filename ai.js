@@ -191,17 +191,6 @@ function __aiLooseProps(playerIdx) {
 	return out;
 }
 
-// Number of houses currently on the board (each hotel returned its 4 houses
-// to the bank when upgraded, so they don't count). Monopoly's bank starts
-// with 32 houses; if (32 - built) is low, the house-shortage trick is biting.
-function __aiHousesInBank() {
-	var built = 0;
-	for (var i = 0; i < 40; i++) {
-		if (square[i].house > 0 && !square[i].hotel) built += square[i].house;
-	}
-	return Math.max(0, 32 - built);
-}
-
 
 // ============================================================
 //  EASY — "naive kid"
