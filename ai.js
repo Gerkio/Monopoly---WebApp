@@ -842,11 +842,120 @@ function AIHard(p) {
 }
 AIHard.count = 0;
 
+// ============================================================
+//  ADAPTIVE — dynamic difficulty
+//
+//  Tracks the human's net worth versus the average non-human player
+//  and switches its internal level between Easy / Normal / Hard so the
+//  match stays competitive:
+//
+//    human leads avg AI by >30%  → Hard
+//    parity (±30%)                → Normal
+//    human trails avg AI by >30% → Easy
+//
+//  Re-evaluates at the start of every other AI turn. To preserve the
+//  fairness illusion the level change isn't announced unless the engine
+//  is in debug mode (window.__AI_ADAPTIVE_DEBUG === true).
+// ============================================================
+function __aiNetWorth(playerIdx) {
+	if (!player[playerIdx]) return 0;
+	var net = player[playerIdx].money;
+	for (var i = 0; i < 40; i++) {
+		var sq = square[i];
+		if (sq.owner !== playerIdx) continue;
+		// Mortgaged property is worth its mortgage redemption value (55%).
+		net += sq.mortgage ? Math.round(sq.price * 0.45) : sq.price;
+		if (sq.house > 0) net += sq.house * (sq.houseprice || 0);
+		if (sq.hotel)    net += 5 * (sq.houseprice || 0);
+	}
+	// Jail cards have some option value.
+	if (player[playerIdx].communityChestJailCard) net += 25;
+	if (player[playerIdx].chanceJailCard)         net += 25;
+	return net;
+}
+
+function AIAdaptive(p) {
+	this.alertList = "";
+	this.constructor.count++;
+	p.name = __pickAIName();
+
+	// Each sub-AI constructor overwrites p.name. Save the name and restore
+	// it after every construction so the adaptive bot keeps its identity.
+	var savedName = p.name;
+	this._easy   = new AIEasy(p);   p.name = savedName;
+	this._normal = new AINormal(p); p.name = savedName;
+	this._hard   = new AIHard(p);   p.name = savedName;
+	// Roll back the count bumps from the sub-AI constructors — only the
+	// adaptive instance should count toward the public registry.
+	AIEasy.count--;
+	AINormal.count--;
+	AIHard.count--;
+
+	this._level = 'normal';
+	var turnsSinceEval = 0;
+	var self = this;
+
+	function active() {
+		if (self._level === 'easy') return self._easy;
+		if (self._level === 'hard') return self._hard;
+		return self._normal;
+	}
+
+	function reEvaluate() {
+		// Find the human(s). If there is no human in this game, stay Normal.
+		var humanNet = 0, humanCount = 0;
+		var aiNet = 0,    aiCount = 0;
+		for (var i = 1; i <= pcount; i++) {
+			var pp = player[i];
+			if (!pp || pp.bankrupt) continue;
+			var nw = __aiNetWorth(i);
+			if (pp.human) { humanNet += nw; humanCount++; }
+			else if (i !== p.index) { aiNet += nw; aiCount++; }
+		}
+		if (humanCount === 0) { self._level = 'normal'; return; }
+		var avgHuman = humanNet / humanCount;
+		var avgAI    = aiCount > 0 ? aiNet / aiCount : __aiNetWorth(p.index);
+		var ratio    = avgHuman / Math.max(1, avgAI);
+
+		var prev = self._level;
+		if      (ratio > 1.30) self._level = 'hard';
+		else if (ratio < 0.70) self._level = 'easy';
+		else                   self._level = 'normal';
+
+		if (self._level !== prev && window.__AI_ADAPTIVE_DEBUG === true) {
+			console.log('[adaptive ' + p.name + '] ' + prev + ' → ' + self._level +
+				' (ratio human/AI = ' + ratio.toFixed(2) + ')');
+		}
+	}
+
+	this.buyProperty = function (i)   { return active().buyProperty(i); };
+	this.acceptTrade = function (t)   { return active().acceptTrade(t); };
+	this.onLand      = function ()    { return active().onLand(); };
+	this.postBail    = function ()    { return active().postBail(); };
+	this.payDebt     = function ()    { return active().payDebt(); };
+	this.bid         = function (i, b){ return active().bid(i, b); };
+
+	// beforeTurn is the once-per-turn hook — perfect place to re-evaluate.
+	// Skipping the first call so we don't switch off the default Normal until
+	// some game state has actually accumulated.
+	this.beforeTurn = function () {
+		turnsSinceEval++;
+		if (turnsSinceEval >= 2) {
+			turnsSinceEval = 0;
+			reEvaluate();
+		}
+		return active().beforeTurn();
+	};
+}
+AIAdaptive.count = 0;
+
+
 // Expose only the public constructors. Static `.count` properties live
 // on each function object and remain mutable from monopoly.js.
-window.AIEasy   = AIEasy;
-window.AINormal = AINormal;
-window.AIHard   = AIHard;
-window.AITest   = AITest;
+window.AIEasy     = AIEasy;
+window.AINormal   = AINormal;
+window.AIHard     = AIHard;
+window.AIAdaptive = AIAdaptive;
+window.AITest     = AITest;
 
 })();

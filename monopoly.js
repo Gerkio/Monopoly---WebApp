@@ -5311,9 +5311,10 @@ function setup() {
 	__prevMoney = {};
 
 	// Reset AI counters so each game's AI players are numbered from 1.
-	if (typeof AIEasy   !== 'undefined') AIEasy.count   = 0;
-	if (typeof AINormal !== 'undefined') AINormal.count = 0;
-	if (typeof AIHard   !== 'undefined') AIHard.count   = 0;
+	if (typeof AIEasy     !== 'undefined') AIEasy.count     = 0;
+	if (typeof AINormal   !== 'undefined') AINormal.count   = 0;
+	if (typeof AIHard     !== 'undefined') AIHard.count     = 0;
+	if (typeof AIAdaptive !== 'undefined') AIAdaptive.count = 0;
 
 	// Reshuffle Chance and Community Chest decks for a fresh game.
 	if (typeof chanceCards !== 'undefined' && chanceCards.deck) {
@@ -5346,6 +5347,7 @@ function setup() {
 			p.human = false;
 			if (aiLevel === "1")      p.AI = new AIEasy(p);
 			else if (aiLevel === "3") p.AI = new AIHard(p);
+			else if (aiLevel === "4") p.AI = new AIAdaptive(p);
 			else                      p.AI = new AINormal(p);   // default for "2" and legacy
 		}
 		// Initialize player state
@@ -5518,6 +5520,7 @@ function __renderPlayerSetup() {
 		html += '<option value="1" data-i18n="setup.aiEasy">AI (Easy)</option>';
 		html += '<option value="2" data-i18n="setup.aiNormal">AI (Normal)</option>';
 		html += '<option value="3" data-i18n="setup.aiHard">AI (Hard)</option>';
+		html += '<option value="4" data-i18n="setup.aiAdaptive">AI (Adaptive)</option>';
 		html += '</select>';
 		html += '</div>';
 	}
