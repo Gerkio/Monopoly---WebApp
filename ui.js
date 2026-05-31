@@ -5,7 +5,30 @@ var UI = (function () {
 	// Vanilla DOM helpers used after the jQuery removal (Sprint 6).
 	// Tolerant: no-op when the target doesn't exist so callers can drop
 	// the `if (el)` checks all over the place.
-	function $show(id) { var e = document.getElementById(id); if (e) e.style.display = ""; }
+	//
+	// CRITICAL: jQuery's $.show() sets the element's natural display value
+	// (table, block, list-item, etc.). Plain `style.display = ""` ONLY clears
+	// the inline override — it does not beat a CSS rule like `#board { display: none }`.
+	// We detect that case post-clear via getComputedStyle and force a sensible
+	// per-tag default. Otherwise legacy CSS (#board, #setup, etc.) keeps things hidden.
+	function __naturalDisplay(el) {
+		var tag = el.tagName.toLowerCase();
+		if (tag === 'table') return 'table';
+		if (tag === 'tr')    return 'table-row';
+		if (tag === 'td' || tag === 'th') return 'table-cell';
+		if (tag === 'thead' || tag === 'tbody' || tag === 'tfoot') return 'table-row-group';
+		if (tag === 'li')    return 'list-item';
+		if (tag === 'tr')    return 'table-row';
+		return 'block';
+	}
+	function $show(id) {
+		var e = document.getElementById(id);
+		if (!e) return;
+		e.style.display = "";
+		if (getComputedStyle(e).display === 'none') {
+			e.style.display = __naturalDisplay(e);
+		}
+	}
 	function $hide(id) { var e = document.getElementById(id); if (e) e.style.display = "none"; }
 	function $on(idOrEl, ev, fn) {
 		var e = typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
@@ -27,7 +50,11 @@ var UI = (function () {
 		var e = document.getElementById(id);
 		if (!e) { if (done) done(); return; }
 		e.style.opacity = "0";
+		// Use the same smart-display path as $show so CSS `display: none` doesn't trap us.
 		e.style.display = "";
+		if (getComputedStyle(e).display === 'none') {
+			e.style.display = __naturalDisplay(e);
+		}
 		requestAnimationFrame(function () {
 			e.style.transition = "opacity " + ms + "ms";
 			e.style.opacity = "1";
