@@ -161,6 +161,25 @@ Funciona offline una vez cargado.
 
 ---
 
+## Testing
+
+Smoke tests headless contra el `index.html` real, vía Chrome DevTools Protocol —
+también **sin npm**. Requiere Edge o Chrome instalado y Node ≥ 22.
+
+```bash
+# Windows
+tools\run-tests.bat
+
+# Linux / macOS / WSL
+bash tools/run-tests.sh
+```
+
+Cubre: arranque del juego, ciclo de roll determinista, compra/subasta, bancarrota,
+y verificación del contrato de las 4 IAs (Easy/Normal/Hard/Adaptive).
+Cada test es independiente: `node tools/tests/01-setup-to-game.js` etc.
+
+---
+
 ## Compatibilidad
 
 Probado en Edge / Chrome / Firefox modernos. iOS Safari requiere primer gesto del usuario antes de reproducir audio (manejado automáticamente). El layout escala via `fitStage()` a viewport landscape o portrait (rota 90° en mobile vertical).

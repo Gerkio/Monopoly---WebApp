@@ -44,9 +44,9 @@
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" integrity="sha384-UM1JrZIpBwVf5jj9dTKVvGiiZPZTLVoq4sfdvIe9SBumsvCuv6AHDNtEiIb5h1kU" crossorigin="anonymous"></script>
-	<script type="text/javascript" src="i18n.js?v=20260531d"></script>
-	<script type="text/javascript" src="ui.js?v=20260531d"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260531d"></script>
+	<script type="text/javascript" src="i18n.js?v=20260531e"></script>
+	<script type="text/javascript" src="ui.js?v=20260531e"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260531e"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,8 +65,8 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260531d"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260531d"></script>
+	<script type="text/javascript" src="ai.js?v=20260531e"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260531e"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -84,7 +84,7 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260531d">
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260531e">
 </head>
 
 <body>
@@ -209,6 +209,12 @@
 		     a transformed parent, which means fixed-to-stage in CSS). -->
 		<div id="popupbackground"></div>
 		<div id="statsbackground"></div>
+
+		<!-- Screen-reader live regions. Visible-hidden via .sr-only.
+		     #turn-announcer (assertive) — turn changes, big game events.
+		     #game-announcer (polite)    — rent paid, property bought, etc. -->
+		<div id="turn-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+		<div id="game-announcer" class="sr-only" aria-live="polite"    aria-atomic="true"></div>
 
 		<div id="popupwrap">
 			<div id="popup">
@@ -613,6 +619,7 @@
 				</div>
 				<div id="trade-leftp-property" class="trade-cell"></div>
 				<div id="trade-rightp-property" class="trade-cell"></div>
+				<div id="trade-summary" class="trade-summary is-empty" data-i18n="trade.summaryEmpty" aria-live="polite">Tick at least one property to preview the trade.</div>
 				<div class="trade-cell trade-buttons">
 					<input type="button" id="proposetradebutton" value="Propose Trade" data-i18n-value="ui.proposeTrade" data-i18n-title="ui.proposeTradeTitle" title="Exchange the money and properties that are checked above.">
 					<input type="button" id="canceltradebutton" value="Cancel Trade" data-i18n-value="ui.cancelTrade" data-i18n-title="ui.cancelTradeTitle" title="Cancel the trade.">

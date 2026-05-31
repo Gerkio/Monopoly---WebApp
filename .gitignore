@@ -15,3 +15,6 @@ Thumbs.db
 # re-encoding. The shipped compressed versions (sfx-*, music-*) ARE tracked.
 # Uncomment the next line if you don't want to ship the originals at all.
 # audio/originals/
+
+# Smoke-test screenshots/snapshots (tools/snapshots/ — content varies per run).
+tools/snapshots/

@@ -37,10 +37,28 @@ var UI = (function () {
 	//  - the dock primary button is dimmed via body[data-modal-open].
 	var activeModalId = null;
 
+	// Focus stack: when openModal()/openPopup() pushes, we capture the
+	// element that had focus right before so closeModal()/closePopup() can
+	// restore it. Keyboard users keep their place; mouse users see no diff.
+	var focusStack = [];
+	function pushFocus() {
+		var ae = document.activeElement;
+		// Skip <body> and null — restoring to them is a no-op that wastes a slot.
+		if (ae && ae !== document.body) focusStack.push(ae);
+		else focusStack.push(null);
+	}
+	function popFocus() {
+		var prev = focusStack.length ? focusStack.pop() : null;
+		if (prev && typeof prev.focus === 'function') {
+			try { prev.focus(); } catch (e) { /* element detached */ }
+		}
+	}
+
 	function openModal(elId) {
 		var el = document.getElementById(elId);
 		if (!el) return;
 		if (activeModalId && activeModalId !== elId) closeModal();
+		pushFocus();
 		el.classList.add('modal-open');
 		activeModalId = elId;
 		document.body.setAttribute('data-modal-open', elId);
@@ -52,9 +70,66 @@ var UI = (function () {
 		if (el) el.classList.remove('modal-open');
 		activeModalId = null;
 		document.body.removeAttribute('data-modal-open');
+		popFocus();
 	}
 
 	function isModalOpen() { return activeModalId !== null; }
+
+	function isVisible(id) {
+		var el = document.getElementById(id);
+		if (!el) return false;
+		var d = el.style.display;
+		return d !== 'none' && d !== '';
+	}
+
+	// Hide-by-id helper. Uses jQuery if available (matches legacy fadeOut
+	// behavior on #popupbackground / #statsbackground); raw .style otherwise.
+	function hideById(id, fade) {
+		var $ = window.jQuery;
+		if ($) {
+			if (fade) $('#' + id).fadeOut(200);
+			else $('#' + id).hide();
+		} else {
+			var el = document.getElementById(id);
+			if (el) el.style.display = 'none';
+		}
+	}
+
+	// Close the legacy popup (#popupwrap + #popupbackground).
+	// monopoly.js's popup() already restores focus via its own prevFocus
+	// closure when a button is clicked, so we do NOT pop the focus stack
+	// here (no push happens when popup() opens). This helper only consolidates
+	// the show/hide jQuery duplication for the Esc fallback.
+	function closePopup() {
+		hideById('popupwrap', false);
+		hideById('popupbackground', true);
+	}
+	// Close the stats overlay (#statswrap + #statsbackground). Restores focus
+	// since stats are opened via UI.openModal which DID push to the stack.
+	function closeStats() {
+		hideById('statswrap', false);
+		hideById('statsbackground', true);
+		popFocus();
+	}
+
+	// Screen-reader announcer wrappers. Two live regions live in index.html:
+	//   #turn-announcer (assertive) — turn changes, dice rolls, urgent state
+	//   #game-announcer (polite)    — rent paid, property bought, etc.
+	// We clear → setTimeout → assign so identical consecutive messages still
+	// fire (some screen readers de-duplicate identical text).
+	function _say(id, text) {
+		var el = document.getElementById(id);
+		if (!el || !text) return;
+		el.textContent = '';
+		setTimeout(function () { el.textContent = text; }, 16);
+	}
+	function announce(text)       { _say('game-announcer', text); }
+	function announceUrgent(text) { _say('turn-announcer', text); }
+
+	// Snapshot the currently focused element BEFORE a popup opens, so
+	// closePopup() can restore it. monopoly.js's popup() should call this
+	// just before showing #popupwrap; closePopup() does the pop.
+	function rememberFocus() { pushFocus(); }
 
 	// Single delegated keyboard listener. Activates after window.onload.
 	var keysBound = false;
@@ -68,23 +143,10 @@ var UI = (function () {
 			if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
 			if (e.key === 'Escape') {
-				// Existing popup/stats system uses jQuery to show/hide; respect both paths.
-				if (document.getElementById('popupwrap').style.display !== 'none' &&
-					document.getElementById('popupwrap').style.display !== '') {
-					var $bg = window.jQuery ? window.jQuery('#popupbackground') : null;
-					var $wrap = window.jQuery ? window.jQuery('#popupwrap') : null;
-					if ($wrap) $wrap.hide();
-					if ($bg) $bg.fadeOut(200);
-					return;
-				}
-				if (document.getElementById('statswrap').style.display !== 'none' &&
-					document.getElementById('statswrap').style.display !== '') {
-					var $sbg = window.jQuery ? window.jQuery('#statsbackground') : null;
-					var $swrap = window.jQuery ? window.jQuery('#statswrap') : null;
-					if ($swrap) $swrap.hide();
-					if ($sbg) $sbg.fadeOut(200);
-					return;
-				}
+				// Route legacy popup/stats closes through helpers so focus is
+				// restored regardless of which path opened the panel.
+				if (isVisible('popupwrap')) { closePopup(); return; }
+				if (isVisible('statswrap')) { closeStats(); return; }
 				closeModal();
 				return;
 			}
@@ -160,7 +222,13 @@ var UI = (function () {
 		isModalOpen: isModalOpen,
 		bindKeys: bindKeys,
 		ensureOverlay: ensureOverlay,
-		loadWoodTexture: loadWoodTexture
+		loadWoodTexture: loadWoodTexture,
+		// Focus + live-region helpers (Item 1: accessibility hardening).
+		closePopup: closePopup,
+		closeStats: closeStats,
+		rememberFocus: rememberFocus,
+		announce: announce,
+		announceUrgent: announceUrgent
 	};
 })();
 

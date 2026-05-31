@@ -1,3 +1,78 @@
+// =====================================================================
+// Global state bootstrap. Collapses the historically-scattered window.__*
+// flags into two namespaces, with backward-compat shims so legacy reads
+// (and any AI / edition code we haven't migrated yet) keep working while
+// the migration is incremental.
+//
+//   window.GameState  — mutable runtime: walking, pendingBuyDecision,
+//                       stageTx, freeParkingPot, popupAutoTimer, etc.
+//   window.GameConfig — data/rules:      houseRules, avatarOptions,
+//                       edition, theme, startingCash, autoRollMs.
+//
+// New code should write directly to GameState / GameConfig. The
+// Object.defineProperty shim warns ONCE per old key on the first set
+// from legacy code paths, so the console points at any unmigrated call
+// site. Functions exposed on window.__* (e.g. __openHelp, __startTour,
+// __previewBuyConsequence) are NOT state and are intentionally out of
+// scope for this migration.
+// =====================================================================
+(function () {
+	window.GameState  = window.GameState  || {};
+	window.GameConfig = window.GameConfig || {};
+
+	// Initialize defensively-read values so the "(obj && obj.field) || fallback"
+	// pattern downstream sees the expected shape from turn 0.
+	window.GameState.stageTx             = { scale: 1, rotation: 0, cos: 1, sin: 0 };
+	window.GameState.freeParkingPot      = 0;
+	window.GameState.walking             = false;
+	window.GameState.pendingBuyDecision  = false;
+	window.GameState.skipNextUpdateDice  = false;
+
+	var MIGRATE = {
+		__walking:              { ns: 'state',  key: 'walking' },
+		__pendingBuyDecision:   { ns: 'state',  key: 'pendingBuyDecision' },
+		__popupAutoTimer:       { ns: 'state',  key: 'popupAutoTimer' },
+		__freeParkingPot:       { ns: 'state',  key: 'freeParkingPot' },
+		__lastHighlightedCellId:{ ns: 'state',  key: 'lastHighlightedCellId' },
+		__skipNextUpdateDice:   { ns: 'state',  key: 'skipNextUpdateDice' },
+		__STAGE_TX:             { ns: 'state',  key: 'stageTx' },
+		__victoryOverlay:       { ns: 'state',  key: 'victoryOverlay' },
+		__tokens:               { ns: 'state',  key: 'tokens' },
+		__HOUSE_RULES:          { ns: 'config', key: 'houseRules' },
+		__AVATAR_OPTIONS:       { ns: 'config', key: 'avatarOptions' },
+		__EDITION:              { ns: 'config', key: 'edition' },
+		__THEME:                { ns: 'config', key: 'theme' },
+		__startingCash:         { ns: 'config', key: 'startingCash' },
+		__AUTO_ROLL_MS:         { ns: 'config', key: 'autoRollMs' },
+		__AI_ADAPTIVE_DEBUG:    { ns: 'config', key: 'aiAdaptiveDebug' }
+	};
+
+	var warned = {};
+	for (var oldKey in MIGRATE) {
+		if (!MIGRATE.hasOwnProperty(oldKey)) continue;
+		(function (k) {
+			var info = MIGRATE[k];
+			var bag  = info.ns === 'state' ? window.GameState : window.GameConfig;
+			try {
+				Object.defineProperty(window, k, {
+					configurable: true,
+					get: function () { return bag[info.key]; },
+					set: function (v) {
+						if (!warned[k]) {
+							warned[k] = true;
+							if (window.console && console.warn) {
+								console.warn('[Monopoly] window.' + k + ' is deprecated; use ' +
+									(info.ns === 'state' ? 'GameState.' : 'GameConfig.') + info.key);
+							}
+						}
+						bag[info.key] = v;
+					}
+				});
+			} catch (e) { /* defineProperty unsupported on this property */ }
+		})(oldKey);
+	}
+})();
+
 function Game() {
 	var die1;
 	var die2;
@@ -200,6 +275,20 @@ function Game() {
 			if (isNaN(this.value)) {
 				this.value = "";
 			}
+			var amt = parseInt(this.value, 10) || 0;
+			if (typeof __showConsequencePreview === 'function') {
+				__showConsequencePreview(this, player[currentbidder].money, -amt, 200);
+			}
+		};
+		// Live consequence preview as the bidder types.
+		document.getElementById("bid").oninput = function () {
+			var amt = parseInt(this.value, 10) || 0;
+			if (typeof __showConsequencePreview === 'function') {
+				__showConsequencePreview(this, player[currentbidder].money, -amt, 200);
+			}
+		};
+		document.getElementById("bid").onblur = function () {
+			if (typeof __hideConsequencePreview === 'function') __hideConsequencePreview();
 		};
 
 		updateMoney();
@@ -385,11 +474,128 @@ function Game() {
 	document.getElementById("trade-leftp-money").onchange = tradeMoneyOnChange;
 	document.getElementById("trade-rightp-money").onchange = tradeMoneyOnChange;
 
+	// Live trade summary: shows the cash + property delta from the recipient's
+	// perspective so a human can sanity-check before clicking Propose / Accept.
+	function __updateTradeSummary() {
+		var sumEl = document.getElementById('trade-summary');
+		if (!sumEl) return;
+		if (!currentInitiator || !currentRecipient) {
+			sumEl.className = 'trade-summary is-empty';
+			sumEl.textContent = t('trade.summaryEmpty');
+			return;
+		}
+		var leftMoney  = parseInt(document.getElementById('trade-leftp-money').value, 10) || 0;
+		var rightMoney = parseInt(document.getElementById('trade-rightp-money').value, 10) || 0;
+		var givesNames = [], getsNames = [];
+		for (var i = 0; i < 40; i++) {
+			var cbL = document.getElementById('tradeleftcheckbox' + i);
+			var cbR = document.getElementById('traderightcheckbox' + i);
+			if (cbL && cbL.checked) givesNames.push(square[i].name);
+			if (cbR && cbR.checked) getsNames.push(square[i].name);
+		}
+		// Jail cards (indexes 40, 41).
+		var jailCardName = t('stats.gojfCard');
+		[40, 41].forEach(function (idx) {
+			var cbL = document.getElementById('tradeleftcheckbox'  + idx);
+			var cbR = document.getElementById('traderightcheckbox' + idx);
+			if (cbL && cbL.checked) givesNames.push(jailCardName);
+			if (cbR && cbR.checked) getsNames.push(jailCardName);
+		});
+		if (givesNames.length === 0 && getsNames.length === 0 && !leftMoney && !rightMoney) {
+			sumEl.className = 'trade-summary is-empty';
+			sumEl.textContent = t('trade.summaryEmpty');
+			return;
+		}
+		var netCash = rightMoney - leftMoney;
+		var givesLine = t('trade.summaryGive') + ' ' +
+			(leftMoney > 0 ? ('$' + leftMoney) : '') +
+			(leftMoney > 0 && givesNames.length ? ' + ' : '') +
+			givesNames.join(', ');
+		var getsLine = t('trade.summaryGet') + ' ' +
+			(rightMoney > 0 ? ('$' + rightMoney) : '') +
+			(rightMoney > 0 && getsNames.length ? ' + ' : '') +
+			getsNames.join(', ');
+		var netCls = netCash > 0 ? 'trade-summary-net-positive'
+		           : netCash < 0 ? 'trade-summary-net-negative'
+		           : '';
+		var netStr = (netCash >= 0 ? '+$' : '-$') + Math.abs(netCash);
+		sumEl.className = 'trade-summary';
+		sumEl.innerHTML =
+			'<div>' + I18N.escape(givesLine.trim()) + '</div>' +
+			'<div>' + I18N.escape(getsLine.trim())  + '</div>' +
+			'<div>' + I18N.escape(t('trade.summaryNet')) + ': ' +
+			'<span class="' + netCls + '">' + netStr + '</span></div>';
+	}
+	// Re-render summary as the user edits cash amounts.
+	document.getElementById('trade-leftp-money').addEventListener('input',  __updateTradeSummary);
+	document.getElementById('trade-rightp-money').addEventListener('input', __updateTradeSummary);
+
+	// Resolve a CSS custom property (--token) at call time. Cached after the
+	// first resolution. Falls back to the second arg if the var is empty.
+	var __borderMutedCache = null, __nameMutedCache = null;
+	function __getBorderMuted() {
+		if (__borderMutedCache !== null) return __borderMutedCache;
+		try {
+			var v = getComputedStyle(document.documentElement).getPropertyValue('--ink-muted').trim();
+			__borderMutedCache = v || '#9A8E78';
+		} catch (e) { __borderMutedCache = '#9A8E78'; }
+		return __borderMutedCache;
+	}
+	function __getNameMuted() {
+		if (__nameMutedCache !== null) return __nameMutedCache;
+		try {
+			var v = getComputedStyle(document.documentElement).getPropertyValue('--ink-faint').trim();
+			__nameMutedCache = v || '#A8A192';
+		} catch (e) { __nameMutedCache = '#A8A192'; }
+		return __nameMutedCache;
+	}
+
+	// One row of the trade panel — replaces 4 near-identical sub-blocks that
+	// used to live in resetTrade. opts:
+	//   side:       'left' | 'right'
+	//   index:      0..39 for properties, 40 for CC jail card, 41 for Chance jail card
+	//   kind:       'property' | 'card'
+	//   label:      string for the name column
+	//   color:      background color of the swatch
+	//   borderUseColor: true → border = color, false → border = muted token
+	//   mortgaged:  bool (only meaningful when kind === 'property')
+	//   propertyIndex: number to attach for showdeed hover (kind 'property' only)
+	//   onRowClick: function (the tableRowOnClick shared handler)
+	function __buildTradeRow(opts) {
+		var row = document.createElement('tr');
+		row.onclick = opts.onRowClick;
+
+		var cellCb = row.appendChild(document.createElement('td'));
+		cellCb.className = 'propertycellcheckbox';
+		var checkbox = cellCb.appendChild(document.createElement('input'));
+		checkbox.type = 'checkbox';
+		checkbox.id = 'trade' + opts.side + 'checkbox' + opts.index;
+		checkbox.title = (opts.kind === 'card')
+			? t('trade.includeCardTitle')
+			: t('trade.includePropertyTitle', { place: opts.label });
+
+		var cellColor = row.appendChild(document.createElement('td'));
+		cellColor.className = 'propertycellcolor';
+		cellColor.style.backgroundColor = opts.color;
+		cellColor.style.borderColor = opts.borderUseColor ? opts.color : __getBorderMuted();
+		if (opts.kind === 'property') {
+			cellColor.propertyIndex = opts.propertyIndex;
+			cellColor.onmouseover = function () { showdeed(this.propertyIndex); };
+			cellColor.onmouseout  = hidedeed;
+		}
+
+		var cellName = row.appendChild(document.createElement('td'));
+		cellName.className = 'propertycellname';
+		if (opts.mortgaged) {
+			cellName.title = t('stats.mortgagedTooltip');
+			cellName.style.color = __getNameMuted();
+		}
+		cellName.textContent = opts.label;
+		return row;
+	}
+
 	var resetTrade = function(initiator, recipient, allowRecipientToBeChanged) {
 		var currentSquare;
-		var currentTableRow;
-		var currentTableCell;
-		var currentTableCellCheckbox;
 		var nameSelect;
 		var currentOption;
 		var allGroupUninproved;
@@ -406,6 +612,7 @@ function Game() {
 			$("#canceltradebutton").show();
 			$("#accepttradebutton").hide();
 			$("#rejecttradebutton").hide();
+			if (typeof __updateTradeSummary === 'function') __updateTradeSummary();
 		};
 
 		var initiatorProperty = document.getElementById("trade-leftp-property");
@@ -449,158 +656,52 @@ function Game() {
 				continue;
 			}
 
-			// Offered properties.
+			// Railroads (group 1) and utilities (group 2) get a muted swatch border
+			// so they read as "no monopoly group". All other groups border = color.
+			var borderUseColor = !(currentSquare.groupNumber == 1 || currentSquare.groupNumber == 2);
 			if (currentSquare.owner === initiator.index) {
-				currentTableRow = initiatorSideTable.appendChild(document.createElement("tr"));
-				currentTableRow.onclick = tableRowOnClick;
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellcheckbox";
-				currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-				currentTableCellCheckbox.type = "checkbox";
-				currentTableCellCheckbox.id = "tradeleftcheckbox" + i;
-				currentTableCellCheckbox.title = t('trade.includePropertyTitle', { place: currentSquare.name });
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellcolor";
-				currentTableCell.style.backgroundColor = currentSquare.color;
-
-				if (currentSquare.groupNumber == 1 || currentSquare.groupNumber == 2) {
-					currentTableCell.style.borderColor = "grey";
-				} else {
-					currentTableCell.style.borderColor = currentSquare.color;
-				}
-
-				currentTableCell.propertyIndex = i;
-				currentTableCell.onmouseover = function() {showdeed(this.propertyIndex);};
-				currentTableCell.onmouseout = hidedeed;
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellname";
-				if (currentSquare.mortgage) {
-					currentTableCell.title = t('stats.mortgagedTooltip');
-					currentTableCell.style.color = "grey";
-				}
-				currentTableCell.textContent = currentSquare.name;
-
-			// Requested properties.
+				initiatorSideTable.appendChild(__buildTradeRow({
+					side: 'left', index: i, kind: 'property',
+					label: currentSquare.name, color: currentSquare.color,
+					borderUseColor: borderUseColor, mortgaged: !!currentSquare.mortgage,
+					propertyIndex: i, onRowClick: tableRowOnClick
+				}));
 			} else if (currentSquare.owner === recipient.index) {
-				currentTableRow = recipientSideTable.appendChild(document.createElement("tr"));
-				currentTableRow.onclick = tableRowOnClick;
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellcheckbox";
-				currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-				currentTableCellCheckbox.type = "checkbox";
-				currentTableCellCheckbox.id = "traderightcheckbox" + i;
-				currentTableCellCheckbox.title = t('trade.includePropertyTitle', { place: currentSquare.name });
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellcolor";
-				currentTableCell.style.backgroundColor = currentSquare.color;
-
-				if (currentSquare.groupNumber == 1 || currentSquare.groupNumber == 2) {
-					currentTableCell.style.borderColor = "grey";
-				} else {
-					currentTableCell.style.borderColor = currentSquare.color;
-				}
-
-				currentTableCell.propertyIndex = i;
-				currentTableCell.onmouseover = function() {showdeed(this.propertyIndex);};
-				currentTableCell.onmouseout = hidedeed;
-
-				currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-				currentTableCell.className = "propertycellname";
-				if (currentSquare.mortgage) {
-					currentTableCell.title = t('stats.mortgagedTooltip');
-					currentTableCell.style.color = "grey";
-				}
-				currentTableCell.textContent = currentSquare.name;
+				recipientSideTable.appendChild(__buildTradeRow({
+					side: 'right', index: i, kind: 'property',
+					label: currentSquare.name, color: currentSquare.color,
+					borderUseColor: borderUseColor, mortgaged: !!currentSquare.mortgage,
+					propertyIndex: i, onRowClick: tableRowOnClick
+				}));
 			}
 		}
 
+		// Jail cards — one row per card a side currently holds.
 		if (initiator.communityChestJailCard) {
-			currentTableRow = initiatorSideTable.appendChild(document.createElement("tr"));
-			currentTableRow.onclick = tableRowOnClick;
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcheckbox";
-			currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-			currentTableCellCheckbox.type = "checkbox";
-			currentTableCellCheckbox.id = "tradeleftcheckbox40";
-			currentTableCellCheckbox.title = t('trade.includeCardTitle');
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcolor";
-			currentTableCell.style.backgroundColor = "white";
-			currentTableCell.style.borderColor = "grey";
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellname";
-
-			currentTableCell.textContent = t('stats.gojfCard');
+			initiatorSideTable.appendChild(__buildTradeRow({
+				side: 'left', index: 40, kind: 'card',
+				label: t('stats.gojfCard'), color: 'white',
+				borderUseColor: false, onRowClick: tableRowOnClick
+			}));
 		} else if (recipient.communityChestJailCard) {
-			currentTableRow = recipientSideTable.appendChild(document.createElement("tr"));
-			currentTableRow.onclick = tableRowOnClick;
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcheckbox";
-			currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-			currentTableCellCheckbox.type = "checkbox";
-			currentTableCellCheckbox.id = "traderightcheckbox40";
-			currentTableCellCheckbox.title = t('trade.includeCardTitle');
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcolor";
-			currentTableCell.style.backgroundColor = "white";
-			currentTableCell.style.borderColor = "grey";
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellname";
-
-			currentTableCell.textContent = t('stats.gojfCard');
+			recipientSideTable.appendChild(__buildTradeRow({
+				side: 'right', index: 40, kind: 'card',
+				label: t('stats.gojfCard'), color: 'white',
+				borderUseColor: false, onRowClick: tableRowOnClick
+			}));
 		}
-
 		if (initiator.chanceJailCard) {
-			currentTableRow = initiatorSideTable.appendChild(document.createElement("tr"));
-			currentTableRow.onclick = tableRowOnClick;
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcheckbox";
-			currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-			currentTableCellCheckbox.type = "checkbox";
-			currentTableCellCheckbox.id = "tradeleftcheckbox41";
-			currentTableCellCheckbox.title = t('trade.includeCardTitle');
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcolor";
-			currentTableCell.style.backgroundColor = "white";
-			currentTableCell.style.borderColor = "grey";
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellname";
-
-			currentTableCell.textContent = t('stats.gojfCard');
+			initiatorSideTable.appendChild(__buildTradeRow({
+				side: 'left', index: 41, kind: 'card',
+				label: t('stats.gojfCard'), color: 'white',
+				borderUseColor: false, onRowClick: tableRowOnClick
+			}));
 		} else if (recipient.chanceJailCard) {
-			currentTableRow = recipientSideTable.appendChild(document.createElement("tr"));
-			currentTableRow.onclick = tableRowOnClick;
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcheckbox";
-			currentTableCellCheckbox = currentTableCell.appendChild(document.createElement("input"));
-			currentTableCellCheckbox.type = "checkbox";
-			currentTableCellCheckbox.id = "traderightcheckbox41";
-			currentTableCellCheckbox.title = t('trade.includeCardTitle');
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellcolor";
-			currentTableCell.style.backgroundColor = "white";
-			currentTableCell.style.borderColor = "grey";
-
-			currentTableCell = currentTableRow.appendChild(document.createElement("td"));
-			currentTableCell.className = "propertycellname";
-
-			currentTableCell.textContent = t('stats.gojfCard');
+			recipientSideTable.appendChild(__buildTradeRow({
+				side: 'right', index: 41, kind: 'card',
+				label: t('stats.gojfCard'), color: 'white',
+				borderUseColor: false, onRowClick: tableRowOnClick
+			}));
 		}
 
 		if (initiatorSideTable.lastChild) {
@@ -1236,7 +1337,7 @@ function Game() {
 		}
 
 		for (var i = 0; i < 40; i++) {
-			sq = square[i];
+			var sq = square[i];
 			if (sq.owner == p.index) {
 				// Mortgaged properties will be tranfered by bankruptcyUnmortgage();
 				if (!sq.mortgage) {
@@ -1588,7 +1689,7 @@ function addAlert(alertText) {
 			if (player[turn].AI.alertList.length > maxChars) {
 				player[turn].AI.alertList = player[turn].AI.alertList.slice(-maxChars);
 			}
-		} catch (e) {}
+		} catch (e) { /* defensive: alertList missing on AI mock */ }
 	}
 }
 
@@ -2034,6 +2135,9 @@ function __showTurnBanner(p) {
 	var label = document.createElement('span');
 	label.textContent = (typeof t === 'function' ? t('alert.isYourTurn', { player: p.name }) : p.name);
 	banner.appendChild(label);
+	// Screen-reader equivalent: assertive announcement so keyboard-only and
+	// blind players don't depend on seeing the visual banner.
+	if (window.UI && typeof UI.announceUrgent === 'function') UI.announceUrgent(label.textContent);
 	stage.appendChild(banner);
 	setTimeout(function () { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 1900);
 }
@@ -2156,7 +2260,7 @@ function __floatMoneyDelta(el, delta) {
 	if (!stage) return;
 	var elRect = el.getBoundingClientRect();
 	var stageRect = stage.getBoundingClientRect();
-	var scale = (window.__STAGE_TX && window.__STAGE_TX.scale) || 1;
+	var scale = (window.GameState.stageTx && window.GameState.stageTx.scale) || 1;
 	// Translate viewport coords back into stage-local coords.
 	var left = (elRect.left + elRect.width / 2 - stageRect.left) / scale - 30;
 	var top  = (elRect.top  - stageRect.top)  / scale - 6;
@@ -2422,7 +2526,7 @@ function __showVictory(winner) {
 		stats.games += 1;
 		stats.wins[winner.name] = (typeof stats.wins[winner.name] === 'number' ? stats.wins[winner.name] : 0) + 1;
 		window.localStorage.setItem('monopoly:stats', JSON.stringify(stats));
-	} catch (e) {}
+	} catch (e) { /* localStorage unavailable: private mode */ }
 
 	// Hide the live gameplay UI behind the overlay so the only clickable
 	// elements are the overlay's own CTAs.
@@ -2468,7 +2572,7 @@ function __showVictory(winner) {
 				: winCount + ' total wins');
 			overlay.appendChild(careerEl);
 		}
-	} catch (e) {}
+	} catch (e) { /* localStorage unavailable: skip career line */ }
 
 	// Primary CTA: Play Again (reloads the page — setup form keeps players).
 	var btn = document.createElement('button');
@@ -2621,7 +2725,7 @@ function __placeTokenInCell(tok, hostEl, leftPx, topPx, cellKey, duration) {
 	}
 
 	var newRect = tok.el.getBoundingClientRect();
-	var scale = (window.__STAGE_TX && window.__STAGE_TX.scale) || 1;
+	var scale = (window.GameState.stageTx && window.GameState.stageTx.scale) || 1;
 	var dx = (oldRect.left - newRect.left) / scale;
 	var dy = (oldRect.top  - newRect.top)  / scale;
 	if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
@@ -3433,7 +3537,7 @@ function __attachThrow(primary, partner) {
 				game.rollDice();
 				rolledFace1 = game.getDie(1);
 				rolledFace2 = game.getDie(2);
-			} catch (e) {}
+			} catch (e) { /* dice override: keep fallback faces */ }
 		}
 
 		// 2) Final cube rotation that lands on each rolled face, chosen as
@@ -5491,7 +5595,7 @@ function fitStage() {
 	}
 	// translate(-50%,-50%) keeps the stage centered before scale/rotate.
 	stage.style.transform = 'translate(-50%, -50%) rotate(' + rotateDeg + 'deg) scale(' + scale + ')';
-	window.__STAGE_TX = { scale: scale, rotation: rotateDeg, cos: cos, sin: sin };
+	window.GameState.stageTx = { scale: scale, rotation: rotateDeg, cos: cos, sin: sin };
 }
 
 // Render the 8 player-setup blocks into #player-setup-list. The IDs match
@@ -5614,7 +5718,7 @@ function _restoreSetupFromStorage() {
 		}
 		if (typeof s.cash === 'number' && typeof window.__applyPreset === 'function') {
 			var presetKey = s.cash === 1000 ? 'quick' : (s.cash === 2500 ? 'long' : 'standard');
-			try { window.__applyPreset(presetKey); } catch (e) {}
+			try { window.__applyPreset(presetKey); } catch (e) { /* preset load: ignore */ }
 		}
 		if (s.rules && typeof s.rules === 'object') {
 			var ruleMap = {
@@ -5704,7 +5808,7 @@ function _wireGlobalButtons() {
 	if (editionSel) {
 		editionSel.value = window.__EDITION || 'classic';
 		editionSel.addEventListener('change', function () {
-			try { window.localStorage.setItem('monopoly:edition', editionSel.value); } catch (e) {}
+			try { window.localStorage.setItem('monopoly:edition', editionSel.value); } catch (e) { /* localStorage unavailable */ }
 			window.location.reload();
 		});
 	}
@@ -6032,7 +6136,7 @@ function _initThemeToggle() {
 			btn.title = t('ui.themeToggle', { mode: label });
 		}
 		window.__THEME = mode;
-		try { window.localStorage.setItem('monopoly:theme', mode); } catch (e) {}
+		try { window.localStorage.setItem('monopoly:theme', mode); } catch (e) { /* localStorage unavailable */ }
 	}
 
 	apply(window.__THEME || 'auto');
@@ -6225,13 +6329,13 @@ window.onload = function() {
 		function finish() {
 			overlay.classList.remove('tour-active');
 			overlay.setAttribute('aria-hidden', 'true');
-			try { window.localStorage.setItem('monopoly:tourSeen', '1'); } catch (e) {}
+			try { window.localStorage.setItem('monopoly:tourSeen', '1'); } catch (e) { /* localStorage unavailable */ }
 		}
 
 		function start() {
 			try {
 				if (window.localStorage.getItem('monopoly:tourSeen') === '1') return;
-			} catch (e) {}
+			} catch (e) { /* localStorage unavailable: show tour anyway */ }
 			steps = defineSteps();
 			idx = 0;
 			overlay.classList.add('tour-active');

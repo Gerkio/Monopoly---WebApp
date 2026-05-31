@@ -96,6 +96,29 @@
 	}
 }
 
+/* Accessibility primitives — visually-hidden helper for screen-reader-only
+   live regions (#turn-announcer, #game-announcer) and a global focus ring
+   that only shows on keyboard navigation (not mouse clicks). */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+:focus-visible {
+	outline: 2px solid var(--accent-bright, #FFD24A);
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible) { outline: none; }
+
 /* Explicit overrides via class on <html>. Toggled by the UI so users can
    force a scheme regardless of OS preference.
 
@@ -880,12 +903,14 @@ td {
 	will-change: transform;
 }
 .cell:hover,
-.cell:active {
+.cell:active,
+.cell:focus-visible {
 	transform: translateZ(0) scale(1.04);
 	z-index: 5;
 }
 .cell.board-corner:hover,
-.cell.board-corner:active { transform: translateZ(0) scale(1.02); } /* corners barely lift */
+.cell.board-corner:active,
+.cell.board-corner:focus-visible { transform: translateZ(0) scale(1.02); } /* corners barely lift */
 
 /* Rent flight — "$N" pill that arcs from the payer's token to the
    receiver's money-bar row. Body-level so it overlays everything. */
@@ -1232,12 +1257,50 @@ td {
 	background-size: auto 46px;
 }
 
-/* Chance / Community Chest cells get a colored tint to match their decks. */
+/* Live trade summary card. Sits between the property lists and the action
+   buttons. Two states: .is-empty (italic muted hint) and the active state
+   (cash + property lines + net delta). */
+#trade-summary {
+	grid-column: 1 / -1;
+	background: var(--surface-card);
+	color: var(--ink);
+	border: 1px solid var(--ledger-border, rgba(0,0,0,0.12));
+	border-radius: 6px;
+	padding: 10px 12px;
+	margin: 8px 0;
+	font-size: 13px;
+	line-height: 1.5;
+}
+#trade-summary.is-empty {
+	color: var(--ink-muted, #777);
+	font-style: italic;
+}
+#trade-summary > div { margin: 2px 0; }
+.trade-summary-net-positive { color: var(--accent, #2A7F4F); font-weight: 700; }
+.trade-summary-net-negative { color: #B43A2D; font-weight: 700; }
+
+/* Chance / Community Chest cells get a colored tint to match their decks.
+   Light-mode tones meet WCAG AA against --ink (#1A1A1A) at 10px small text. */
 #cell2, #cell17, #cell33 {  /* Community Chest cells */
-	background-color: #fdf3c5;
+	background-color: #FDEDA0;
 }
 #cell7, #cell22, #cell36 {  /* Chance cells */
-	background-color: #f7e9c2;
+	background-color: #F2D38E;
+}
+/* Dark-theme overrides keep the deck identity readable against --ink (#E8E8E5). */
+html.theme-dark #cell2, html.theme-dark #cell17, html.theme-dark #cell33 {
+	background-color: #3E3416;
+}
+html.theme-dark #cell7, html.theme-dark #cell22, html.theme-dark #cell36 {
+	background-color: #4A341A;
+}
+@media (prefers-color-scheme: dark) {
+	html:not(.theme-light) #cell2, html:not(.theme-light) #cell17, html:not(.theme-light) #cell33 {
+		background-color: #3E3416;
+	}
+	html:not(.theme-light) #cell7, html:not(.theme-light) #cell22, html:not(.theme-light) #cell36 {
+		background-color: #4A341A;
+	}
 }
 
 #cell20 { /* Free Parking */
