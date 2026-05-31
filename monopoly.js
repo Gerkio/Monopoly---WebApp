@@ -1485,6 +1485,29 @@ function addAlert(alertText) {
 	}
 }
 
+// Wrap an AI player's per-turn recap (the accumulated alertList) in a
+// rich header so the popup is visually consistent with the rest of the
+// game and easy to scan from across a tabletop. The alertList itself is
+// pre-built HTML built up by addAlert(); we just prepend a header card
+// with the player's color, name, and a short "turn recap" label.
+function __formatAIRecap(p) {
+	var color = p && p.color ? p.color : 'var(--ink-muted)';
+	var name = p && p.name ? I18N.escape(p.name) : '';
+	var labelTurn = t('panel.aiRecapTitle') || 'Turn recap';
+	return (
+		'<div class="ai-recap">' +
+			'<div class="ai-recap-head">' +
+				'<span class="ai-recap-dot" style="background:' + color + '"></span>' +
+				'<div class="ai-recap-headtext">' +
+					'<div class="ai-recap-name" style="color:' + color + '">' + name + '</div>' +
+					'<div class="ai-recap-label">🤖 ' + I18N.escape(labelTurn) + '</div>' +
+				'</div>' +
+			'</div>' +
+			'<div class="ai-recap-body">' + (p && p.AI && p.AI.alertList || '') + '</div>' +
+		'</div>'
+	);
+}
+
 // =====================================================================
 // Auto-roll countdown — keeps the game flowing when a player wanders off
 // or forgets it's their turn. Arms when play() detects a human's roll
@@ -3928,7 +3951,7 @@ function gotojail() {
 	updateOwned();
 
 	if (!p.human) {
-		popup(p.AI.alertList, game.next);
+		popup(__formatAIRecap(p), game.next, undefined, { autoMs: 8000 });
 		p.AI.alertList = "";
 	}
 }
@@ -4771,7 +4794,7 @@ function land(increasedRent) {
 	updateOwned();
 
 	if (!p.human) {
-		popup(p.AI.alertList, chanceCommunityChest);
+		popup(__formatAIRecap(p), chanceCommunityChest, undefined, { autoMs: 8000 });
 		p.AI.alertList = "";
 	} else {
 		chanceCommunityChest();
@@ -4836,7 +4859,7 @@ function _handleJailTurn(p, die1, die2) {
 	$("#landed").show();
 	document.getElementById("landed").innerHTML = t('landed.inJail');
 	if (!p.human) {
-		popup(p.AI.alertList, game.next);
+		popup(__formatAIRecap(p), game.next, undefined, { autoMs: 8000 });
 		p.AI.alertList = "";
 	}
 }

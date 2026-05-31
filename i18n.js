@@ -335,6 +335,7 @@ var I18N = (function () {
 			'panel.actionsLabel': 'Your turn · Actions',
 			'panel.upNext': 'Up next:',
 			'panel.aiThinking': '⏳ {player} is thinking…',
+			'panel.aiRecapTitle': 'Turn summary',
 
 			// Board edition selector
 			'setup.editionLabel': 'Board edition:',
@@ -694,6 +695,7 @@ var I18N = (function () {
 			'panel.actionsLabel': 'Tu turno · Acciones',
 			'panel.upNext': 'Siguen:',
 			'panel.aiThinking': '⏳ {player} está pensando…',
+			'panel.aiRecapTitle': 'Resumen del turno',
 
 			// Board edition selector
 			'setup.editionLabel': 'Edición del tablero:',
