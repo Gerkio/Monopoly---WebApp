@@ -15,7 +15,10 @@
  * the old cache on the next page load.
  */
 
-const CACHE_NAME = "monopoly-cache-v1";
+// Sprint 5 — bumped to v2 because monopoly.js was split into 5 modules.
+// Old cache only had monopoly.js precached; v1 clients would 404-fallback on
+// engine/players/animations/render even though they're already deployed.
+const CACHE_NAME = "monopoly-cache-v2";
 
 const PRECACHE_URLS = [
   "./",
@@ -23,7 +26,15 @@ const PRECACHE_URLS = [
   "classicedition.js",
   "newyorkcityedition.js",
   "ai.js",
+  "engine.js",
+  "players.js",
+  "animations.js",
+  "render.js",
   "monopoly.js",
+  "i18n.js",
+  "ui.js",
+  "edition-common.js",
+  "ai-worker.js",
   "styles.css",
   "manifest.webmanifest",
   "images/maderafondo.png",
