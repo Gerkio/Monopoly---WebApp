@@ -3303,6 +3303,7 @@ input[type="button"]:disabled:hover { transform: none; }
 	border: none;
 	width: 235px;
 	height: 275px;
+	pointer-events: none;
 	/* Aged-ivory paper look: cream gradient + subtle paper grain.
 	   The deed is INTENTIONALLY paper-coloured in both themes (it's a
 	   real-world Monopoly card). All inner text must therefore stay dark

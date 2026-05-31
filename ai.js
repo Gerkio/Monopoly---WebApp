@@ -167,10 +167,38 @@ function __aiActivePlayerCount() {
 //   • Sells/mortgages randomly when broke.
 //   • Bids timidly in auctions.
 // ============================================================
+var AI_NAME_POOL = {
+	es: [
+		"Armando Bronca Segura", "Luz Cuesta Mogollón", "Ana Mier de Cilla",
+		"Dolores Fuertes de Barriga", "Elvio Lado Oscuro", "Debora Melo",
+		"Benito Camelo", "Paco Jones", "Elba Lazo", "Alan Brito Delgado",
+		"Aquiles Bailo", "Rosa Melano", "Jorge Nitales", "Esteban Dido",
+		"Elsa Pato", "Lola Mento", "Armando Paredes", "Susana Horia",
+		"Zoila Vaca", "Paco Merlo"
+	],
+	en: [
+		"Paige Turner", "Justin Case", "Anita Bath", "Robin Banks",
+		"Barb Dwyer", "Chris P. Bacon", "Sal Monella", "Barry Cade",
+		"Phil A. Mignon", "Al Beback", "Bill Board", "Terry Cloth",
+		"Candy Barr", "Otto Graph", "Barb Wire", "Will Power",
+		"Dan D. Lyon", "Holly Wood", "Ben Dover", "Sue Flay"
+	]
+};
+function __pickAIName() {
+	var locale = (typeof I18N !== 'undefined' && typeof I18N.get === 'function') ? I18N.get() : 'en';
+	var pool = AI_NAME_POOL[locale] || AI_NAME_POOL.en;
+	var used = {};
+	for (var i = 1; i < player.length; i++) { if (player[i] && player[i].name) used[player[i].name] = true; }
+	var avail = [];
+	for (var j = 0; j < pool.length; j++) { if (!used[pool[j]]) avail.push(pool[j]); }
+	if (avail.length === 0) avail = pool;
+	return avail[Math.floor(Math.random() * avail.length)];
+}
+
 function AIEasy(p) {
 	this.alertList = "";
 	this.constructor.count++;
-	p.name = "AI Easy " + this.constructor.count;
+	p.name = __pickAIName();
 
 	this.buyProperty = function (index) {
 		var s = square[index];
@@ -290,7 +318,7 @@ AIEasy.count = 0;
 function AINormal(p) {
 	this.alertList = "";
 	this.constructor.count++;
-	p.name = "AI Normal " + this.constructor.count;
+	p.name = __pickAIName();
 
 	// Cash reserve scales with game state.
 	function reserve() {
@@ -475,7 +503,7 @@ var AITest = AINormal;
 function AIHard(p) {
 	this.alertList = "";
 	this.constructor.count++;
-	p.name = "AI Hard " + this.constructor.count;
+	p.name = __pickAIName();
 
 	// Dynamic reserve based on biggest rent danger from opponents.
 	function reserve() {

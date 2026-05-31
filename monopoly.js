@@ -24,6 +24,7 @@ function Game() {
 		// impatient enough to mash Space mid-animation can fire roll() before
 		// the previous turn's land() resolves, corrupting p.position.
 		if (window.__walking) return;
+		if (window.__pendingBuyDecision) return;
 		// `p` used to leak in as an implicit global from updatePosition's
 		// `p = player[turn]` (no var). When updatePosition was rewritten with
 		// local-only state for the new token layer, the leak disappeared and
@@ -80,6 +81,7 @@ function Game() {
 
 		$("#popupbackground").hide();
 		$("#popupwrap").hide();
+		window.__pendingBuyDecision = false;
 
 		if (!game.auction()) {
 			play();
@@ -751,6 +753,28 @@ function Game() {
 	};
 
 	this.trade = function(tradeObj) {
+		// AI-to-AI: settle the negotiation without ever showing the human UI.
+		if (tradeObj instanceof Trade) {
+			var tInit = tradeObj.getInitiator();
+			var tRecip = tradeObj.getRecipient();
+			if (tInit && tRecip && !tInit.human && !tRecip.human) {
+				var resp = tRecip.AI.acceptTrade(tradeObj);
+				if (resp === true) {
+					popup("<p>" + t('popup.tradeAccepted', { recipient: tRecip.name }) + "</p>");
+					var revProps = [];
+					for (var ri = 0; ri < 40; ri++) revProps[ri] = -tradeObj.getProperty(ri);
+					var reversed = new Trade(tRecip, tInit, -tradeObj.getMoney(), revProps, -tradeObj.getCommunityChestJailCard(), -tradeObj.getChanceJailCard());
+					this.acceptTrade(reversed);
+				} else if (resp instanceof Trade) {
+					popup("<p>" + t('popup.tradeCounter', { recipient: tRecip.name }) + "</p>");
+					this.trade(resp);
+				} else {
+					popup("<p>" + t('popup.tradeDeclined', { recipient: tRecip.name }) + "</p>");
+				}
+				return;
+			}
+		}
+
 		$("#board").hide();
 		$("#control").hide();
 		$("#trade").show();
@@ -981,6 +1005,16 @@ function Game() {
 				return;
 			} else if (tradeResponse instanceof Trade) {
 				popup("<p>" + t('popup.tradeCounter', { recipient: recipient.name }) + "</p>");
+				// AI initiator + AI counter-offer: hand back to game.trade() which
+				// will resolve it headlessly via the AI-only branch. Human never
+				// sees the trade panel.
+				if (!initiator.human) {
+					$("#board").show();
+					$("#control").show();
+					$("#trade").hide();
+					game.trade(tradeResponse);
+					return;
+				}
 				writeTrade(tradeResponse);
 
 				$("#proposetradebutton, #canceltradebutton").hide();
@@ -1066,31 +1100,62 @@ function Game() {
 		}
 
 		var creditor = p.creditor;
-		var HTML = "<p>" + t('popup.bankruptcyUnmortgageNote', { recipient: player[creditor].name }) + "</p><table>";
-		var price;
+		var creditorPlayer = player[creditor];
+		var mortgaged = [];
 		var sq;
-		var rowIds = [];
 
 		for (var i = 0; i < 40; i++) {
 			sq = square[i];
 			if (sq.owner == p.index && sq.mortgage) {
-				price = Math.round(sq.price * 0.5);
-				var rowId = 'bunmrow-' + i;
-				rowIds.push({ rowId: rowId, idx: i, price: price });
-
-				HTML += "<tr id='" + rowId + "'><td class='propertycellcolor' style='background: " + sq.color + ";";
-				HTML += (sq.groupNumber == 1 || sq.groupNumber == 2)
-					? " border: 1px solid grey;"
-					: " border: 1px solid " + sq.color + ";";
-
-				HTML += "' onmouseover='showdeed(" + i + ");' onmouseout='hidedeed();'></td>";
-				HTML += "<td class='propertycellname'><a href='javascript:void(0);' "
-					+ "id='" + rowId + "-link' "
-					+ "data-prop-index='" + i + "' data-prop-price='" + price + "'>"
-					+ t('popup.unmortgageProp', { place: sq.name, amount: price }) + "</a></td></tr>";
-
+				mortgaged.push(i);
 				sq.owner = creditor;
 			}
+		}
+
+		if (!creditorPlayer.human) {
+			var SAFETY_BUFFER = 200;
+			for (var m = 0; m < mortgaged.length; m++) {
+				var idx = mortgaged[m];
+				var s2 = square[idx];
+				// Bankruptcy path pays mortgage value (50%) to clear it, matching
+				// the interactive popup the human creditor sees on the same flow.
+				var cost = Math.round(s2.price * 0.5);
+				var groupOwned = 0;
+				for (var g = 0; g < 40; g++) {
+					if (square[g].groupNumber === s2.groupNumber && square[g].owner === creditor) groupOwned++;
+				}
+				if (groupOwned >= 2 && (creditorPlayer.money - cost) >= SAFETY_BUFFER) {
+					creditorPlayer.pay(cost, 0);
+					s2.mortgage = false;
+					addAlert(t('alert.unmortgaged', { player: creditorPlayer.name, place: s2.name, amount: cost }));
+					if (typeof __updateMortgagedVisual === 'function') __updateMortgagedVisual(idx);
+				}
+			}
+			updateOwned();
+			updateMoney();
+			game.eliminatePlayer();
+			return;
+		}
+
+		var HTML = "<p>" + t('popup.bankruptcyUnmortgageNote', { recipient: creditorPlayer.name }) + "</p><table>";
+		var rowIds = [];
+		for (var k = 0; k < mortgaged.length; k++) {
+			var i2 = mortgaged[k];
+			var sq2 = square[i2];
+			var price = Math.round(sq2.price * 0.5);
+			var rowId = 'bunmrow-' + i2;
+			rowIds.push({ rowId: rowId, idx: i2, price: price });
+
+			HTML += "<tr id='" + rowId + "'><td class='propertycellcolor' style='background: " + sq2.color + ";";
+			HTML += (sq2.groupNumber == 1 || sq2.groupNumber == 2)
+				? " border: 1px solid grey;"
+				: " border: 1px solid " + sq2.color + ";";
+
+			HTML += "' onmouseover='showdeed(" + i2 + ");' onmouseout='hidedeed();'></td>";
+			HTML += "<td class='propertycellname'><a href='javascript:void(0);' "
+				+ "id='" + rowId + "-link' "
+				+ "data-prop-index='" + i2 + "' data-prop-price='" + price + "'>"
+				+ t('popup.unmortgageProp', { place: sq2.name, amount: price }) + "</a></td></tr>";
 		}
 
 		HTML += "</table>";
@@ -2300,6 +2365,7 @@ window.__startAuctionFromLanded = function () {
 	// Hide the buy/auction prompts and kick off the auction.
 	$('#landed').hide();
 	$('#buy').hide();
+	window.__pendingBuyDecision = false;
 	if (game && typeof game.auction === 'function') game.auction();
 };
 
@@ -4693,8 +4759,6 @@ function buy() {
 		if (typeof UI !== 'undefined') UI.toast(t('alert.boughtProperty', { player: p.name, place: property.name, price: property.price }), { kind: 'success' });
 		if (typeof Sound !== 'undefined') Sound.coin();
 
-		// Visual celebration: cell pulses in the new owner's color so it's
-		// immediately obvious which property changed hands.
 		__pulsePurchasedCell(p.position, p.color);
 
 		updateOwned();
@@ -4704,6 +4768,8 @@ function buy() {
 	} else {
 		popup("<p>" + t('popup.needForHouse', { amount: (property.price - p.money), place: property.name }) + "</p>");
 	}
+	// Decision was taken (success OR not-enough-cash) — release the roll gate.
+	window.__pendingBuyDecision = false;
 }
 
 function mortgage(index) {
@@ -4779,13 +4845,17 @@ function land(increasedRent) {
 
 	// Allow player to buy the property on which he landed.
 	if (s.price !== 0 && s.owner === 0) {
-
 		if (!p.human) {
-
+			// AI decides synchronously — no popup, so no need to gate
+			// roll()/next() with __pendingBuyDecision. Setting the flag here
+			// would leak if the AI declines to buy (no buy()/auction call to
+			// clear it).
 			if (p.AI.buyProperty(p.position)) {
 				buy();
 			}
 		} else {
+			// Block Roll-Again / End-Turn until the human picks buy or auction.
+			window.__pendingBuyDecision = true;
 			var noAuc = !!(window.__HOUSE_RULES && window.__HOUSE_RULES.noAuctions);
 			var auctionBtnHtml = noAuc ? '' :
 				"<input type='button' id='auctionbtn-landed' onclick='__startAuctionFromLanded();' value='" + t('ui.auctionNow') + "' title='" + t('ui.auctionNowTitle') + "'/>";
@@ -5026,6 +5096,7 @@ function roll() {
 	// too many cells" bug the player saw. Bail out and let the in-flight
 	// walk finish; the next roll will be picked up by the normal button.
 	if (window.__walking) return;
+	if (window.__pendingBuyDecision) return;
 	var p = player[turn];
 
 	$("#option").hide();
