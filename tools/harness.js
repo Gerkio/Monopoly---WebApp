@@ -75,6 +75,15 @@ async function launch(opts) {
 async function startGame(client, opts) {
     opts = opts || {};
     var aiLevel = opts.aiLevel || '2'; // Normal by default
+    // Sprint 3 — wait for the splash to be removed from the DOM (or marked
+    // hidden) before we drive the setup form, so clicks aren't swallowed by
+    // the fixed full-screen overlay.
+    try {
+        await client.waitFor(
+            "!document.getElementById('splash') || document.getElementById('splash').style.display === 'none'",
+            5000
+        );
+    } catch (e) { /* fall through — initial sleep in launch() usually covers this */ }
     await client.eval("try{window.localStorage.setItem('monopoly:tourSeen','1')}catch(e){}");
     await client.eval("try{Sound.setMuted(true);}catch(e){}");
     await client.eval("document.getElementById('playernumber').value='2'; document.getElementById('playernumber').dispatchEvent(new Event('change'));");

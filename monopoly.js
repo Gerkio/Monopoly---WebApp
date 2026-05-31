@@ -1022,6 +1022,30 @@ function Game() {
 		updateOwned();
 		updateMoney();
 
+		// Sprint 3 (S3.2) — scan the just-transferred properties for any
+		// color groups that became monopolies as a result of the trade.
+		// We dedupe by groupNumber so a 3-property trade closing the same
+		// group only bursts once.
+		(function () {
+			if (typeof __burstConfetti !== 'function') return;
+			var firedGroups = {};
+			for (var ti = 0; ti < 40; ti++) {
+				var flag = tradeObj.getProperty(ti);
+				if (flag === 0) continue;
+				var movedTo = (flag === 1) ? recipient.index : initiator.index;
+				var sq = square[ti];
+				if (!sq || sq.groupNumber < 3) continue;
+				if (firedGroups[sq.groupNumber]) continue;
+				if (__completesColorGroupNow(sq, movedTo)) {
+					firedGroups[sq.groupNumber] = true;
+					var cellEl = document.getElementById('cell' + ti);
+					if (cellEl) {
+						__burstConfetti(cellEl, [sq.color || '#1B5E3F', '#FFD24A', '#FFFFFF']);
+					}
+				}
+			}
+		})();
+
 		$("#board").show();
 		$("#control").show();
 		$("#trade").hide();
@@ -2507,6 +2531,127 @@ function __launchConfetti() {
 	}
 	document.body.appendChild(container);
 	setTimeout(function () { if (container.parentNode) container.parentNode.removeChild(container); }, 4500);
+}
+
+// ============================================================
+// Sprint 3 (S3.2) — Monopoly-completed confetti burst.
+// SVG-rect particles with rAF-driven physics (gravity + initial
+// velocity + rotation + fade). Anchored to the viewport position
+// of centerEl (typically the cell that just closed the group).
+// Honors prefers-reduced-motion (early return) and throttles
+// particle count on mobile/low-core devices.
+// ============================================================
+function __burstConfetti(centerEl, colors) {
+	if (!centerEl) return;
+	// Reduced-motion users get no confetti at all — the deal is they
+	// don't see fireworks, the game still gives them the audio/toast.
+	try {
+		if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+	} catch (e) {}
+
+	colors = colors && colors.length ? colors : ['#1B5E3F', '#FFD24A', '#FFFFFF'];
+
+	// Anchor at the viewport center of the source element. getBoundingClientRect
+	// already returns viewport-relative coords, which is exactly what a
+	// position:fixed layer needs.
+	var rect = centerEl.getBoundingClientRect();
+	var ox = rect.left + rect.width / 2;
+	var oy = rect.top  + rect.height / 2;
+
+	// Particle budget: full burst on desktop, halved on small/low-end devices.
+	var lowEnd = false;
+	try {
+		var hc = navigator && navigator.hardwareConcurrency;
+		if ((typeof hc === 'number' && hc < 4) || window.innerWidth < 800) lowEnd = true;
+	} catch (e) {}
+	var COUNT = lowEnd ? 40 : 80;
+
+	var SVG_NS = 'http://www.w3.org/2000/svg';
+	var layer = document.createElement('div');
+	layer.className = 'confetti-burst-layer';
+	layer.setAttribute('aria-hidden', 'true');
+	document.body.appendChild(layer);
+
+	var particles = [];
+	for (var i = 0; i < COUNT; i++) {
+		var svg = document.createElementNS(SVG_NS, 'svg');
+		svg.setAttribute('width',  '6');
+		svg.setAttribute('height', '6');
+		svg.setAttribute('viewBox', '0 0 6 6');
+		svg.setAttribute('class', 'confetti-burst-piece');
+		var r = document.createElementNS(SVG_NS, 'rect');
+		r.setAttribute('width',  '6');
+		r.setAttribute('height', '6');
+		r.setAttribute('fill', colors[i % colors.length]);
+		svg.appendChild(r);
+		svg.style.left = (ox - 3) + 'px';
+		svg.style.top  = (oy - 3) + 'px';
+		layer.appendChild(svg);
+		particles.push({
+			el:  svg,
+			x:   0,
+			y:   0,
+			vx:  (Math.random() * 400) - 200,        // -200..200 px/s
+			vy:  -100 - Math.random() * 300,         // -400..-100 px/s
+			rot: Math.random() * 360,
+			vr:  (Math.random() * 720) - 360         // -360..360 deg/s
+		});
+	}
+
+	var GRAVITY     = 800;   // px/s²
+	var FADE_AFTER  = 1500;  // ms — start fading
+	var LIFE        = 2500;  // ms — auto-remove
+	var startTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+	var lastTs = startTs;
+
+	function frame(nowTs) {
+		if (!nowTs) nowTs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+		var dt = Math.min(0.05, (nowTs - lastTs) / 1000); // clamp dt — tab-switch can produce a huge delta
+		lastTs = nowTs;
+		var elapsed = nowTs - startTs;
+
+		var fade = 1;
+		if (elapsed > FADE_AFTER) {
+			fade = 1 - ((elapsed - FADE_AFTER) / (LIFE - FADE_AFTER));
+			if (fade < 0) fade = 0;
+		}
+
+		for (var k = 0; k < particles.length; k++) {
+			var p = particles[k];
+			p.vy += GRAVITY * dt;
+			p.x  += p.vx * dt;
+			p.y  += p.vy * dt;
+			p.rot += p.vr * dt;
+			p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) rotate(' + p.rot.toFixed(1) + 'deg)';
+			p.el.style.opacity = fade;
+		}
+
+		if (elapsed < LIFE) {
+			requestAnimationFrame(frame);
+		} else {
+			if (layer.parentNode) layer.parentNode.removeChild(layer);
+		}
+	}
+	requestAnimationFrame(frame);
+
+	// Hard safety net in case rAF stalls (background tab, etc.).
+	setTimeout(function () {
+		if (layer.parentNode) layer.parentNode.removeChild(layer);
+	}, LIFE + 500);
+}
+window.__burstConfetti = __burstConfetti;
+
+// Inline check — does playerIndex now own every property in `sq`'s color
+// group? Intentionally NOT a wrapper around ai.js helpers; the rule is
+// trivially simple and the dependency would couple celebration to AI code.
+// Railroads/utilities are excluded (groupNumber 1/2 don't trigger monopoly
+// confetti — those use the regular purchased-cell pulse only).
+function __completesColorGroupNow(sq, playerIndex) {
+	if (!sq || !sq.group || sq.groupNumber < 3) return false;
+	for (var i = 0; i < sq.group.length; i++) {
+		if (square[sq.group[i]].owner !== playerIndex) return false;
+	}
+	return true;
 }
 
 // Full-screen victory overlay. Replaces the bare popup that announced the winner.
@@ -5114,6 +5259,16 @@ function buy() {
 		if (typeof __haptic === 'function') __haptic([15, 30, 15]);
 
 		__pulsePurchasedCell(p.position, p.color);
+
+		// Sprint 3 (S3.2) — burst confetti if this purchase closed a color
+		// monopoly. property.color is the group swatch color; pad with the
+		// gold + white accent palette for visual variety.
+		if (__completesColorGroupNow(property, turn)) {
+			var cellEl = document.getElementById('cell' + p.position);
+			if (cellEl && typeof __burstConfetti === 'function') {
+				__burstConfetti(cellEl, [property.color || '#1B5E3F', '#FFD24A', '#FFFFFF']);
+			}
+		}
 
 		updateOwned();
 

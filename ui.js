@@ -577,3 +577,78 @@ document.addEventListener('click', function _audioWarm() {
 	document.removeEventListener('click', _audioWarm);
 }, true);
 
+// ============================================================
+// Sprint 3 (S3.1) — Splash screen dismissal
+// The #splash node is rendered as the first <body> child with the
+// highest possible z-index. After window.onload fires we wait
+// MIN_MS to let the user see the brand, then either tag it with
+// .splash-out for the CSS fade-out OR force-hide it at MAX_MS as
+// a hard ceiling so the game can never be locked behind it.
+// We also warm up the Sound AudioContext here (silent — no actual
+// playback) so the first user-driven sound is instant.
+// ============================================================
+(function () {
+	var MIN_MS = 800;
+	var MAX_MS = 2500;
+	var loadAt = Date.now();
+	var loaded = false;
+	var dismissed = false;
+
+	function dismiss() {
+		if (dismissed) return;
+		dismissed = true;
+		var el = document.getElementById('splash');
+		if (!el) return;
+		// Silent warm-up — no audio emitted; just primes the AudioContext.
+		try { if (typeof Sound !== 'undefined' && Sound.ensureCtx) Sound.ensureCtx(); } catch (e) {}
+
+		var reduce = false;
+		try {
+			reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		} catch (e) {}
+
+		function remove() {
+			if (el && el.parentNode) el.parentNode.removeChild(el);
+		}
+
+		if (reduce) {
+			// Reduced-motion users skip the fade entirely — just yank it.
+			el.style.display = 'none';
+			remove();
+			return;
+		}
+
+		el.classList.add('splash-out');
+		var removed = false;
+		el.addEventListener('animationend', function _onEnd() {
+			if (removed) return;
+			removed = true;
+			el.removeEventListener('animationend', _onEnd);
+			remove();
+		});
+		// Hard fallback if animationend never fires (browser quirk / display:none mid-animation).
+		setTimeout(function () {
+			if (!removed) { removed = true; remove(); }
+		}, 700);
+	}
+
+	function maybeDismiss() {
+		if (!loaded) return;
+		var elapsed = Date.now() - loadAt;
+		if (elapsed >= MIN_MS) dismiss();
+		else setTimeout(dismiss, MIN_MS - elapsed);
+	}
+
+	window.addEventListener('load', function () {
+		loaded = true;
+		maybeDismiss();
+	});
+
+	// Hard ceiling — never let the splash linger past MAX_MS, even if `load`
+	// is delayed by a slow asset or a third-party CDN hiccup.
+	setTimeout(function () {
+		loaded = true;
+		dismiss();
+	}, MAX_MS);
+})();
+
