@@ -117,24 +117,55 @@ function Game() {
 			currentbidder -= pcount;
 		}
 
-		// Building the auction popup HTML. Translated and with the malformed
-		// </div<div> from the original repaired. Confirm dialog also translated.
+		// Build the redesigned auction popup. The structure breaks into four
+		// labelled rows so a tabletop full of players can scan it: title,
+		// highest-bid headline, full bidder list (live status per player),
+		// then the input + action buttons. The popup is sized larger by the
+		// .auction-popup class so the property name and bidder roster have
+		// breathing room.
+		var swatchColor = (s.color && s.color !== '#FFFFFF' && s.color !== 'white') ? s.color : 'var(--gold)';
 		var auctionHTML =
-			"<div style='font-weight: bold; font-size: 16px; margin-bottom: 10px;'>" + t('auction.title') + " <span id='propertyname'></span></div>" +
-			"<div>" + t('auction.highestBid') + " = $<span id='highestbid'></span> (<span id='highestbidder'></span>)</div>" +
-			"<div><span id='currentbidder'></span>, " + t('auction.yourTurn', { player: '' }).replace('{player}, ', '') + "</div>" +
-			"<div><input id='bid' type='text' placeholder='" + I18N.escape(t('auction.bidPlaceholder', { place: s.name })) + "' title='" + I18N.escape(t('auction.bidPlaceholder', { place: s.name })) + "' style='width: 291px;' /></div>" +
-			"<div>" +
-			"<input type='button' value='" + t('ui.bid') + "' onclick='game.auctionBid();' title='" + t('ui.bidTitle') + "' />" +
-			"<input type='button' value='" + t('ui.pass') + "' title='" + t('ui.passTitle') + "' onclick='game.auctionPass();' />" +
-			"<input type='button' value='" + t('ui.exitAuction') + "' title='" + t('ui.exitAuctionTitle', { place: s.name }) + "' onclick='if (confirm(" + JSON.stringify(t('popup.confirmExitAuction')) + ")) game.auctionExit();' />" +
+			"<div class='auction-modal'>" +
+				"<div class='auction-title-row'>" +
+					"<span class='auction-color-swatch' style='background:" + swatchColor + "'></span>" +
+					"<div class='auction-title-block'>" +
+						"<div class='auction-title-label'>" + I18N.escape(t('auction.title')) + "</div>" +
+						"<div class='auction-property-name' id='propertyname'></div>" +
+						"<div class='auction-property-price'>" + I18N.escape(t('deed.price')) + " $" + s.price + "</div>" +
+					"</div>" +
+				"</div>" +
+				"<div class='auction-highest-row'>" +
+					"<div class='auction-stat'>" +
+						"<div class='auction-stat-label'>" + I18N.escape(t('auction.highestBid')) + "</div>" +
+						"<div class='auction-stat-value'>$<span id='highestbid'>0</span></div>" +
+						"<div class='auction-stat-sub'><span id='highestbidder'>" + I18N.escape(t('auction.na')) + "</span></div>" +
+					"</div>" +
+					"<div class='auction-stat'>" +
+						"<div class='auction-stat-label'>" + I18N.escape(t('auction.yourTurnLabel') || 'Turno de') + "</div>" +
+						"<div class='auction-stat-value auction-current-name' id='currentbidder'></div>" +
+						"<div class='auction-stat-sub'>" + I18N.escape(t('auction.cashLabel') || 'Disponible') + ": $<span id='auctionCurrentCash'>0</span></div>" +
+					"</div>" +
+				"</div>" +
+				"<div class='auction-bidders-row' id='auctionBidders'></div>" +
+				"<div class='auction-input-row'>" +
+					"<input id='bid' type='text' inputmode='numeric' placeholder='" + I18N.escape(t('auction.bidPlaceholder', { place: s.name })) + "' title='" + I18N.escape(t('auction.bidPlaceholder', { place: s.name })) + "' />" +
+				"</div>" +
+				"<div class='auction-buttons-row'>" +
+					"<input type='button' class='auction-btn-bid'  value='" + I18N.escape(t('ui.bid')) + "' onclick='game.auctionBid();' title='" + I18N.escape(t('ui.bidTitle')) + "' />" +
+					"<input type='button' class='auction-btn-pass' value='" + I18N.escape(t('ui.pass')) + "' title='" + I18N.escape(t('ui.passTitle')) + "' onclick='game.auctionPass();' />" +
+					"<input type='button' class='auction-btn-exit' value='" + I18N.escape(t('ui.exitAuction')) + "' title='" + I18N.escape(t('ui.exitAuctionTitle', { place: s.name })) + "' onclick='__confirmAuctionExit();' />" +
+				"</div>" +
 			"</div>";
 		popup(auctionHTML, "blank");
+		document.getElementById('popup').classList.add('auction-popup');
 
-		document.getElementById("propertyname").innerHTML = "<a href='javascript:void(0);' onmouseover='showdeed(" + auctionproperty + ");' onmouseout='hidedeed();' class='statscellcolor'>" + I18N.escape(s.name) + "</a>";
-		document.getElementById("highestbid").innerHTML = "0";
-		document.getElementById("highestbidder").innerHTML = t('auction.na');
+		document.getElementById("propertyname").textContent = s.name;
+		document.getElementById("highestbid").textContent = "0";
+		document.getElementById("highestbidder").textContent = t('auction.na');
 		document.getElementById("currentbidder").textContent = player[currentbidder].name;
+		document.getElementById("currentbidder").style.color = player[currentbidder].color;
+		document.getElementById("auctionCurrentCash").textContent = player[currentbidder].money;
+		__renderAuctionBidders();
 		document.getElementById("bid").onkeydown = function (e) {
 			var key = e.keyCode;
 			var isCtrl = e.ctrlKey;
@@ -202,16 +233,19 @@ function Game() {
 					if (bid === -1 || highestbid >= p.money) {
 						p.bidding = false;
 
-						window.alert(t('alert.exitedAuction', { player: p.name }));
+						__auctionAnnounce(t('alert.exitedAuction', { player: p.name }), 'warning');
+						__renderAuctionBidders();
 						continue;
 
 					} else if (bid === 0) {
-						window.alert(t('alert.passedAuction', { player: p.name }));
+						__auctionAnnounce(t('alert.passedAuction', { player: p.name }), 'info');
+						__renderAuctionBidders();
 						continue;
 
 					} else if (bid > 0) {
 						this.auctionBid(bid);
-						window.alert(t('alert.bidAmount', { player: p.name, amount: bid }));
+						__auctionAnnounce(t('alert.bidAmount', { player: p.name, amount: bid }), 'success');
+						__renderAuctionBidders();
 						continue;
 					}
 					return;
@@ -222,9 +256,17 @@ function Game() {
 
 		}
 
-		document.getElementById("currentbidder").textContent = player[currentbidder].name;
+		var cb = document.getElementById("currentbidder");
+		if (cb) {
+			cb.textContent = player[currentbidder].name;
+			cb.style.color = player[currentbidder].color;
+		}
+		var cash = document.getElementById("auctionCurrentCash");
+		if (cash) cash.textContent = player[currentbidder].money;
 		document.getElementById("bid").value = "";
 		document.getElementById("bid").style.color = "";
+		document.getElementById("bid").focus();
+		__renderAuctionBidders();
 	};
 
 	this.auctionBid = function(bid) {
@@ -1482,6 +1524,87 @@ function addAlert(alertText) {
 				player[turn].AI.alertList = player[turn].AI.alertList.slice(-maxChars);
 			}
 		} catch (e) {}
+	}
+}
+
+// =====================================================================
+// Auction UI helpers — render the bidders roster inside the auction
+// popup, post toasts + alert-log entries when an AI player acts (instead
+// of the native window.alert that used to chain through with each AI
+// turn), and ask for confirmation before exiting via the styled popup
+// instead of the browser confirm().
+// =====================================================================
+
+// Build/replace the <div id="auctionBidders"> contents based on the live
+// `player[]` / `currentbidder` / `highestbidder` / `bidding` flags. Each
+// entry is a colored chip showing the player's name, cash, and a status
+// pill (active turn / passed / highest / out). Cheap to call repeatedly.
+function __renderAuctionBidders() {
+	var host = document.getElementById('auctionBidders');
+	if (!host) return;
+	var html = '';
+	for (var i = 1; i <= pcount; i++) {
+		var p = player[i]; if (!p) continue;
+		var statusKey;
+		if (!p.bidding) {
+			statusKey = 'auction.statusOut';      // dropped out
+		} else if (i === highestbidder) {
+			statusKey = 'auction.statusHighest';  // currently winning
+		} else if (i === currentbidder) {
+			statusKey = 'auction.statusCurrent';  // their turn
+		} else {
+			statusKey = 'auction.statusWaiting';  // still in, not their turn
+		}
+		var statusLabel = (typeof t === 'function') ? t(statusKey) : statusKey;
+		var rowClass = 'auction-bidder';
+		if (i === currentbidder)  rowClass += ' auction-bidder-current';
+		if (i === highestbidder)  rowClass += ' auction-bidder-highest';
+		if (!p.bidding)           rowClass += ' auction-bidder-out';
+		html +=
+			'<div class="' + rowClass + '" style="--bidder-color:' + p.color + '">' +
+				'<span class="auction-bidder-dot" style="background:' + p.color + '"></span>' +
+				'<span class="auction-bidder-name">' + I18N.escape(p.name) + '</span>' +
+				'<span class="auction-bidder-cash">$' + p.money + '</span>' +
+				'<span class="auction-bidder-status">' + I18N.escape(statusLabel) + '</span>' +
+			'</div>';
+	}
+	host.innerHTML = html;
+}
+
+// Surface an AI auction action without blocking the game flow. Posts to
+// the alert log (so it persists in scrollback) AND a brief toast (so the
+// table sees it). `kind` maps to toast accent: success / warning / info.
+function __auctionAnnounce(message, kind) {
+	if (typeof addAlert === 'function') addAlert(message);
+	if (typeof UI !== 'undefined' && UI.toast) UI.toast(message, { kind: kind || 'info', duration: 1800 });
+}
+
+// Replace the native confirm() dialog with the styled popup yes/no.
+// IMPORTANT: while the confirmation popup is open we DON'T tear down the
+// auction popup — popup() reuses the same #popup element, so we capture
+// the auction HTML, rebuild it once the user resolves, and re-open it.
+function __confirmAuctionExit() {
+	var popupEl  = document.getElementById('popup');
+	var savedHTML = document.getElementById('popuptext').innerHTML;
+	var savedClasses = popupEl.className;
+	var confirmMsg = '<p><strong>' + I18N.escape(t('popup.confirmExitAuction')) + '</strong></p>';
+	popup(confirmMsg, function () {
+		// User pressed Yes → exit auction (also closes popup natively).
+		game.auctionExit();
+	}, 'Yes/No');
+	// On No, popup() will hide the popup; we need to re-show the auction.
+	// Hook into #popupno to restore instead of letting the auction die.
+	var noBtn = document.getElementById('popupno');
+	if (noBtn) {
+		noBtn.addEventListener('click', function restore() {
+			noBtn.removeEventListener('click', restore);
+			// Re-show the auction popup with its captured HTML/classes.
+			document.getElementById('popuptext').innerHTML = savedHTML;
+			popupEl.className = savedClasses;
+			$('#popupbackground').fadeIn(200);
+			$('#popupwrap').show();
+			__renderAuctionBidders();
+		});
 	}
 }
 
