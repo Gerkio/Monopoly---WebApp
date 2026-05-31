@@ -12,6 +12,7 @@ HTML + CSS + JavaScript vanilla + jQuery 1.11. **Cero dependencias de build.**
 ### 🎲 Jugabilidad
 
 - **2 a 8 jugadores**, mezclando humanos y bots (3 niveles de IA: Fácil, Normal, Difícil)
+- **Nombres humorísticos aleatorios para la IA**, localizados (20 ES + 20 EN, sin colisiones — ej. *Armando Bronca Segura*, *Justin Case*)
 - **Dos ediciones** de tablero, intercambiables al vuelo:
   - **Classic** — Mediterranean, Boardwalk, Pennsylvania Railroad, Water Works…
   - **New York City** — Madison Square Garden, Empire State Building, Macy's, Lincoln Tunnel…
@@ -23,8 +24,11 @@ HTML + CSS + JavaScript vanilla + jQuery 1.11. **Cero dependencias de build.**
   - ⚡ Modo rápido (animaciones 2× más rápidas)
 - **Avatares físicos**: 8 fichas distintas (sombrero, auto, perro, barco, zapato, dedal, plancha, tren)
 - **Subastas** completas cuando un jugador no compra una propiedad
+- **Flujo de dobles correcto**: al caer en propiedad libre, el segundo tiro queda bloqueado hasta resolver compra o subasta (regla de mesa)
 - **Tradeo** entre jugadores: dinero + propiedades + cartas de "Salir de la cárcel"
+  - **Negociaciones IA↔IA totalmente automáticas** — el humano nunca ve el panel de trade cuando ambas partes son bots
 - **Hipoteca / deshipoteca** con interés del 10%
+- **Bancarrota inteligente**: cuando una IA hereda propiedades hipotecadas, decide sola si las deshipoteca (heurística: ≥2 del grupo + reserva de $200)
 - **Construcción regla pareja**: no puedes poner una casa sin tener al menos una en cada propiedad del grupo
 
 ### 🎨 Interfaz
@@ -35,6 +39,7 @@ HTML + CSS + JavaScript vanilla + jQuery 1.11. **Cero dependencias de build.**
 - **Auto-tirada de dados** a los 20 s de inactividad (badge contador encima del botón; cualquier interacción cancela)
 - **Tipografía grande** (18 px / 22 px en titulares) para sesiones de mesa con varios espectadores
 - **Tablero 3D con feltro verde**, propiedades coloreadas, esquinas decoradas, cartas Chance/CC apiladas en el centro
+- **Tarjetas de propiedad al hover** sin parpadeo (`pointer-events: none` en el tooltip)
 - **Animaciones compositor-friendly** (transform + opacity), sin jank en rolls / movimientos / popups
 - **Dos idiomas**: español 🇪🇸 + inglés 🇬🇧 con pluralización
 
