@@ -9,7 +9,7 @@
 	     via innerHTML; the auto-escape in I18N.t() handles user values. -->
 	<!-- frame-ancestors is intentionally omitted here: it's ignored when delivered
 	     via <meta> (browser console warning). Use the HTTP header instead if needed. -->
-	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://ajax.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self';">
 	<!-- Inline data: URI favicon (transparent 1x1 PNG) â€” silences the favicon 404
 	     without adding a binary asset. Replace with a real .ico later if desired. -->
 	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
@@ -43,10 +43,9 @@
 	<!-- ?v= on every local script forces the browser to refetch after a deploy.
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" integrity="sha384-UM1JrZIpBwVf5jj9dTKVvGiiZPZTLVoq4sfdvIe9SBumsvCuv6AHDNtEiIb5h1kU" crossorigin="anonymous"></script>
-	<script type="text/javascript" src="i18n.js?v=20260601e"></script>
-	<script type="text/javascript" src="ui.js?v=20260601e"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260601e"></script>
+	<script type="text/javascript" src="i18n.js?v=20260601f"></script>
+	<script type="text/javascript" src="ui.js?v=20260601f"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260601f"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,17 +64,17 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260601e"></script>
+	<script type="text/javascript" src="ai.js?v=20260601f"></script>
 	<!-- Sprint 5 — monopoly.js split into 5 focused modules. Load order
 	     matters: engine.js declares the Game ctor + state namespaces that
 	     players.js / animations.js / render.js / monopoly.js all reference
 	     by bare global name. monopoly.js is the slim shell that owns the
 	     window.onload boot sequence and depends on every prior module. -->
-	<script type="text/javascript" src="engine.js?v=20260601e"></script>
-	<script type="text/javascript" src="players.js?v=20260601e"></script>
-	<script type="text/javascript" src="animations.js?v=20260601e"></script>
-	<script type="text/javascript" src="render.js?v=20260601e"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260601e"></script>
+	<script type="text/javascript" src="engine.js?v=20260601f"></script>
+	<script type="text/javascript" src="players.js?v=20260601f"></script>
+	<script type="text/javascript" src="animations.js?v=20260601f"></script>
+	<script type="text/javascript" src="render.js?v=20260601f"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260601f"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -93,7 +92,7 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260601e">
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260601f">
 	<!-- Sprint 4 â€” PWA: manifest + iOS home-screen icon + theme color. -->
 	<link rel="manifest" href="manifest.webmanifest" />
 	<link rel="apple-touch-icon" href="images/icon-192.png" />

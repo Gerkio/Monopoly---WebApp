@@ -415,7 +415,7 @@ function payfifty() {
 	document.getElementById("jail").style.border = '1px solid black';
 	document.getElementById("cell11").style.border = '2px solid ' + p.color;
 
-	$("#landed").hide();
+	UI.$hide("landed");
 	doublecount = 0;
 
 	p.jail = false;
@@ -434,7 +434,7 @@ function useJailCard() {
 	document.getElementById("jail").style.border = '1px solid black';
 	document.getElementById("cell11").style.border = '2px solid ' + p.color;
 
-	$("#landed").hide();
+	UI.$hide("landed");
 	p.jail = false;
 	p.jailroll = 0;
 
@@ -655,8 +655,8 @@ function showStats() {
 
 	document.getElementById("statstext").innerHTML = HTML;
 	// Show using animation.
-	$("#statsbackground").fadeIn(400, function() {
-		$("#statswrap").show();
+	UI.$fadeIn("statsbackground", 400, function () {
+		UI.$show("statswrap");
 	});
 }
 
@@ -785,21 +785,21 @@ function __deedDecorateSpecial(sq) {
 
 function showdeed(property) {
 	var sq = square[property];
-	$("#deed").show();
+	UI.$show("deed");
 
-	$("#deed-normal").hide();
-	$("#deed-mortgaged").hide();
-	$("#deed-special").hide();
+	UI.$hide("deed-normal");
+	UI.$hide("deed-mortgaged");
+	UI.$hide("deed-special");
 
 	if (sq.mortgage) {
-		$("#deed-mortgaged").show();
+		UI.$show("deed-mortgaged");
 		document.getElementById("deed-mortgaged-name").textContent = sq.name;
 		document.getElementById("deed-mortgaged-mortgage").textContent = (sq.price / 2);
 
 	} else {
 
 		if (sq.groupNumber >= 3) {
-			$("#deed-normal").show();
+			UI.$show("deed-normal");
 			document.getElementById("deed-header").style.backgroundColor = sq.color;
 			document.getElementById("deed-name").textContent = sq.name;
 			document.getElementById("deed-price").textContent = sq.price;
@@ -819,7 +819,7 @@ function showdeed(property) {
 			__deedHighlightCurrentRent(sq);
 
 		} else if (sq.groupNumber == 2) {
-			$("#deed-special").show();
+			UI.$show("deed-special");
 			document.getElementById("deed-special-name").textContent = sq.name;
 			document.getElementById("deed-special-price-amount").textContent = sq.price;
 			document.getElementById("deed-special-text").innerHTML = utiltext();
@@ -827,7 +827,7 @@ function showdeed(property) {
 			__deedDecorateSpecial(sq);
 
 		} else if (sq.groupNumber == 1) {
-			$("#deed-special").show();
+			UI.$show("deed-special");
 			document.getElementById("deed-special-name").textContent = sq.name;
 			document.getElementById("deed-special-price-amount").textContent = sq.price;
 			document.getElementById("deed-special-text").innerHTML = transtext();
@@ -838,7 +838,7 @@ function showdeed(property) {
 }
 
 function hidedeed() {
-	$("#deed").hide();
+	UI.$hide("deed");
 }
 
 function buy() {
@@ -875,7 +875,7 @@ function buy() {
 
 		updateOwned();
 
-		$("#landed").hide();
+		UI.$hide("landed");
 
 	} else {
 		popup("<p>" + t('popup.needForHouse', { amount: (property.price - p.money), place: property.name }) + "</p>");
@@ -950,7 +950,7 @@ function land(increasedRent) {
 	var die1 = game.getDie(1);
 	var die2 = game.getDie(2);
 
-	$("#landed").show();
+	UI.$show("landed");
 	document.getElementById("landed").innerHTML = t('landed.youLandedOn', { place: s.name });
 	s.landcount++;
 	addAlert(t('alert.landedOn', { player: p.name, place: s.name }));
@@ -1167,7 +1167,7 @@ function _handleJailTurn(p, die1, die2) {
 	if (die1 == die2) {
 		document.getElementById("jail").style.border = "1px solid black";
 		document.getElementById("cell11").style.border = "2px solid " + p.color;
-		$("#landed").hide();
+		UI.$hide("landed");
 
 		p.jail = false;
 		p.jailroll = 0;
@@ -1190,7 +1190,7 @@ function _handleJailTurn(p, die1, die2) {
 		return;
 	}
 
-	$("#landed").show();
+	UI.$show("landed");
 	document.getElementById("landed").innerHTML = t('landed.inJail');
 	if (!p.human) {
 		popup(__formatAIRecap(p), game.next, undefined, { autoMs: 8000 });
@@ -1237,9 +1237,9 @@ function roll() {
 	if (window.__pendingBuyDecision) return;
 	var p = player[turn];
 
-	$("#option").hide();
-	$("#buy").show();
-	$("#manage").hide();
+	UI.$hide("option");
+	UI.$show("buy");
+	UI.$hide("manage");
 
 	if (p.human) document.getElementById("nextbutton").focus();
 	document.getElementById("nextbutton").value = t('ui.endTurn');
@@ -1364,8 +1364,8 @@ function play() {
 	// Check for bankruptcy.
 	p.pay(0, p.creditor);
 
-	$("#landed, #option, #manage").hide();
-	$("#board, #control, #moneybar, #viewstats, #buy").show();
+	UI.$hide("landed"); UI.$hide("option"); UI.$hide("manage");
+	UI.$show("board"); UI.$show("control"); UI.$show("moneybar"); UI.$show("viewstats"); UI.$show("buy");
 
 	doublecount = 0;
 	if (p.human) {
@@ -1378,8 +1378,8 @@ function play() {
 	// click "Tirar dados" OR grab and throw them physically. They sit on a
 	// neutral face (1) until rolled — __tumbleDie tumbles to the rolled face
 	// when updateDice runs.
-	$("#die0").show();
-	$("#die1").show();
+	UI.$show("die0");
+	UI.$show("die1");
 
 	// Arm the auto-roll timer for HUMAN turns. AI flows trigger their own
 	// rolls, so we skip them. Any prior timer is wiped first (paranoid: a
@@ -1388,7 +1388,7 @@ function play() {
 	else if (typeof __cancelAutoRoll === 'function') __cancelAutoRoll();
 
 	if (p.jail) {
-		$("#landed").show();
+		UI.$show("landed");
 		document.getElementById("landed").innerHTML = t('landed.inJail') + "<input type='button' title='" + t('ui.payFineTitle') + "' value='" + t('ui.payFineButton') + "' onclick='payfifty();' />";
 
 		if (p.communityChestJailCard || p.chanceJailCard) {
@@ -1419,8 +1419,10 @@ function play() {
 	updatePosition();
 	updateOwned();
 
-	$(".money-bar-arrow").hide();
-	$("#p" + turn + "arrow").show();
+	var __mbArrows = document.querySelectorAll(".money-bar-arrow");
+	for (var __mi = 0; __mi < __mbArrows.length; __mi++) __mbArrows[__mi].style.display = "none";
+	var __turnArrow = document.getElementById("p" + turn + "arrow");
+	if (__turnArrow) __turnArrow.style.display = "";
 
 	if (!p.human) {
 		if (!p.AI.beforeTurn()) {
@@ -1552,8 +1554,8 @@ function setup() {
 		window.localStorage.setItem('monopoly:setup', JSON.stringify(snapshot));
 	} catch (e) { /* storage unavailable — non-fatal */ }
 
-	$("#board, #moneybar").show();
-	$("#setup").hide();
+	UI.$show("board"); UI.$show("moneybar");
+	UI.$hide("setup");
 	// Game has started — reveal the players/control sections of the side panel.
 	document.body.setAttribute('data-phase', 'play');
 
@@ -1615,10 +1617,11 @@ function getCheckedProperty() {
 function playernumber_onchange() {
 	pcount = parseInt(document.getElementById("playernumber").value, 10);
 
-	$(".player-input").hide();
+	var __piRows = document.querySelectorAll(".player-input");
+	for (var __pi = 0; __pi < __piRows.length; __pi++) __piRows[__pi].style.display = "none";
 
 	for (var i = 1; i <= pcount; i++) {
-		$("#player" + i + "input").show();
+		UI.$show("player" + i + "input");
 	}
 }
 
@@ -1986,7 +1989,7 @@ function _initBoardCells() {
 function _initDragHandlers() {
 	var drag = false, dragX, dragY, dragObj, dragTop, dragLeft;
 
-	$("body").on("mousemove", function (e) {
+	document.body.addEventListener("mousemove", function (e) {
 		var object = e.target;
 		if (object.classList.contains("propertycellcolor") || object.classList.contains("statscellcolor")) {
 			if (e.clientY + 20 > window.innerHeight - 279) {
@@ -2008,7 +2011,7 @@ function _initDragHandlers() {
 		}
 	});
 
-	$("body").on("mouseup", function () { drag = false; });
+	document.body.addEventListener("mouseup", function () { drag = false; });
 
 	function attachDrag(handleId, targetId) {
 		var handle = document.getElementById(handleId);
@@ -2029,7 +2032,7 @@ function _initDragHandlers() {
 
 // Tab switching + manage panel buttons (buy house, sell house, mortgage).
 function _wireManagePanel() {
-	$("#mortgagebutton").click(function () {
+	UI.$on("mortgagebutton", "click", function () {
 		var checkedProperty = getCheckedProperty();
 		var s = square[checkedProperty];
 		if (s.mortgage) {
@@ -2047,7 +2050,7 @@ function _wireManagePanel() {
 		}
 	});
 
-	$("#buyhousebutton").on("click", function () {
+	UI.$on("buyhousebutton", "click", function () {
 		var checkedProperty = getCheckedProperty();
 		var s = square[checkedProperty];
 		var p = player[s.owner];
@@ -2073,37 +2076,46 @@ function _wireManagePanel() {
 	});
 
 	// Hover previews on manage buttons — show the cash impact of the action.
-	$("#buyhousebutton").on('mouseenter', function () {
-		var idx = getCheckedProperty();
-		var sq = square[idx];
-		if (!sq || sq.owner === 0) return;
-		var p = player[sq.owner];
-		__showConsequencePreview(this, p.money, -sq.houseprice, 150);
-	});
-	$("#buyhousebutton").on('mouseleave', __hideConsequencePreview);
+	var __btnBuyHouse = document.getElementById("buyhousebutton");
+	if (__btnBuyHouse) {
+		__btnBuyHouse.addEventListener('mouseenter', function () {
+			var idx = getCheckedProperty();
+			var sq = square[idx];
+			if (!sq || sq.owner === 0) return;
+			var p = player[sq.owner];
+			__showConsequencePreview(this, p.money, -sq.houseprice, 150);
+		});
+		__btnBuyHouse.addEventListener('mouseleave', __hideConsequencePreview);
+	}
 
-	$("#mortgagebutton").on('mouseenter', function () {
-		var idx = getCheckedProperty();
-		var sq = square[idx];
-		if (!sq || sq.owner === 0) return;
-		var p = player[sq.owner];
-		var delta = sq.mortgage
-			? -Math.round(sq.price * 0.55)   // unmortgaging costs 10% interest
-			:  Math.round(sq.price * 0.5);   // mortgaging pays out half
-		__showConsequencePreview(this, p.money, delta, 200);
-	});
-	$("#mortgagebutton").on('mouseleave', __hideConsequencePreview);
+	var __btnMortgage = document.getElementById("mortgagebutton");
+	if (__btnMortgage) {
+		__btnMortgage.addEventListener('mouseenter', function () {
+			var idx = getCheckedProperty();
+			var sq = square[idx];
+			if (!sq || sq.owner === 0) return;
+			var p = player[sq.owner];
+			var delta = sq.mortgage
+				? -Math.round(sq.price * 0.55)   // unmortgaging costs 10% interest
+				:  Math.round(sq.price * 0.5);   // mortgaging pays out half
+			__showConsequencePreview(this, p.money, delta, 200);
+		});
+		__btnMortgage.addEventListener('mouseleave', __hideConsequencePreview);
+	}
 
-	$("#sellhousebutton").on('mouseenter', function () {
-		var idx = getCheckedProperty();
-		var sq = square[idx];
-		if (!sq || sq.owner === 0 || (sq.house === 0 && !sq.hotel)) return;
-		var p = player[sq.owner];
-		__showConsequencePreview(this, p.money, Math.round(sq.houseprice * 0.5));
-	});
-	$("#sellhousebutton").on('mouseleave', __hideConsequencePreview);
+	var __btnSellHouse = document.getElementById("sellhousebutton");
+	if (__btnSellHouse) {
+		__btnSellHouse.addEventListener('mouseenter', function () {
+			var idx = getCheckedProperty();
+			var sq = square[idx];
+			if (!sq || sq.owner === 0 || (sq.house === 0 && !sq.hotel)) return;
+			var p = player[sq.owner];
+			__showConsequencePreview(this, p.money, Math.round(sq.houseprice * 0.5));
+		});
+		__btnSellHouse.addEventListener('mouseleave', __hideConsequencePreview);
+	}
 
-	$("#sellhousebutton").click(function () {
+	UI.$on("sellhousebutton", "click", function () {
 		var idx = getCheckedProperty();
 		var sq = square[idx];
 		if (!sq) return;
@@ -2129,10 +2141,10 @@ function _wireManagePanel() {
 		}
 	});
 
-	$("#viewstats").on("click", showStats);
-	$("#statsclose, #statsbackground").on("click", function () {
-		$("#statswrap").hide();
-		$("#statsbackground").fadeOut(400);
+	UI.$on("viewstats", "click", showStats);
+	var __statsCloseHandler = function () {
+		UI.$hide("statswrap");
+		UI.$fadeOut("statsbackground", 400);
 		// If we opened stats from inside the victory overlay, bring it back.
 		if (window.__victoryOverlay && window.__victoryOverlay.parentNode) {
 			var ov = window.__victoryOverlay;
@@ -2142,7 +2154,9 @@ function _wireManagePanel() {
 			requestAnimationFrame(function () { ov.style.opacity = '1'; });
 			setTimeout(function () { ov.style.transition = ''; }, 320);
 		}
-	});
+	};
+	UI.$on("statsclose", "click", __statsCloseHandler);
+	UI.$on("statsbackground", "click", __statsCloseHandler);
 }
 
 // Money-bar row clicks/hovers: click opens stats, hover highlights that
@@ -2177,16 +2191,17 @@ function _wireTabSwitchers() {
 		var hit = document.getElementById(id);
 		if (hit) hit.classList.add('menu-item-active');
 	}
-	$("#buy-menu-item").click(function () {
-		$("#buy").show(); $("#manage").hide(); $("#trade").hide();
+	UI.$on("buy-menu-item", "click", function () {
+		UI.$show("buy"); UI.$hide("manage"); UI.$hide("trade");
 		markActive('buy-menu-item');
-		$("#alert").scrollTop($("#alert").prop("scrollHeight"));
+		var __alertEl = document.getElementById("alert");
+		if (__alertEl) __alertEl.scrollTop = __alertEl.scrollHeight;
 	});
-	$("#manage-menu-item").click(function () {
-		$("#manage").show(); $("#buy").hide(); $("#trade").hide();
+	UI.$on("manage-menu-item", "click", function () {
+		UI.$show("manage"); UI.$hide("buy"); UI.$hide("trade");
 		markActive('manage-menu-item');
 	});
-	$("#trade-menu-item").click(function () {
+	UI.$on("trade-menu-item", "click", function () {
 		if (typeof game.trade === 'function') game.trade();
 		markActive('trade-menu-item');
 	});
@@ -2454,18 +2469,19 @@ window.onload = function() {
 	_restoreSetupFromStorage();
 	_initGameState();
 
-	$("#playernumber").on("change", playernumber_onchange);
+	UI.$on("playernumber", "change", playernumber_onchange);
 	playernumber_onchange();
 
 	_wireGlobalButtons();
-	$("#nextbutton").click(game.next);
+	UI.$on("nextbutton", "click", game.next);
 
-	$("#noscript").hide();
+	UI.$hide("noscript");
 	// setup uses flex column so .setup-section-my-20 can margin-top:auto
-	// the Start button to the bottom of the card; jQuery .show() would
-	// hard-set display:block and defeat that. Set display explicitly here.
+	// the Start button to the bottom of the card; UI.$show() would
+	// clear the inline display and let CSS pick the default, but we want
+	// to force flex here.
 	document.getElementById('setup').style.display = 'flex';
-	$('#noF5').show();
+	UI.$show("noF5");
 
 	_initBoardCells();
 
@@ -2586,8 +2602,15 @@ window.onload = function() {
 	corrections();
 
 	// Jail corrections
-	$("<div>", {id: "jailpositionholder" }).appendTo("#jail");
-	$("<span>").text(t('place.jail')).appendTo("#jail");
+	var __jail = document.getElementById("jail");
+	if (__jail) {
+		var __jph = document.createElement("div");
+		__jph.id = "jailpositionholder";
+		__jail.appendChild(__jph);
+		var __jspan = document.createElement("span");
+		__jspan.textContent = t('place.jail');
+		__jail.appendChild(__jspan);
+	}
 
 	document.getElementById("jail").enlargeId = "enlarge40";
 

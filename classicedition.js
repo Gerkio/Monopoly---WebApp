@@ -20,14 +20,16 @@ function luxurytax() {
 	addAlert(t('alert.paidLuxuryTax', { player: player[turn].name, amount: 100 }));
 	player[turn].pay(100, 0);
 
-	$("#landed").show().text(t('landed.luxuryTax', { amount: 100 }));
+	UI.$show("landed");
+	document.getElementById("landed").textContent = t('landed.luxuryTax', { amount: 100 });
 }
 
 function citytax() {
 	addAlert(t('alert.paidCityTax', { player: player[turn].name }));
 	player[turn].pay(200, 0);
 
-	$("#landed").show().text(t('landed.cityTax'));
+	UI.$show("landed");
+	document.getElementById("landed").textContent = t('landed.cityTax');
 }
 
 var square = [];

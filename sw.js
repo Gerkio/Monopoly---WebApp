@@ -15,10 +15,10 @@
  * the old cache on the next page load.
  */
 
-// Sprint 5 — bumped to v2 because monopoly.js was split into 5 modules.
-// Old cache only had monopoly.js precached; v1 clients would 404-fallback on
-// engine/players/animations/render even though they're already deployed.
-const CACHE_NAME = "monopoly-cache-v2";
+// Sprint 6 — bumped to v3 because jQuery 1.11 was removed. v2 clients would
+// still try to fetch the CDN script (no longer referenced in index.html) and
+// fail; bumping forces a fresh install of the updated asset list.
+const CACHE_NAME = "monopoly-cache-v3";
 
 const PRECACHE_URLS = [
   "./",

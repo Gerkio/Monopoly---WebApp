@@ -1,7 +1,7 @@
 # Monopoly — Web App
 
 Un Monopoly completo, jugable en cualquier navegador moderno, sin instalar nada.
-HTML + CSS + JavaScript vanilla + jQuery 1.11. **Cero dependencias de build.**
+HTML + CSS + JavaScript vanilla. **Cero dependencias** (ni build, ni jQuery, ni nada).
 
 > Abre `index.html` en un navegador y juega. Eso es todo.
 
@@ -62,7 +62,6 @@ HTML + CSS + JavaScript vanilla + jQuery 1.11. **Cero dependencias de build.**
 ### 🛡️ Seguridad
 
 - Content Security Policy (`<meta>` CSP)
-- SRI integrity en jQuery (CDN)
 - HTML escape automático en interpolaciones de strings traducidos (previene XSS por nombre de jugador)
 - Validación defensiva de `localStorage` (resistente a JSON corrupto)
 
@@ -151,8 +150,7 @@ window.__AUTO_ROLL_MS = 10000;
 - **CSS** vanilla con custom properties (`:root`) — un solo archivo de ~4600 líneas
   - Sistema de temas con tokens (`--surface`, `--ink`, `--accent`, `--ledger-bg-start`…)
   - `@media (prefers-color-scheme: dark)` + clases `.theme-light` / `.theme-dark` para forzar
-- **JavaScript** ES5-compatible (sin Babel ni transpilador)
-- **jQuery 1.11.1** via CDN con SRI integrity (uso reducido, sustituible por vanilla DOM)
+- **JavaScript** ES5-compatible (sin Babel ni transpilador) — vanilla DOM, sin jQuery
 - **Web Audio API** + HTMLAudioElement para SFX y música
 - **Cache busting** vía `?v=YYYYMMDDx` en los `<script>`/`<link>` para invalidar tras releases
 
@@ -188,7 +186,6 @@ Probado en Edge / Chrome / Firefox modernos. iOS Safari requiere primer gesto de
 
 ## Roadmap (ideas futuras)
 
-- Sustituir jQuery 1.11 por vanilla DOM completo (ya está casi todo migrado)
 - Multiplayer online (WebRTC peer-to-peer, sin servidor)
 - Más ediciones de tablero (Madrid, Barcelona, etc.)
 - Persistencia de partida en `localStorage` para reanudar

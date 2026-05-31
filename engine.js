@@ -163,8 +163,8 @@ function Game() {
 			player[i].bidding = true;
 		}
 
-		$("#popupbackground").hide();
-		$("#popupwrap").hide();
+		UI.$hide("popupbackground");
+		UI.$hide("popupwrap");
 		window.__pendingBuyDecision = false;
 
 		if (!game.auction()) {
@@ -451,10 +451,10 @@ function Game() {
 	};
 
 	var tradeMoneyOnChange = function(e) {
-		$("#proposetradebutton").show();
-		$("#canceltradebutton").show();
-		$("#accepttradebutton").hide();
-		$("#rejecttradebutton").hide();
+		UI.$show("proposetradebutton");
+		UI.$show("canceltradebutton");
+		UI.$hide("accepttradebutton");
+		UI.$hide("rejecttradebutton");
 
 		var amount = this.value;
 
@@ -617,10 +617,10 @@ function Game() {
 				checkboxElement.checked = !checkboxElement.checked;
 			}
 
-			$("#proposetradebutton").show();
-			$("#canceltradebutton").show();
-			$("#accepttradebutton").hide();
-			$("#rejecttradebutton").hide();
+			UI.$show("proposetradebutton");
+			UI.$show("canceltradebutton");
+			UI.$hide("accepttradebutton");
+			UI.$hide("rejecttradebutton");
 			if (typeof __updateTradeSummary === 'function') __updateTradeSummary();
 		};
 
@@ -885,13 +885,13 @@ function Game() {
 			}
 		}
 
-		$("#board").hide();
-		$("#control").hide();
-		$("#trade").show();
-		$("#proposetradebutton").show();
-		$("#canceltradebutton").show();
-		$("#accepttradebutton").hide();
-		$("#rejecttradebutton").hide();
+		UI.$hide("board");
+		UI.$hide("control");
+		UI.$show("trade");
+		UI.$show("proposetradebutton");
+		UI.$show("canceltradebutton");
+		UI.$hide("accepttradebutton");
+		UI.$hide("rejecttradebutton");
 
 		if (tradeObj instanceof Trade) {
 			writeTrade(tradeObj);
@@ -909,9 +909,9 @@ function Game() {
 
 
 	this.cancelTrade = function() {
-		$("#board").show();
-		$("#control").show();
-		$("#trade").hide();
+		UI.$show("board");
+		UI.$show("control");
+		UI.$hide("trade");
 
 
 		if (!player[turn].human) {
@@ -1055,9 +1055,9 @@ function Game() {
 			}
 		})();
 
-		$("#board").show();
-		$("#control").show();
-		$("#trade").hide();
+		UI.$show("board");
+		UI.$show("control");
+		UI.$hide("trade");
 
 		if (!player[turn].human) {
 			player[turn].AI.alertList = "";
@@ -1121,10 +1121,10 @@ function Game() {
 
 			writeTrade(reversedTrade);
 
-			$("#proposetradebutton").hide();
-			$("#canceltradebutton").hide();
-			$("#accepttradebutton").show();
-			$("#rejecttradebutton").show();
+			UI.$hide("proposetradebutton");
+			UI.$hide("canceltradebutton");
+			UI.$show("accepttradebutton");
+			UI.$show("rejecttradebutton");
 
 			addAlert(t('alert.tradeInitiated', { initiator: initiator.name, recipient: recipient.name }));
 			popup("<p>" + t('popup.tradeProposed', { initiator: initiator.name, recipient: recipient.name }) + "</p>");
@@ -1143,17 +1143,17 @@ function Game() {
 				// will resolve it headlessly via the AI-only branch. Human never
 				// sees the trade panel.
 				if (!initiator.human) {
-					$("#board").show();
-					$("#control").show();
-					$("#trade").hide();
+					UI.$show("board");
+					UI.$show("control");
+					UI.$hide("trade");
 					game.trade(tradeResponse);
 					return;
 				}
 				writeTrade(tradeResponse);
 
-				$("#proposetradebutton, #canceltradebutton").hide();
-				$("#accepttradebutton").show();
-				$("#rejecttradebutton").show();
+				UI.$hide("proposetradebutton"); UI.$hide("canceltradebutton");
+				UI.$show("accepttradebutton");
+				UI.$show("rejecttradebutton");
 			}
 		}
 	};
@@ -1197,9 +1197,9 @@ function Game() {
 
 		if (pcount === 1) {
 			updateMoney();
-			$("#control").hide();
-			$("#board").hide();
-			$("#refresh").show();
+			UI.$hide("control");
+			UI.$hide("board");
+			UI.$show("refresh");
 
 			// // Display land counts for survey purposes.
 			// var text;

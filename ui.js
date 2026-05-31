@@ -2,6 +2,43 @@
 // Vanilla, no deps. Exposed on window.UI. Loads after i18n.js, before monopoly.js.
 var UI = (function () {
 
+	// Vanilla DOM helpers used after the jQuery removal (Sprint 6).
+	// Tolerant: no-op when the target doesn't exist so callers can drop
+	// the `if (el)` checks all over the place.
+	function $show(id) { var e = document.getElementById(id); if (e) e.style.display = ""; }
+	function $hide(id) { var e = document.getElementById(id); if (e) e.style.display = "none"; }
+	function $on(idOrEl, ev, fn) {
+		var e = typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
+		if (e) e.addEventListener(ev, fn);
+	}
+	function $fadeOut(id, ms, done) {
+		var e = document.getElementById(id);
+		if (!e) { if (done) done(); return; }
+		e.style.transition = "opacity " + ms + "ms";
+		e.style.opacity = "0";
+		setTimeout(function () {
+			e.style.display = "none";
+			e.style.opacity = "";
+			e.style.transition = "";
+			if (done) done();
+		}, ms);
+	}
+	function $fadeIn(id, ms, done) {
+		var e = document.getElementById(id);
+		if (!e) { if (done) done(); return; }
+		e.style.opacity = "0";
+		e.style.display = "";
+		requestAnimationFrame(function () {
+			e.style.transition = "opacity " + ms + "ms";
+			e.style.opacity = "1";
+			if (done) setTimeout(function () {
+				e.style.transition = "";
+				e.style.opacity = "";
+				done();
+			}, ms);
+		});
+	}
+
 	function ensureOverlay() {
 		var el = document.getElementById('ui-overlay');
 		if (el) return el;
@@ -82,17 +119,12 @@ var UI = (function () {
 		return d !== 'none' && d !== '';
 	}
 
-	// Hide-by-id helper. Uses jQuery if available (matches legacy fadeOut
-	// behavior on #popupbackground / #statsbackground); raw .style otherwise.
+	// Hide-by-id helper. Vanilla after Sprint 6 — fade variant uses the
+	// shared $fadeOut helper to match the legacy 200ms fade-out behavior
+	// on #popupbackground / #statsbackground.
 	function hideById(id, fade) {
-		var $ = window.jQuery;
-		if ($) {
-			if (fade) $('#' + id).fadeOut(200);
-			else $('#' + id).hide();
-		} else {
-			var el = document.getElementById(id);
-			if (el) el.style.display = 'none';
-		}
+		if (fade) $fadeOut(id, 200);
+		else $hide(id);
 	}
 
 	// Close the legacy popup (#popupwrap + #popupbackground).
@@ -228,7 +260,13 @@ var UI = (function () {
 		closeStats: closeStats,
 		rememberFocus: rememberFocus,
 		announce: announce,
-		announceUrgent: announceUrgent
+		announceUrgent: announceUrgent,
+		// Vanilla DOM helpers (Sprint 6: jQuery removal).
+		$show: $show,
+		$hide: $hide,
+		$on: $on,
+		$fadeOut: $fadeOut,
+		$fadeIn: $fadeIn
 	};
 })();
 

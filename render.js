@@ -234,7 +234,7 @@ function updateMoney() {
 	}
 
 	if (document.getElementById("landed").innerHTML === "") {
-		$("#landed").hide();
+		UI.$hide("landed");
 	}
 
 	document.getElementById("quickstats").style.borderColor = p.color;
@@ -245,12 +245,12 @@ function updateMoney() {
 
 	if (p.money < 0) {
 		// document.getElementById("nextbutton").disabled = true;
-		$("#resignbutton").show();
-		$("#nextbutton").hide();
+		UI.$show("resignbutton");
+		UI.$hide("nextbutton");
 	} else {
 		// document.getElementById("nextbutton").disabled = false;
-		$("#resignbutton").hide();
-		$("#nextbutton").show();
+		UI.$hide("resignbutton");
+		UI.$show("nextbutton");
 	}
 }
 
@@ -792,8 +792,8 @@ function updateDice() {
 	var die0 = game.getDie(1);
 	var die1 = game.getDie(2);
 
-	$("#die0").show();
-	$("#die1").show();
+	UI.$show("die0");
+	UI.$show("die1");
 
 	// If the throw handler already landed the cubes on the rolled faces,
 	// skip the tumble AND the dice-tick sound — flingPair() already played
@@ -819,8 +819,8 @@ function updateDice() {
 function updateOwned() {
 	var p = player[turn];
 	var checkedproperty = getCheckedProperty();
-	$("#option").show();
-	$("#owned").show();
+	UI.$show("option");
+	UI.$show("owned");
 
 	var firstproperty = -1;
 
@@ -900,7 +900,7 @@ function updateOwned() {
 
 	if (HTML === "") {
 		HTML = p.name + ", you don't have any properties.";
-		$("#option").hide();
+		UI.$hide("option");
 	} else {
 		HTML += "</table>";
 	}
@@ -913,32 +913,33 @@ function updateOwned() {
 	} else if (firstproperty > -1) {
 		document.getElementById("propertycheckbox" + firstproperty).checked = true;
 	}
-	$(".property-cell-row").click(function() {
-		var row = this;
+	var __rows = document.querySelectorAll(".property-cell-row");
+	for (var __ri = 0; __ri < __rows.length; __ri++) {
+		(function (row) {
+			row.addEventListener("click", function () {
+				// Toggle check the current checkbox.
+				var ownInput = row.querySelector(".propertycellcheckbox > input");
+				if (ownInput) ownInput.checked = !ownInput.checked;
 
-		// Toggle check the current checkbox.
-		$(this).find(".propertycellcheckbox > input").prop("checked", function(index, val) {
-			return !val;
-		});
+				// Set all other checkboxes to false.
+				var allInputs = document.querySelectorAll(".propertycellcheckbox > input");
+				for (var k = 0; k < allInputs.length; k++) {
+					if (!row.contains(allInputs[k])) allInputs[k].checked = false;
+				}
 
-		// Set all other checkboxes to false.
-		$(".propertycellcheckbox > input").prop("checked", function(index, val) {
-			if (!$.contains(row, this)) {
-				return false;
-			}
-		});
-
-		updateOption();
-	});
+				updateOption();
+			});
+		})(__rows[__ri]);
+	}
 	updateOption();
 }
 
 // "Nothing selected" view: show bank's remaining building inventory.
 // Renders the global pool counters (32 houses / 12 hotels total).
 function _renderBuildingsSummary() {
-	$("#buyhousebutton").hide();
-	$("#sellhousebutton").hide();
-	$("#mortgagebutton").hide();
+	UI.$hide("buyhousebutton");
+	UI.$hide("sellhousebutton");
+	UI.$hide("mortgagebutton");
 
 	var housesum = 32, hotelsum = 12;
 	for (var i = 0; i < 40; i++) {
@@ -946,7 +947,7 @@ function _renderBuildingsSummary() {
 		if (s.hotel == 1) hotelsum--;
 		else housesum -= s.house;
 	}
-	$("#buildings").show();
+	UI.$show("buildings");
 	document.getElementById("buildings").innerHTML =
 		"<img src='images/house.png' alt='' title='House' class='house' />:&nbsp;" + housesum +
 		"&nbsp;&nbsp;<img src='images/hotel.png' alt='' title='Hotel' class='hotel' />:&nbsp;" + hotelsum;
@@ -959,8 +960,8 @@ function _renderMortgagedOption(sq) {
 	var btn = document.getElementById("mortgagebutton");
 	btn.value = t('manage.unmortgageValue', { amount: unmortgageAmount });
 	btn.title = t('manage.unmortgageTitle', { place: sq.name, amount: unmortgageAmount });
-	$("#buyhousebutton").hide();
-	$("#sellhousebutton").hide();
+	UI.$hide("buyhousebutton");
+	UI.$hide("sellhousebutton");
 }
 
 // Render the manage panel for an owned, non-mortgaged property in a buildable
@@ -970,8 +971,8 @@ function _renderBuildingOptions(sq) {
 	var buyhousebutton = document.getElementById("buyhousebutton");
 	var sellhousebutton = document.getElementById("sellhousebutton");
 
-	$("#buyhousebutton").show();
-	$("#sellhousebutton").show();
+	UI.$show("buyhousebutton");
+	UI.$show("sellhousebutton");
 	buyhousebutton.disabled = false;
 	sellhousebutton.disabled = false;
 	buyhousebutton.value  = t('manage.buyHouseValue',  { amount: sq.houseprice });
@@ -984,7 +985,7 @@ function _renderBuildingOptions(sq) {
 		buyhousebutton.title = t('manage.buyHotelTitle', { amount: sq.houseprice });
 	}
 	if (sq.hotel == 1) {
-		$("#buyhousebutton").hide();
+		UI.$hide("buyhousebutton");
 		sellhousebutton.value = t('manage.sellHotelValue', { amount: (sq.houseprice * 0.5) });
 		sellhousebutton.title = t('manage.sellHotelTitle', { amount: (sq.houseprice * 0.5) });
 	}
@@ -1025,9 +1026,9 @@ function _renderBuildingOptions(sq) {
 	}
 
 	if (sq.house === 0 && sq.hotel === 0) {
-		$("#sellhousebutton").hide();
+		UI.$hide("sellhousebutton");
 	} else {
-		$("#mortgagebutton").hide();
+		UI.$hide("mortgagebutton");
 	}
 
 	// Mortgage requires unimproved across the whole color group.
@@ -1038,7 +1039,7 @@ function _renderBuildingOptions(sq) {
 }
 
 function updateOption() {
-	$("#option").show();
+	UI.$show("option");
 	var checkedproperty = getCheckedProperty();
 
 	if (checkedproperty < 0 || checkedproperty >= 40) {
@@ -1046,10 +1047,10 @@ function updateOption() {
 		return;
 	}
 
-	$("#buildings").hide();
+	UI.$hide("buildings");
 	var sq = square[checkedproperty];
 
-	$("#mortgagebutton").show();
+	UI.$show("mortgagebutton");
 	document.getElementById("mortgagebutton").disabled = false;
 
 	if (sq.mortgage) {
@@ -1062,8 +1063,8 @@ function updateOption() {
 			_renderBuildingOptions(sq);
 		} else {
 			// Railroads / utilities: no buildings.
-			$("#buyhousebutton").hide();
-			$("#sellhousebutton").hide();
+			UI.$hide("buyhousebutton");
+			UI.$hide("sellhousebutton");
 		}
 	}
 

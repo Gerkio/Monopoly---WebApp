@@ -27,8 +27,8 @@ function citytax() {
 		var payPercentBtn = document.getElementById('citytax-paypercent');
 
 		var closePopup = function () {
-			$("#popupwrap").hide();
-			$("#popupbackground").fadeOut(200);
+			UI.$hide("popupwrap");
+			UI.$fadeOut("popupbackground", 200);
 		};
 
 		if (pay200Btn) {
@@ -66,7 +66,8 @@ function luxurytax() {
 	addAlert(t('alert.paidLuxuryTax', { player: player[turn].name, amount: 75 }));
 	player[turn].pay(75, 0);
 
-	$("#landed").show().text(t('landed.luxuryTax', { amount: 75 }));
+	UI.$show("landed");
+	document.getElementById("landed").textContent = t('landed.luxuryTax', { amount: 75 });
 }
 
 var square = [];

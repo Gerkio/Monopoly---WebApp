@@ -171,7 +171,8 @@ function __alertIcon(text) {
 var __alertLastTurn = -1;
 
 function addAlert(alertText) {
-	$alert = $("#alert");
+	var alertEl = document.getElementById("alert");
+	if (!alertEl) return;
 
 	// Insert a thin "Turn X — Name" divider whenever the active player changes.
 	if (turn !== __alertLastTurn && player[turn]) {
@@ -183,7 +184,7 @@ function addAlert(alertText) {
 		dot.style.background = player[turn].color;
 		sep.appendChild(dot);
 		sep.appendChild(document.createTextNode(player[turn].name));
-		$alert[0].appendChild(sep);
+		alertEl.appendChild(sep);
 	}
 
 	var row = document.createElement('div');
@@ -196,17 +197,17 @@ function addAlert(alertText) {
 	msg.className = 'alert-msg';
 	msg.textContent = alertText;
 	row.appendChild(msg);
-	$alert[0].appendChild(row);
+	alertEl.appendChild(row);
 
 	// Bound DOM growth on long games; oldest entries are scrolled out anyway.
 	var maxEntries = 200;
-	var children = $alert.children();
-	if (children.length > maxEntries) {
-		children.slice(0, children.length - maxEntries).remove();
+	while (alertEl.children.length > maxEntries) {
+		alertEl.removeChild(alertEl.firstChild);
 	}
 
-	// Animate scrolling down alert element.
-	$alert.stop().animate({"scrollTop": $alert.prop("scrollHeight")}, 1000);
+	// Smooth-scroll the alert log to the bottom (CSS scroll-behavior:smooth
+	// inside index.html handles the easing — we just set the target).
+	alertEl.scrollTop = alertEl.scrollHeight;
 
 	if (!player[turn].human) {
 		// alertList is later injected via innerHTML by popup(); escape the text.
@@ -296,8 +297,8 @@ function __confirmAuctionExit() {
 			// Re-show the auction popup with its captured HTML/classes.
 			document.getElementById('popuptext').innerHTML = savedHTML;
 			popupEl.className = savedClasses;
-			$('#popupbackground').fadeIn(200);
-			$('#popupwrap').show();
+			UI.$fadeIn('popupbackground', 200);
+			UI.$show('popupwrap');
 			__renderAuctionBidders();
 		});
 	}
@@ -486,30 +487,36 @@ function popup(HTML, action, option, opts) {
 	if (option === "yes/no") {
 		document.getElementById("popuptext").innerHTML += "<div><input type=\"button\" value=\"" + I18N.escape(t('ui.yes')) + "\" id=\"popupyes\" /><input type=\"button\" value=\"" + I18N.escape(t('ui.no')) + "\" id=\"popupno\" /></div>";
 
-		$("#popupyes, #popupno").on("click", function() {
+		var __closeYesNo = function () {
 			__popupCancelAuto();
-			$("#popupwrap").hide();
-			$("#popupbackground").fadeOut(400, restoreFocus);
-		});
+			UI.$hide("popupwrap");
+			UI.$fadeOut("popupbackground", 400, restoreFocus);
+		};
+		UI.$on("popupyes", "click", __closeYesNo);
+		UI.$on("popupno", "click", __closeYesNo);
 
-		$("#popupyes").on("click", action);
+		if (action) UI.$on("popupyes", "click", action);
 
 	// Ok
 	} else if (option !== "blank") {
-		$("#popuptext").append("<div><input type='button' value='" + I18N.escape(t('ui.ok')) + "' id='popupclose' /></div>");
-		$("#popupclose").focus();
-
-		$("#popupclose").on("click", function() {
-			__popupCancelAuto();
-			$("#popupwrap").hide();
-			$("#popupbackground").fadeOut(400, restoreFocus);
-		}).on("click", action);
+		var __popuptext = document.getElementById("popuptext");
+		__popuptext.insertAdjacentHTML("beforeend", "<div><input type='button' value='" + I18N.escape(t('ui.ok')) + "' id='popupclose' /></div>");
+		var __closeBtn = document.getElementById("popupclose");
+		if (__closeBtn) {
+			__closeBtn.focus();
+			__closeBtn.addEventListener("click", function () {
+				__popupCancelAuto();
+				UI.$hide("popupwrap");
+				UI.$fadeOut("popupbackground", 400, restoreFocus);
+			});
+			if (action) __closeBtn.addEventListener("click", action);
+		}
 
 	}
 
 	// Show using animation.
-	$("#popupbackground").fadeIn(400, function() {
-		$("#popupwrap").show();
+	UI.$fadeIn("popupbackground", 400, function () {
+		UI.$show("popupwrap");
 	});
 
 	// === Auto-accept timer ===
@@ -996,8 +1003,8 @@ window.__applyPreset = function (kind) {
 // The tile is already queued via game.addPropertyToAuctionQueue() in land().
 window.__startAuctionFromLanded = function () {
 	// Hide the buy/auction prompts and kick off the auction.
-	$('#landed').hide();
-	$('#buy').hide();
+	UI.$hide('landed');
+	UI.$hide('buy');
 	window.__pendingBuyDecision = false;
 	if (game && typeof game.auction === 'function') game.auction();
 };
@@ -1180,7 +1187,7 @@ function __showVictory(winner) {
 
 	// Hide the live gameplay UI behind the overlay so the only clickable
 	// elements are the overlay's own CTAs.
-	$("#moneybar").hide();
+	UI.$hide("moneybar");
 
 	var overlay = document.createElement('div');
 	overlay.id = 'victory-overlay';
