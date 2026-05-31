@@ -1333,6 +1333,8 @@ function Game() {
 		addAlert(t('alert.bankrupt', { player: p.name }));
 		// Sprint 1 (S1.4e) — dramatic triple-buzz on bankruptcy.
 		if (typeof __haptic === 'function') __haptic([200, 100, 200]);
+		// Sprint 2 (S2.2b) — heavy screen-shake to punctuate elimination.
+		if (typeof __shake === 'function') __shake(10, 600);
 
 		if (p.creditor !== 0) {
 			pcredit.money += p.money;
@@ -2784,7 +2786,32 @@ function __placeTokenInCell(tok, hostEl, leftPx, topPx, cellKey, duration) {
 //      dice"; the guards below make sure no second walk can overwrite this.
 function __walkPlayerSteps(playerSlot, startPos, steps, done) {
 	var tok = __tokens && __tokens[playerSlot];
-	function safeDone() { window.__walking = false; if (done) { var d = done; done = null; d(); } }
+	function safeDone() {
+		// Sprint 2 (S2.1) — token squash/squish on final-step landing. The
+		// keyframe is defined in styles.css (.tok-land → @keyframes tok-squash).
+		// One-shot via animationend; the listener removes the class so a
+		// follow-up walk can re-trigger the animation. We DO NOT cancel the
+		// existing `.token-land` class added during the final step — they
+		// stack: token-land plays its compositor-only stretch first, then
+		// tok-land overlays the requested 320ms squash curve.
+		try {
+			if (tok && tok.el && tok.el.classList) {
+				var el = tok.el;
+				el.classList.remove('tok-land');
+				// Force reflow so re-adding the class restarts the animation.
+				void el.offsetWidth;
+				el.classList.add('tok-land');
+				var onEnd = function (ev) {
+					if (ev && ev.animationName && ev.animationName !== 'tok-squash') return;
+					el.classList.remove('tok-land');
+					el.removeEventListener('animationend', onEnd);
+				};
+				el.addEventListener('animationend', onEnd);
+			}
+		} catch (e) {}
+		window.__walking = false;
+		if (done) { var d = done; done = null; d(); }
+	}
 	if (!tok || !steps || steps <= 0) { window.__walking = false; if (done) done(); return; }
 	if (!tok.el.parentNode) { window.__walking = false; if (done) done(); return; }
 
@@ -3065,6 +3092,105 @@ function __haptic(pattern) {
 // Expose on window so cross-file callers (ai.js) can reach it without
 // scope shenanigans.
 if (typeof window !== 'undefined') { window.__haptic = __haptic; }
+
+// Sprint 2 (S2.2) — screen shake on key events.
+// Drives the CSS custom properties --shake-x / --shake-y on #game-stage,
+// which fitStage() composes into the master `transform` string via the
+// --stage-transform property. We DO NOT touch stage.style.transform here:
+// fitStage() owns the base translate/rotate/scale, and overriding it would
+// break the responsive fit. Decay is linear over the requested duration.
+//
+// Respects prefers-reduced-motion: returns immediately if the user opts out.
+// Re-entrant: if a second shake fires before the first finishes, the new
+// one cancels the old (no double-amplitude artifacts).
+function __shake(magnitude, durationMs) {
+	try {
+		if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+	} catch (e) {}
+	var stage = document.getElementById('game-stage');
+	if (!stage) return;
+	magnitude = +magnitude || 0;
+	durationMs = +durationMs || 300;
+	if (magnitude <= 0 || durationMs <= 0) return;
+
+	// Cancel any in-flight shake — last-one-wins semantics.
+	if (window.__shakeRaf) {
+		cancelAnimationFrame(window.__shakeRaf);
+		window.__shakeRaf = 0;
+	}
+	var start = (window.performance && performance.now) ? performance.now() : Date.now();
+	function tick(now) {
+		var t = (now - start) / durationMs;
+		if (t >= 1) {
+			stage.style.setProperty('--shake-x', '0px');
+			stage.style.setProperty('--shake-y', '0px');
+			window.__shakeRaf = 0;
+			return;
+		}
+		var amp = magnitude * (1 - t); // linear decay
+		var dx = (Math.random() * 2 - 1) * amp;
+		var dy = (Math.random() * 2 - 1) * amp;
+		stage.style.setProperty('--shake-x', dx.toFixed(2) + 'px');
+		stage.style.setProperty('--shake-y', dy.toFixed(2) + 'px');
+		window.__shakeRaf = requestAnimationFrame(tick);
+	}
+	window.__shakeRaf = requestAnimationFrame(tick);
+}
+if (typeof window !== 'undefined') { window.__shake = __shake; }
+
+// Sprint 2 (S2.3) — camera zoom pulse on celebratory rolls / fat rents.
+// Drives --zoom-scale on #game-stage; the stage's `transform` rule multiplies
+// the base scale by --zoom-scale, so the pulse composes cleanly with
+// fitStage()'s base transform and the shake offsets. Easing is done in JS
+// (rAF lerp) because CSS transitions on `transform` would fight the
+// per-frame shake helper.
+//
+// Curve: 0 → 1 over the first 40 % (ease-out), then 1 → 0 over the
+// remaining 60 % (ease-in). Magnitude `scale` is the peak deviation above 1
+// (e.g. 1.04 = a 4 % zoom-in).
+function __zoomPulse(scale, ms) {
+	try {
+		if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+	} catch (e) {}
+	var stage = document.getElementById('game-stage');
+	if (!stage) return;
+	scale = +scale || 1;
+	ms = +ms || 600;
+	if (scale === 1 || ms <= 0) return;
+	if (window.__zoomRaf) {
+		cancelAnimationFrame(window.__zoomRaf);
+		window.__zoomRaf = 0;
+	}
+	var peak = scale - 1;
+	var start = (window.performance && performance.now) ? performance.now() : Date.now();
+	stage.classList.add('is-zooming');
+	function tick(now) {
+		var t = (now - start) / ms;
+		if (t >= 1) {
+			stage.style.setProperty('--zoom-scale', '1');
+			stage.classList.remove('is-zooming');
+			window.__zoomRaf = 0;
+			return;
+		}
+		// 0..0.4 ramp up (ease-out), 0.4..1 ramp down (ease-in)
+		var amp;
+		if (t < 0.4) {
+			var u = t / 0.4;
+			amp = 1 - (1 - u) * (1 - u); // ease-out quadratic
+		} else {
+			var v = (t - 0.4) / 0.6;
+			amp = 1 - v * v;             // ease-in quadratic (mirrored)
+		}
+		stage.style.setProperty('--zoom-scale', String(1 + peak * amp));
+		window.__zoomRaf = requestAnimationFrame(tick);
+	}
+	window.__zoomRaf = requestAnimationFrame(tick);
+}
+if (typeof window !== 'undefined') { window.__zoomPulse = __zoomPulse; }
 
 // Sprint 1 (S1.1) — rolling-counter animation for the active player's cash.
 // Tweens fromVal → toVal over durationMs (default 600/400 depending on sign)
@@ -4191,6 +4317,48 @@ function __applyPopupCardOnce() {
 	var popupEl = document.getElementById('popup');
 	if (!popupEl) return;
 	popupEl.classList.add('popup-card');
+
+	// Sprint 2 (S2.4) — wrap the live card content in a .card-flip / .card-face
+	// scaffold so the existing `card-flip-in` keyframe (rotateY 92deg → 0)
+	// reveals as a proper 3D flip with a visible back side mid-animation.
+	//
+	// Caveats handled:
+	//   • The auto-accept ring (autoMs) is already appended to #popuptext by
+	//     popup() before we run, so we lift it OUT before wrapping and re-attach
+	//     it AFTER, keeping it outside the 3D context (otherwise backface-
+	//     visibility would hide it during the first half of the flip).
+	//   • Idempotent: if .card-flip is already inside popuptext (defensive),
+	//     skip re-wrapping.
+	var textEl = document.getElementById('popuptext');
+	if (!textEl) return;
+	if (textEl.querySelector(':scope > .card-flip')) return;
+
+	var autoRow = textEl.querySelector('.auto-accept-row');
+
+	// Detach the auto-accept row temporarily.
+	if (autoRow && autoRow.parentNode === textEl) {
+		textEl.removeChild(autoRow);
+	}
+
+	// Move all remaining children into card-front.
+	var flip  = document.createElement('div');
+	flip.className = 'card-flip';
+	var back  = document.createElement('div');
+	back.className = 'card-face card-back';
+	var front = document.createElement('div');
+	front.className = 'card-face card-front';
+
+	while (textEl.firstChild) {
+		front.appendChild(textEl.firstChild);
+	}
+	flip.appendChild(back);
+	flip.appendChild(front);
+	textEl.appendChild(flip);
+
+	// Re-attach the auto-accept row at the bottom, outside the flip.
+	if (autoRow) {
+		textEl.appendChild(autoRow);
+	}
 }
 
 function chanceCommunityChest() {
@@ -5136,6 +5304,29 @@ function land(increasedRent) {
 		// Sprint 1 (S1.4c) — heavier haptic when rent comes out of your pocket.
 		if (typeof __haptic === 'function') __haptic([100]);
 
+		// Sprint 2 (S2.2c / S2.2d) — fat-rent screen-shake. The shake is a
+		// screen-wide effect, so the "payer" vs "receiver" perspective only
+		// matters for which player is the active human at the table. Pick the
+		// stronger magnitude when the active player is paying the rent (they
+		// see their cash drain), and the gentler one when they're collecting.
+		// The two cases are mutually exclusive because s.owner != turn is
+		// guaranteed above by the surrounding `if`.
+		if (rent > 500 && typeof __shake === 'function') {
+			if (player[turn].human) {
+				__shake(4, 300); // S2.2c — you just paid > $500
+			} else if (player[s.owner].human) {
+				__shake(3, 250); // S2.2d — you just received > $500
+			} else {
+				// Both AI: still shake gently so spectators see the moment.
+				__shake(3, 250);
+			}
+		}
+		// Sprint 2 (S2.3b) — camera zoom-pulse when the active player lands
+		// on a rival property with rent ≥ $200.
+		if (rent >= 200 && typeof __zoomPulse === 'function') {
+			__zoomPulse(1.04, 700);
+		}
+
 		// Visual: animate a "$X" symbol arcing from the payer's token to
 		// the owner's money-bar row so the cash transfer is visible.
 		__animateRentFlight(turn, s.owner, rent);
@@ -5309,6 +5500,8 @@ function roll() {
 	if (die1 == die2) {
 		addAlert(t('alert.rolledDoubles', { player: p.name, n: die1 + die2 }));
 		if (die1 === 1) _applySnakeEyesBonus(p);
+		// Sprint 2 (S2.3a) — subtle camera punch-in on any doubles.
+		if (typeof __zoomPulse === 'function') __zoomPulse(1.025, 600);
 	} else {
 		addAlert(t('alert.rolled', { player: p.name, n: die1 + die2 }));
 	}
@@ -5324,6 +5517,8 @@ function roll() {
 			doublecount = 0;
 			addAlert(t('alert.tripleDoubles', { player: p.name }));
 			updateMoney();
+			// Sprint 2 (S2.2a) — sharp screen-shake to mark the bust.
+			if (typeof __shake === 'function') __shake(6, 400);
 			if (p.human) popup(t('popup.tripleDoublesMsg'), gotojail, undefined, { autoMs: 6000 });
 			else gotojail();
 			return;
@@ -5707,7 +5902,18 @@ function fitStage() {
 		cos = 1; sin = 0;
 	}
 	// translate(-50%,-50%) keeps the stage centered before scale/rotate.
-	stage.style.transform = 'translate(-50%, -50%) rotate(' + rotateDeg + 'deg) scale(' + scale + ')';
+	// Sprint 2 (S2.2/S2.3) — instead of writing transform directly, expose
+	// the base transform via a CSS custom property so the shake / zoom
+	// effects can compose with it (see #game-stage rule in styles.css).
+	// Writing to .style.transform here would clobber the composed transform
+	// the moment fitStage() ran (resize / orientationchange), so we route
+	// EVERYTHING through --stage-transform.
+	var baseTransform = 'translate(-50%, -50%) rotate(' + rotateDeg + 'deg) scale(' + scale + ')';
+	stage.style.setProperty('--stage-transform', baseTransform);
+	// Clear any direct transform left over from earlier builds, otherwise
+	// the inline `transform: translate(-50%,-50%)` from styles.css can win
+	// in cascade and the composed transform never applies.
+	stage.style.transform = '';
 	window.GameState.stageTx = { scale: scale, rotation: rotateDeg, cos: cos, sin: sin };
 }
 

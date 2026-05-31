@@ -252,9 +252,24 @@ body::before {
 	   body::before (vignette, z-index: 1), otherwise the wood layer paints
 	   on top of the stage and hides the board + sidepanel entirely. */
 	z-index: 2;
-	transform: translate(-50%, -50%);
+	/* Sprint 2 (S2.2/S2.3) — composed transform. fitStage() writes the base
+	   translate/rotate/scale into --stage-transform; the shake helper writes
+	   --shake-x/--shake-y; the zoom helper writes --zoom-scale. The cascade
+	   below multiplies them in one pass so all three can co-exist without
+	   stomping each other. The fallback chain keeps the stage centered when
+	   fitStage hasn't run yet (initial paint, tests). */
+	--stage-transform: translate(-50%, -50%);
+	--shake-x: 0px;
+	--shake-y: 0px;
+	--zoom-scale: 1;
+	transform: var(--stage-transform) translate(var(--shake-x), var(--shake-y)) scale(var(--zoom-scale));
 	transform-origin: center center;
 	will-change: transform;
+	/* No CSS transition on transform: the shake helper writes random offsets
+	   every animation frame (~60 fps) and any transition would interpolate
+	   toward each successive value, producing a laggy "drift" instead of a
+	   crisp shake. The zoom helper instead lerps --zoom-scale in JS over its
+	   duration so the pulse still feels smooth without a CSS transition. */
 }
 
 /* Settings cluster (gear button + dropdown menu). Replaces the previous
@@ -1713,6 +1728,25 @@ html.theme-dark #cell7, html.theme-dark #cell22, html.theme-dark #cell36 {
 	60%  { transform: scaleY(1.15) scaleX(0.9);  }   /* stretch */
 	80%  { transform: scaleY(0.96) scaleX(1.04); }
 	100% { transform: scaleY(1)    scaleX(1);    }
+}
+
+/* Sprint 2 (S2.1) — extra squish at safeDone() time. Layered on top of
+   .token-land (added at the final visual step) so the landing reads as a
+   crisp bounce: token-land carries the stretch/wobble, tok-land caps it
+   with a tight vertical squash. transform-origin: bottom center anchors
+   the squish to the cell floor for a physical "weight-drops" feel. */
+@keyframes tok-squash {
+	0%   { transform: scaleY(1);    }
+	30%  { transform: scaleY(0.78); }
+	70%  { transform: scaleY(1.12); }
+	100% { transform: scaleY(1);    }
+}
+.tok-land {
+	animation: tok-squash 320ms cubic-bezier(0.22, 1, 0.36, 1);
+	transform-origin: bottom center;
+}
+@media (prefers-reduced-motion: reduce) {
+	.tok-land { animation: none; }
 }
 
 /* Cell flash on landing — a brief light ring around the destination cell. */
@@ -4335,6 +4369,66 @@ body.speed-mode #board-logo {
 	to {
 		opacity: 1;
 		transform: perspective(1200px) rotateY(0deg) scale(1);
+	}
+}
+
+/* ============================================================
+   Sprint 2 (S2.4) — Card flip 3D for Chance / Community Chest popups.
+   The popup's outer .popup-card animation already does a gentle 92deg
+   reveal of the whole modal. The .card-flip wrapper inside the popup
+   gives the CONTENT its own 180deg flip so the player sees the back of
+   a Monopoly card rotate away to reveal the printed face. The two
+   animations are layered intentionally: the outer one swings the card
+   into the table, the inner one flips it over.
+   ============================================================ */
+.card-flip {
+	position: relative;
+	transform-style: preserve-3d;
+	perspective: 1000px;
+	animation: card-flip 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	/* min-height is large enough so the absolutely-positioned card-back
+	   doesn't collapse to zero before card-front contributes layout. The
+	   card-front uses position: relative below, so once it's painted the
+	   wrapper grows to fit the actual text. */
+	min-height: 80px;
+}
+@keyframes card-flip {
+	0%   { transform: rotateY(180deg); }
+	100% { transform: rotateY(0deg);   }
+}
+.card-face {
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+}
+/* card-front is the live content — relative positioning so it contributes
+   to the .card-flip wrapper's height (otherwise both faces would be
+   absolutely positioned and the wrapper would collapse, breaking layout
+   of the OK button below). */
+.card-front {
+	position: relative;
+}
+/* card-back is the printed reverse side. Absolutely positioned over the
+   front so it occupies the same footprint; rotated 180deg so it shows
+   while the flip wrapper is in its starting state. */
+.card-back {
+	position: absolute;
+	inset: 0;
+	background: var(--surface-card, #fff7d8);
+	transform: rotateY(180deg);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 48px;
+	color: var(--accent-bright, #c0392b);
+	border-radius: 4px;
+}
+.card-back::after {
+	content: "\2663"; /* ♣ — placeholder card-back ornament */
+}
+@media (prefers-reduced-motion: reduce) {
+	.card-flip {
+		animation: none;
+		transform: rotateY(0deg);
 	}
 }
 
