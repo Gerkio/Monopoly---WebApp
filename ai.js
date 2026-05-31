@@ -976,6 +976,106 @@ function AIAdaptive(p) {
 	var WARMUP_TURNS = 4;
 	var EVAL_EVERY   = 2;
 
+	// ----- Sprint 7.1: heavy compute offloaded to Web Worker -----
+	// The worker computes the composite score off the main thread. Because
+	// postMessage is async, we apply the PREVIOUS turn's suggestion to THIS
+	// turn (one-frame lag is acceptable for difficulty selection). The first
+	// few turns simply run at the default level until a suggestion arrives.
+	var __worker = null;
+	var __workerSeq = 0;
+	self._workerSuggestion = null; // { level, score, rNet, rMono, rLiq, trend, history }
+	try {
+		if (typeof Worker !== 'undefined') {
+			__worker = new Worker('ai-worker.js');
+			__worker.onmessage = function (e) {
+				var d = e && e.data;
+				if (!d || d.type !== 'evaluate:result') return;
+				if (d.level == null) { self._workerSuggestion = null; return; }
+				self._workerSuggestion = {
+					level: d.level,
+					score: d.score,
+					rNet:  d.rNet,
+					rMono: d.rMono,
+					rLiq:  d.rLiq,
+					trend: d.trend,
+					history: d.history
+				};
+				// Keep the local history in sync so the sync fallback uses the
+				// same baseline as the worker did.
+				if (Array.isArray(d.history)) scoreHistory = d.history.slice();
+			};
+			__worker.onerror = function () { __worker = null; };
+		}
+	} catch (e) {
+		__worker = null;
+	}
+
+	function __snapshotState() {
+		var players = [];
+		for (var i = 0; i < player.length; i++) {
+			var pp = player[i];
+			if (!pp) { players.push(null); continue; }
+			players.push({
+				idx: pp.index,
+				money: pp.money,
+				bankrupt: !!pp.bankrupt,
+				human: !!pp.human,
+				communityChestJailCard: !!pp.communityChestJailCard,
+				chanceJailCard: !!pp.chanceJailCard,
+				jail: !!pp.jail,
+				position: pp.position
+			});
+		}
+		var squares = [];
+		for (var j = 0; j < 40; j++) {
+			var sq = square[j];
+			if (!sq) { squares.push(null); continue; }
+			squares.push({
+				owner: sq.owner,
+				mortgage: !!sq.mortgage,
+				house: sq.house || 0,
+				hotel: sq.hotel || 0,
+				price: sq.price || 0,
+				groupNumber: sq.groupNumber || 0,
+				color: sq.color,
+				name: sq.name,
+				houseprice: sq.houseprice || 0,
+				baserent: sq.baserent || 0,
+				rent1: sq.rent1 || 0,
+				rent2: sq.rent2 || 0,
+				rent3: sq.rent3 || 0,
+				rent4: sq.rent4 || 0,
+				rent5: sq.rent5 || 0
+			});
+		}
+		return {
+			turn: turnCount,
+			pcount: (typeof pcount !== 'undefined') ? pcount : players.length - 1,
+			ownIdx: p.index,
+			players: players,
+			squares: squares,
+			history: scoreHistory.slice()
+		};
+	}
+
+	// Layer hysteresis on top of the worker's raw level recommendation so
+	// the public behavior matches the original sync code exactly.
+	function __applyHysteresis(rawLevel, score) {
+		var prev = self._level;
+		if (prev === 'hard') {
+			if (score < UP_LEAVE) return (score < DOWN_ENTER ? 'easy' : 'normal');
+			return 'hard';
+		}
+		if (prev === 'easy') {
+			if (score > DOWN_LEAVE) return (score > UP_ENTER ? 'hard' : 'normal');
+			return 'easy';
+		}
+		// prev === 'normal'
+		if      (score > UP_ENTER)   return 'hard';
+		else if (score < DOWN_ENTER) return 'easy';
+		return 'normal';
+	}
+
 	function active() {
 		if (self._level === 'easy') return self._easy;
 		if (self._level === 'hard') return self._hard;
@@ -1029,10 +1129,63 @@ function AIAdaptive(p) {
 	}
 
 	function reEvaluate() {
+		// Phase 1: consume the PREVIOUS turn's worker suggestion (if any) to
+		// set the current level. The worker is async, so what we received
+		// during the last turn drives this turn's decisions.
+		var prev = self._level;
+		var suggestion = self._workerSuggestion;
+		if (__worker && suggestion && typeof suggestion.score === 'number') {
+			self._level = __applyHysteresis(suggestion.level, suggestion.score);
+			if (self._level !== prev && window.__AI_ADAPTIVE_DEBUG === true) {
+				console.log('[adaptive ' + p.name + '] ' + prev + ' → ' + self._level +
+					' (worker score=' + suggestion.score.toFixed(2) +
+					' net=' + suggestion.rNet.toFixed(2) +
+					' mono=' + suggestion.rMono.toFixed(2) +
+					' liq=' + suggestion.rLiq.toFixed(2) +
+					' trend=' + suggestion.trend.toFixed(2) + ')');
+			}
+			// Consume the suggestion so a stale one doesn't keep biasing us
+			// while the next postMessage is still in-flight.
+			self._workerSuggestion = null;
+
+			// Phase 2: kick off the NEXT evaluation on the worker.
+			try {
+				__workerSeq++;
+				__worker.postMessage({
+					id: __workerSeq,
+					type: 'evaluate',
+					level: 'adaptive',
+					action: 'beforeTurn',
+					state: __snapshotState()
+				});
+			} catch (e) {
+				__worker = null; // fall back to sync from now on
+			}
+			return;
+		}
+
+		if (__worker) {
+			// Worker exists but no suggestion yet — dispatch a snapshot and
+			// keep current level for this turn. (First turn after warmup.)
+			try {
+				__workerSeq++;
+				__worker.postMessage({
+					id: __workerSeq,
+					type: 'evaluate',
+					level: 'adaptive',
+					action: 'beforeTurn',
+					state: __snapshotState()
+				});
+				return;
+			} catch (e) {
+				__worker = null; // fall through to sync path
+			}
+		}
+
+		// Sync fallback (Worker unsupported or postMessage failed).
 		var info = computeScore();
 		if (!info) return;
 		var s = info.score;
-		var prev = self._level;
 		// Hysteresis-driven transition table.
 		if (prev === 'hard') {
 			if (s < UP_LEAVE) self._level = (s < DOWN_ENTER ? 'easy' : 'normal');

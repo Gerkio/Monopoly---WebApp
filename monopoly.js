@@ -6523,3 +6523,41 @@ window.onload = function() {
 	_wireMoneyBarInteractivity();
 	_wireTabSwitchers();
 };
+
+// Sprint 4 — PWA install banner.
+// Captures beforeinstallprompt so the browser-native install UI can be
+// surfaced from our own button (Chrome/Edge/Android Chrome only — other
+// browsers ignore the event and the button simply stays hidden).
+(function () {
+	var deferredPrompt = null;
+
+	window.addEventListener("beforeinstallprompt", function (e) {
+		e.preventDefault();
+		deferredPrompt = e;
+
+		var btn = document.getElementById("pwa-install-btn");
+		if (!btn) {
+			return;
+		}
+		btn.style.display = "inline-block";
+
+		btn.onclick = function () {
+			if (!deferredPrompt) {
+				return;
+			}
+			deferredPrompt.prompt();
+			deferredPrompt.userChoice.then(function () {
+				deferredPrompt = null;
+				btn.style.display = "none";
+			});
+		};
+	});
+
+	window.addEventListener("appinstalled", function () {
+		deferredPrompt = null;
+		var btn = document.getElementById("pwa-install-btn");
+		if (btn) {
+			btn.style.display = "none";
+		}
+	});
+})();

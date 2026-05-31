@@ -1,0 +1,21 @@
+{
+  "name": "Monopoly",
+  "short_name": "Monopoly",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1B5E3F",
+  "theme_color": "#1B5E3F",
+  "description": "Monopoly multiplayer en navegador",
+  "icons": [
+    {
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
