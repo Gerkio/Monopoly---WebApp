@@ -5343,3 +5343,62 @@ input[type="button"] { position: relative; overflow: hidden; }
 	animation: none;
 	opacity: 0.45;
 }
+
+/* ============================================================
+   Sprint 1 — high-frequency juice
+   S1.1  Money counter rolling animation (flash colors)
+   S1.2  Persistent turn glow on the active sidepanel-left row
+   S1.3  Dice tray pulse tinted with the active player's color
+   ============================================================ */
+
+/* S1.1 — Brief color flash that rides on top of the counter tween */
+.money-flash-pos {
+	color: var(--accent);
+	transition: color 200ms;
+}
+.money-flash-neg {
+	color: #B43A2D;
+	transition: color 200ms;
+}
+
+/* S1.2 — Persistent glow around the active player's sidepanel row.
+   The row exposes --player-color inline so the glow matches their token. */
+.qs-row.is-active-turn,
+.money-bar-row.is-active-turn {
+	box-shadow:
+		0 0 0 2px var(--player-color, var(--accent)),
+		0 0 16px -2px var(--player-color, var(--accent));
+	animation: qs-turn-pulse 2.4s ease-in-out infinite;
+}
+@keyframes qs-turn-pulse {
+	50% {
+		box-shadow:
+			0 0 0 2px var(--player-color, var(--accent)),
+			0 0 22px 2px var(--player-color, var(--accent));
+	}
+}
+
+/* S1.3 — Color-tinted pulse on the Roll Dice button. Activated only when
+   JS sets data-pulse-color="1" (i.e. on the active human turn), so the
+   default grey/accent pulse stays the fallback. */
+.btn-pulse-attn[data-pulse-color] {
+	box-shadow: 0 0 0 0 var(--pulse-color, var(--accent));
+	animation: btn-pulse-color 1.6s ease-out infinite;
+}
+@keyframes btn-pulse-color {
+	0%   { box-shadow: 0 0 0 0   var(--pulse-color, var(--accent)); }
+	80%  { box-shadow: 0 0 0 18px transparent; }
+	100% { box-shadow: 0 0 0 0   transparent; }
+}
+
+/* Reduced motion — disable the looping turn glow + color pulse, but keep
+   the flash colors (they're instant and short, not motion). */
+@media (prefers-reduced-motion: reduce) {
+	.qs-row.is-active-turn,
+	.money-bar-row.is-active-turn {
+		animation: none;
+	}
+	.btn-pulse-attn[data-pulse-color] {
+		animation: none;
+	}
+}

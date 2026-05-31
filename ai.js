@@ -1144,6 +1144,11 @@ function AIAdaptive(p) {
 					' liq=' + suggestion.rLiq.toFixed(2) +
 					' trend=' + suggestion.trend.toFixed(2) + ')');
 			}
+			// Sprint 1 (S1.4f) — haptic only when the AI gets sharper.
+			if (self._level === 'hard' && prev !== 'hard' &&
+				typeof window !== 'undefined' && typeof window.__haptic === 'function') {
+				window.__haptic([20, 40, 20]);
+			}
 			// Consume the suggestion so a stale one doesn't keep biasing us
 			// while the next postMessage is still in-flight.
 			self._workerSuggestion = null;
@@ -1202,6 +1207,11 @@ function AIAdaptive(p) {
 				' mono=' + info.rMono.toFixed(2) +
 				' liq=' + info.rLiq.toFixed(2) +
 				' trend=' + info.trend.toFixed(2) + ')');
+		}
+		// Sprint 1 (S1.4f) — haptic only when transitioning into "hard".
+		if (self._level === 'hard' && prev !== 'hard' &&
+			typeof window !== 'undefined' && typeof window.__haptic === 'function') {
+			window.__haptic([20, 40, 20]);
 		}
 	}
 

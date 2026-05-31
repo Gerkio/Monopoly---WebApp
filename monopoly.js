@@ -1331,6 +1331,8 @@ function Game() {
 		}
 
 		addAlert(t('alert.bankrupt', { player: p.name }));
+		// Sprint 1 (S1.4e) — dramatic triple-buzz on bankruptcy.
+		if (typeof __haptic === 'function') __haptic([200, 100, 200]);
 
 		if (p.creditor !== 0) {
 			pcredit.money += p.money;
@@ -3052,6 +3054,65 @@ function updatePosition() {
 // without animating (avoids a spurious pulse at game start).
 var __prevMoney = {};
 
+// Sprint 1 (S1.4) — best-effort haptic feedback for touch devices. Silent
+// no-op on desktop / iOS Safari (no navigator.vibrate). Pattern follows the
+// Vibration API shape: number or array of on/off durations in ms.
+function __haptic(pattern) {
+	if (navigator && typeof navigator.vibrate === 'function') {
+		try { navigator.vibrate(pattern); } catch (e) { /* swallow */ }
+	}
+}
+// Expose on window so cross-file callers (ai.js) can reach it without
+// scope shenanigans.
+if (typeof window !== 'undefined') { window.__haptic = __haptic; }
+
+// Sprint 1 (S1.1) — rolling-counter animation for the active player's cash.
+// Tweens fromVal → toVal over durationMs (default 600/400 depending on sign)
+// using easeOutCubic and rAF. Renders with "$ " prefix. Cancels any prior
+// animation on the same element via el.__numAnimId so rapid pay() / collect()
+// sequences don't fight each other. opts.flash adds a brief color flash.
+function __animateNumberTo(el, fromVal, toVal, durationMs, opts) {
+	if (!el) return;
+	opts = opts || {};
+	if (el.__numAnimId) {
+		cancelAnimationFrame(el.__numAnimId);
+		el.__numAnimId = 0;
+	}
+	var from = Number(fromVal) || 0;
+	var to   = Number(toVal)   || 0;
+	if (from === to) {
+		el.innerHTML = '$ ' + to;
+		return;
+	}
+	var dur = durationMs;
+	if (typeof dur !== 'number' || dur <= 0) {
+		dur = (to >= from) ? 600 : 400;
+	}
+	var start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+	if (opts.flash) {
+		var flashCls = (to >= from) ? 'money-flash-pos' : 'money-flash-neg';
+		el.classList.remove('money-flash-pos', 'money-flash-neg');
+		// Force reflow so the class actually re-applies.
+		void el.offsetWidth;
+		el.classList.add(flashCls);
+		setTimeout(function () { el.classList.remove(flashCls); }, 500);
+	}
+	function step(now) {
+		var t = (now - start) / dur;
+		if (t >= 1) {
+			el.innerHTML = '$ ' + to;
+			el.__numAnimId = 0;
+			return;
+		}
+		// easeOutCubic
+		var eased = 1 - Math.pow(1 - t, 3);
+		var v = Math.round(from + (to - from) * eased);
+		el.innerHTML = '$ ' + v;
+		el.__numAnimId = requestAnimationFrame(step);
+	}
+	el.__numAnimId = requestAnimationFrame(step);
+}
+
 function __pulseMoney(el, delta) {
 	if (!el || !delta) return;
 	var cls = delta > 0 ? 'money-pulse-up' : 'money-pulse-down';
@@ -3139,7 +3200,22 @@ function updateMoney() {
 	var pmoneyEl = document.getElementById("pmoney");
 	var pmoneyPrev = __prevMoney['turn'];
 
-	pmoneyEl.innerHTML = "$" + p.money;
+	// Sprint 1 (S1.1) — read the value currently rendered in the DOM so we
+	// can tween it to the new player.money. Strips any "$"/space prefix and
+	// commas, falls back to __prevMoney bookkeeping if the DOM is empty
+	// (first render of the turn).
+	var domTxt = (pmoneyEl.textContent || '').replace(/[^0-9-]/g, '');
+	var domVal = domTxt === '' ? null : parseInt(domTxt, 10);
+	var fromForAnim = (domVal !== null && !isNaN(domVal))
+		? domVal
+		: (pmoneyPrev !== undefined ? pmoneyPrev : p.money);
+
+	if (fromForAnim !== p.money) {
+		__animateNumberTo(pmoneyEl, fromForAnim, p.money, undefined, { flash: true });
+	} else {
+		pmoneyEl.innerHTML = "$ " + p.money;
+	}
+
 	if (pmoneyPrev !== undefined && pmoneyPrev !== p.money) {
 		var pdelta = p.money - pmoneyPrev;
 		__pulseMoney(pmoneyEl, pdelta);
@@ -3657,6 +3733,8 @@ function __attachThrow(primary, partner) {
 					}
 					// Heavy "thump" when the dice land on their faces.
 					if (typeof Sound !== 'undefined' && Sound.diceLand) Sound.diceLand();
+					// Sprint 1 (S1.4a) — short haptic tap on mobile to match the thump.
+					if (typeof __haptic === 'function') __haptic([50]);
 					returnPairAndContinueRoll();
 				}
 			}
@@ -4234,6 +4312,8 @@ function gotojail() {
 	// Police siren sample — recorded clip, gracefully no-ops if muted or
 	// the file fails to load.
 	if (typeof Sound !== 'undefined' && Sound.sirenSample) Sound.sirenSample();
+	// Sprint 1 (S1.4d) — long buzz when the police siren hits.
+	if (typeof __haptic === 'function') __haptic([300]);
 
 	p.jail = true;
 	doublecount = 0;
@@ -4862,6 +4942,8 @@ function buy() {
 		addAlert(t('alert.boughtProperty', { player: p.name, place: property.name, price: property.price }));
 		if (typeof UI !== 'undefined') UI.toast(t('alert.boughtProperty', { player: p.name, place: property.name, price: property.price }), { kind: 'success' });
 		if (typeof Sound !== 'undefined') Sound.coin();
+		// Sprint 1 (S1.4b) — celebratory triple-tap haptic on successful buy.
+		if (typeof __haptic === 'function') __haptic([15, 30, 15]);
 
 		__pulsePurchasedCell(p.position, p.color);
 
@@ -5050,6 +5132,9 @@ function land(increasedRent) {
 		}
 		p.pay(rent, s.owner);
 		player[s.owner].money += rent;
+
+		// Sprint 1 (S1.4c) — heavier haptic when rent comes out of your pocket.
+		if (typeof __haptic === 'function') __haptic([100]);
 
 		// Visual: animate a "$X" symbol arcing from the payer's token to
 		// the owner's money-bar row so the cash transfer is visible.
@@ -5273,6 +5358,20 @@ function play() {
 	var p = player[turn];
 	game.resetDice();
 
+	// Sprint 1 (S1.2) — persistent turn indicator. Mark the active player's
+	// row in the sidepanel-left moneybar with a glow keyed to their color.
+	// We expose --player-color inline so each row pulses in its own hue.
+	var __mbRows = document.querySelectorAll('.money-bar-row');
+	for (var __mi = 0; __mi < __mbRows.length; __mi++) {
+		__mbRows[__mi].classList.remove('is-active-turn');
+		__mbRows[__mi].style.removeProperty('--player-color');
+	}
+	var __activeRow = document.getElementById('moneybarrow' + turn);
+	if (__activeRow) {
+		__activeRow.style.setProperty('--player-color', p.color);
+		__activeRow.classList.add('is-active-turn');
+	}
+
 	document.getElementById("pname").textContent = p.name;
 
 	addAlert(t('alert.isYourTurn', { player: p.name }));
@@ -5282,6 +5381,20 @@ function play() {
 	if (typeof __flashBoardTurn === 'function') __flashBoardTurn(p.color);
 	// Pulse Roll Dice while we're waiting on a human to roll; turn it off
 	// for AI turns (the AI rolls automatically, no need to draw attention).
+	// Sprint 1 (S1.3) — tint the pulse halo with the active player's color
+	// so the visual reinforcement matches their identity. We stash the color
+	// + flag on the button BEFORE turning the pulse on, so the CSS variant
+	// rule (.btn-pulse-attn[data-pulse-color]) applies on the first frame.
+	var __nextBtn = document.getElementById('nextbutton');
+	if (__nextBtn) {
+		if (p.human) {
+			__nextBtn.style.setProperty('--pulse-color', p.color);
+			__nextBtn.setAttribute('data-pulse-color', '1');
+		} else {
+			__nextBtn.removeAttribute('data-pulse-color');
+			__nextBtn.style.removeProperty('--pulse-color');
+		}
+	}
 	if (typeof __setRollPulse === 'function') __setRollPulse(p.human);
 	// Body-level flag: gates the avatar "thinking" ring (human turn) and
 	// the AI-turn lock CSS that disables gameplay interactions.

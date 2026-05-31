@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -10,7 +10,7 @@
 	<!-- frame-ancestors is intentionally omitted here: it's ignored when delivered
 	     via <meta> (browser console warning). Use the HTTP header instead if needed. -->
 	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://ajax.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self';">
-	<!-- Inline data: URI favicon (transparent 1x1 PNG) — silences the favicon 404
+	<!-- Inline data: URI favicon (transparent 1x1 PNG) â€” silences the favicon 404
 	     without adding a binary asset. Replace with a real .ico later if desired. -->
 	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
 
@@ -44,9 +44,9 @@
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js" integrity="sha384-UM1JrZIpBwVf5jj9dTKVvGiiZPZTLVoq4sfdvIe9SBumsvCuv6AHDNtEiIb5h1kU" crossorigin="anonymous"></script>
-	<script type="text/javascript" src="i18n.js?v=20260601a"></script>
-	<script type="text/javascript" src="ui.js?v=20260601a"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260601a"></script>
+	<script type="text/javascript" src="i18n.js?v=20260601b"></script>
+	<script type="text/javascript" src="ui.js?v=20260601b"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260601b"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,8 +65,8 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260601a"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260601a"></script>
+	<script type="text/javascript" src="ai.js?v=20260601b"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260601b"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -84,12 +84,12 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260601a">
-	<!-- Sprint 4 — PWA: manifest + iOS home-screen icon + theme color. -->
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260601b">
+	<!-- Sprint 4 â€” PWA: manifest + iOS home-screen icon + theme color. -->
 	<link rel="manifest" href="manifest.webmanifest" />
 	<link rel="apple-touch-icon" href="images/icon-192.png" />
 	<meta name="theme-color" content="#1B5E3F" />
-	<!-- Sprint 7 — Preload the AI Worker so the first AIAdaptive turn does
+	<!-- Sprint 7 â€” Preload the AI Worker so the first AIAdaptive turn does
 	     not block while the browser fetches ai-worker.js cold. -->
 	<link rel="preload" as="worker" href="ai-worker.js">
 </head>
@@ -115,7 +115,7 @@
 				<span class="settings-row-label" data-i18n="ui.settingsLanguage">Language</span>
 				<div class="settings-lang-buttons">
 					<button type="button" class="lang-btn lang-btn-en" data-lang="en" title="English">EN</button>
-					<button type="button" class="lang-btn lang-btn-es" data-lang="es" title="Español">ES</button>
+					<button type="button" class="lang-btn lang-btn-es" data-lang="es" title="EspaÃ±ol">ES</button>
 				</div>
 			</div>
 			<button type="button" id="mute-btn" class="settings-row settings-row-btn" title="Toggle sound" aria-label="Toggle sound">
@@ -146,7 +146,7 @@
 		</div>
 	</div>
 
-	<!-- Onboarding tour overlay — first-time only. Hidden until __startTour() runs. -->
+	<!-- Onboarding tour overlay â€” first-time only. Hidden until __startTour() runs. -->
 	<div id="tour-overlay" aria-hidden="true">
 		<div id="tour-spotlight"></div>
 		<div id="tour-tooltip" role="dialog" aria-labelledby="tour-title">
@@ -160,10 +160,10 @@
 		</div>
 	</div>
 
-	<!-- Help modal — opened by #help-btn or the "?" key. Hidden by default. -->
+	<!-- Help modal â€” opened by #help-btn or the "?" key. Hidden by default. -->
 	<div id="help-overlay" aria-hidden="true">
 		<div id="help-modal" role="dialog" aria-labelledby="help-title">
-			<button type="button" id="help-close" class="help-close" data-i18n-title="help.escCloseTitle" title="Close (Esc)" data-i18n-aria="help.escCloseTitle" aria-label="Close (Esc)">×</button>
+			<button type="button" id="help-close" class="help-close" data-i18n-title="help.escCloseTitle" title="Close (Esc)" data-i18n-aria="help.escCloseTitle" aria-label="Close (Esc)">Ã—</button>
 			<h2 id="help-title" data-i18n="help.title">How to play</h2>
 
 			<div class="help-section">
@@ -185,7 +185,7 @@
 				<ul class="help-list">
 					<li data-i18n="help.ruleRoll">Roll dice on your turn. Your token walks to the destination cell-by-cell.</li>
 					<li data-i18n="help.ruleBuy">If you land on an unowned property, you can buy it for the listed price.</li>
-					<li data-i18n="help.ruleRent">If you land on an owned property, you pay rent. Rent doubles on full color groups, then increases with houses (1→4) and a hotel.</li>
+					<li data-i18n="help.ruleRent">If you land on an owned property, you pay rent. Rent doubles on full color groups, then increases with houses (1â†’4) and a hotel.</li>
 					<li data-i18n="help.ruleBuild">Once you own a full color group, you can build houses. You must build evenly across the group.</li>
 					<li data-i18n="help.ruleJail">Three doubles in a row, or landing on "Go to Jail", sends you to jail. Pay $50 or roll doubles to leave.</li>
 					<li data-i18n="help.ruleGo">Pass GO to collect $200.</li>
@@ -198,7 +198,7 @@
 				<ul class="help-list">
 					<li data-i18n="help.tipHover">Hover any property on the board to see its title deed with current rent and owner.</li>
 					<li data-i18n="help.tipMonopoly">Owning a full color group doubles rent immediately, even with zero houses.</li>
-					<li data-i18n="help.tipCash">Keep a cash buffer — landing on someone else's hotel can wipe you out.</li>
+					<li data-i18n="help.tipCash">Keep a cash buffer â€” landing on someone else's hotel can wipe you out.</li>
 					<li data-i18n="help.tipMortgage">Mortgaging gives you half the price back. Unmortgaging costs 10% interest.</li>
 				</ul>
 			</div>
@@ -208,18 +208,18 @@
 	<!-- The scalable + rotatable game world.
 	     monopoly.js fitStage() sets the transform on resize/orientation.
 	     The modal backgrounds live INSIDE the stage so they share its stacking
-	     context with popupwrap/statswrap — otherwise the dim would paint on top
+	     context with popupwrap/statswrap â€” otherwise the dim would paint on top
 	     of the popup and intercept all clicks. -->
 	<div id="game-stage">
 
-		<!-- Modal dim overlays — anchored to the stage (via position:fixed inside
+		<!-- Modal dim overlays â€” anchored to the stage (via position:fixed inside
 		     a transformed parent, which means fixed-to-stage in CSS). -->
 		<div id="popupbackground"></div>
 		<div id="statsbackground"></div>
 
 		<!-- Screen-reader live regions. Visible-hidden via .sr-only.
-		     #turn-announcer (assertive) — turn changes, big game events.
-		     #game-announcer (polite)    — rent paid, property bought, etc. -->
+		     #turn-announcer (assertive) â€” turn changes, big game events.
+		     #game-announcer (polite)    â€” rent paid, property bought, etc. -->
 		<div id="turn-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 		<div id="game-announcer" class="sr-only" aria-live="polite"    aria-atomic="true"></div>
 
@@ -489,15 +489,15 @@
 			<div id="setup-presets" data-i18n-title="setup.presetsTitle" title="Quick configurations">
 				<button type="button" class="setup-preset" data-preset="quick">
 					<strong data-i18n="setup.presetQuick">Quick</strong>
-					<span data-i18n="setup.presetQuickSub">$1000 · faster</span>
+					<span data-i18n="setup.presetQuickSub">$1000 Â· faster</span>
 				</button>
 				<button type="button" class="setup-preset" data-preset="standard">
 					<strong data-i18n="setup.presetStandard">Standard</strong>
-					<span data-i18n="setup.presetStandardSub">$1500 · classic</span>
+					<span data-i18n="setup.presetStandardSub">$1500 Â· classic</span>
 				</button>
 				<button type="button" class="setup-preset" data-preset="long">
 					<strong data-i18n="setup.presetLong">Long</strong>
-					<span data-i18n="setup.presetLongSub">$2500 · marathon</span>
+					<span data-i18n="setup.presetLongSub">$2500 Â· marathon</span>
 				</button>
 			</div>
 
@@ -536,7 +536,7 @@
 						<input type="checkbox" id="rule-speed-mode" />
 						<span class="house-rule-text">
 							<strong data-i18n="setup.ruleSpeed">Speed mode</strong>
-							<small data-i18n="setup.ruleSpeedSub">All animations 2× faster.</small>
+							<small data-i18n="setup.ruleSpeedSub">All animations 2Ã— faster.</small>
 						</span>
 					</label>
 				</div>
@@ -638,7 +638,7 @@
 
 	</div><!-- /#game-stage -->
 
-	<!-- Sprint 4 — PWA install banner. Hidden by default; revealed when the
+	<!-- Sprint 4 â€” PWA install banner. Hidden by default; revealed when the
 	     browser fires beforeinstallprompt (Chrome/Edge/Android Chrome only). -->
 	<button type="button" id="pwa-install-btn" style="display: none; position: fixed; right: 12px; bottom: 12px; z-index: 9999; padding: 8px 14px; background: #1B5E3F; color: #fff; border: none; border-radius: 4px; font: 14px sans-serif; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">Install app</button>
 
