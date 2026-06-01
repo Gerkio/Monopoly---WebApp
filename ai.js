@@ -930,7 +930,7 @@ AIHard.count = 0;
 //  to be meaningful (otherwise the very first eval would flip on starter cash
 //  divisions).
 //
-//  Silent by default. Set window.__AI_ADAPTIVE_DEBUG = true to log
+//  Silent by default. Set window.GameConfig.aiAdaptiveDebug = true to log
 //  transitions to the console.
 // ============================================================
 function __aiNetWorth(playerIdx) {
@@ -1136,7 +1136,7 @@ function AIAdaptive(p) {
 		var suggestion = self._workerSuggestion;
 		if (__worker && suggestion && typeof suggestion.score === 'number') {
 			self._level = __applyHysteresis(suggestion.level, suggestion.score);
-			if (self._level !== prev && window.__AI_ADAPTIVE_DEBUG === true) {
+			if (self._level !== prev && window.GameConfig.aiAdaptiveDebug === true) {
 				console.log('[adaptive ' + p.name + '] ' + prev + ' → ' + self._level +
 					' (worker score=' + suggestion.score.toFixed(2) +
 					' net=' + suggestion.rNet.toFixed(2) +
@@ -1200,7 +1200,7 @@ function AIAdaptive(p) {
 			if      (s > UP_ENTER)   self._level = 'hard';
 			else if (s < DOWN_ENTER) self._level = 'easy';
 		}
-		if (self._level !== prev && window.__AI_ADAPTIVE_DEBUG === true) {
+		if (self._level !== prev && window.GameConfig.aiAdaptiveDebug === true) {
 			console.log('[adaptive ' + p.name + '] ' + prev + ' → ' + self._level +
 				' (score=' + s.toFixed(2) +
 				' net=' + info.rNet.toFixed(2) +

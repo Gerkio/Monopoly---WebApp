@@ -30,8 +30,8 @@ function Player(name, color) {
 		// (creditor === 0) adds to the central pot, which is later
 		// collected by whoever lands on Free Parking.
 		if (creditor === 0 && amount > 0 &&
-		    window.__HOUSE_RULES && window.__HOUSE_RULES.freeParkingJackpot) {
-			window.__freeParkingPot = (window.__freeParkingPot || 0) + amount;
+		    window.GameConfig.houseRules && window.GameConfig.houseRules.freeParkingJackpot) {
+			window.GameState.freeParkingPot = (window.GameState.freeParkingPot || 0) + amount;
 			if (typeof __updateFPBadge === 'function') __updateFPBadge();
 		}
 

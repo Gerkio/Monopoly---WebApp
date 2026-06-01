@@ -575,9 +575,9 @@ function showStats() {
 		var ranksMap = (typeof __computeRanks === 'function') ? __computeRanks() : {};
 		var pRank = ranksMap[x] || pcount;
 		var avFileStats = '';
-		if (p.avatar && window.__AVATAR_OPTIONS) {
-			for (var aix = 0; aix < window.__AVATAR_OPTIONS.length; aix++) {
-				if (window.__AVATAR_OPTIONS[aix].id === p.avatar) { avFileStats = window.__AVATAR_OPTIONS[aix].file; break; }
+		if (p.avatar && window.GameConfig.avatarOptions) {
+			for (var aix = 0; aix < window.GameConfig.avatarOptions.length; aix++) {
+				if (window.GameConfig.avatarOptions[aix].id === p.avatar) { avFileStats = window.GameConfig.avatarOptions[aix].file; break; }
 			}
 		}
 		HTML += "<td class='statscell' id='statscell" + x + "' style='border: 2px solid " + p.color + "'>" +
@@ -881,7 +881,7 @@ function buy() {
 		popup("<p>" + t('popup.needForHouse', { amount: (property.price - p.money), place: property.name }) + "</p>");
 	}
 	// Decision was taken (success OR not-enough-cash) — release the roll gate.
-	window.__pendingBuyDecision = false;
+	window.GameState.pendingBuyDecision = false;
 }
 
 function mortgage(index) {
@@ -967,8 +967,8 @@ function land(increasedRent) {
 			}
 		} else {
 			// Block Roll-Again / End-Turn until the human picks buy or auction.
-			window.__pendingBuyDecision = true;
-			var noAuc = !!(window.__HOUSE_RULES && window.__HOUSE_RULES.noAuctions);
+			window.GameState.pendingBuyDecision = true;
+			var noAuc = !!(window.GameConfig.houseRules && window.GameConfig.houseRules.noAuctions);
 			var auctionBtnHtml = noAuc ? '' :
 				"<input type='button' id='auctionbtn-landed' onclick='__startAuctionFromLanded();' value='" + t('ui.auctionNow') + "' title='" + t('ui.auctionNowTitle') + "'/>";
 			var hintHtml = noAuc
@@ -987,7 +987,7 @@ function land(increasedRent) {
 
 
 		// House rule: no auctions — unbought property simply returns to bank.
-		if (!(window.__HOUSE_RULES && window.__HOUSE_RULES.noAuctions)) {
+		if (!(window.GameConfig.houseRules && window.GameConfig.houseRules.noAuctions)) {
 			game.addPropertyToAuctionQueue(p.position);
 		}
 	}
@@ -1138,7 +1138,7 @@ function land(increasedRent) {
 // House rule: $500 bonus for snake-eyes (double 1s). No-op unless the rule
 // is toggled in setup. Kept separate so the main roll flow stays readable.
 function _applySnakeEyesBonus(p) {
-	if (!(window.__HOUSE_RULES && window.__HOUSE_RULES.snakeEyesBonus)) return;
+	if (!(window.GameConfig.houseRules && window.GameConfig.houseRules.snakeEyesBonus)) return;
 	p.money += 500;
 	addAlert(t('alert.snakeEyes', { player: p.name }));
 	if (typeof UI !== 'undefined') UI.toast(t('alert.snakeEyes', { player: p.name }), { kind: 'success' });
@@ -1211,7 +1211,7 @@ function _handleNormalMove(p, die1, die2) {
 	if (p.position >= 40) {
 		var landedExactlyOnGo = (p.position === 40);
 		p.position -= 40;
-		var salary = (landedExactlyOnGo && window.__HOUSE_RULES && window.__HOUSE_RULES.doubleGo) ? 400 : 200;
+		var salary = (landedExactlyOnGo && window.GameConfig.houseRules && window.GameConfig.houseRules.doubleGo) ? 400 : 200;
 		p.money += salary;
 		var key = (salary === 400) ? 'alert.doubleGo' : 'alert.collectedSalary';
 		addAlert(t(key, { player: p.name }));
@@ -1233,8 +1233,8 @@ function roll() {
 	// from the wrong startPos — that's exactly the "token moved too few /
 	// too many cells" bug the player saw. Bail out and let the in-flight
 	// walk finish; the next roll will be picked up by the normal button.
-	if (window.__walking) return;
-	if (window.__pendingBuyDecision) return;
+	if (window.GameState.walking) return;
+	if (window.GameState.pendingBuyDecision) return;
 	var p = player[turn];
 
 	UI.$hide("option");
@@ -1248,7 +1248,7 @@ function roll() {
 	// Skip the actual rollDice call if the dice were just thrown by the
 	// user — the throw handler (flingPair) already called rollDice and
 	// the cubes are already showing the rolled faces.
-	if (!window.__skipNextUpdateDice) game.rollDice();
+	if (!window.GameState.skipNextUpdateDice) game.rollDice();
 	if (typeof __setRollPulse === 'function') __setRollPulse(false);
 
 	var die1 = game.getDie(1);
@@ -1451,16 +1451,16 @@ function setup() {
 		var el = document.getElementById(id);
 		return !!(el && el.checked);
 	}
-	window.__HOUSE_RULES = {
+	window.GameConfig.houseRules = {
 		freeParkingJackpot: __readHouseRule('rule-free-parking-jackpot'),
 		snakeEyesBonus:     __readHouseRule('rule-snake-eyes-bonus'),
 		doubleGo:           __readHouseRule('rule-double-go'),
 		noAuctions:         __readHouseRule('rule-no-auctions'),
 		speedMode:          __readHouseRule('rule-speed-mode')
 	};
-	window.__freeParkingPot = 0;
+	window.GameState.freeParkingPot = 0;
 	// Apply speed-mode class to body so CSS animations + transitions scale.
-	if (window.__HOUSE_RULES.speedMode) document.body.classList.add('speed-mode');
+	if (window.GameConfig.houseRules.speedMode) document.body.classList.add('speed-mode');
 	else document.body.classList.remove('speed-mode');
 
 	// Reset board properties. NOTE: the model uses singular `house`/`hotel`
@@ -1524,7 +1524,7 @@ function setup() {
 		}
 		// Initialize player state
 		p.position = 0;
-		p.money = (typeof window.__startingCash === 'number') ? window.__startingCash : 1500;
+		p.money = (typeof window.GameConfig.startingCash === 'number') ? window.GameConfig.startingCash : 1500;
 		p.jail = false;
 		p.jailroll = 0;
 		p.creditor = -1;
@@ -1537,7 +1537,7 @@ function setup() {
 	// player count, starting cash preset AND house rules. Restored at
 	// window.onload.
 	try {
-		var snapshot = { pcount: pcount, players: {}, cash: window.__startingCash || 1500 };
+		var snapshot = { pcount: pcount, players: {}, cash: window.GameConfig.startingCash || 1500 };
 		for (var ps = 1; ps <= 8; ps++) {
 			var nameEl = document.getElementById('player' + ps + 'name');
 			var colorEl = document.getElementById('player' + ps + 'color');
@@ -1550,7 +1550,7 @@ function setup() {
 				avatar: avEl2   ? avEl2.value   : ''
 			};
 		}
-		snapshot.rules = window.__HOUSE_RULES || {};
+		snapshot.rules = window.GameConfig.houseRules || {};
 		window.localStorage.setItem('monopoly:setup', JSON.stringify(snapshot));
 	} catch (e) { /* storage unavailable — non-fatal */ }
 
@@ -1750,7 +1750,7 @@ function _injectAvatarPickers() {
 		{ id: 'plancha',   label: '⚒️ Plancha',  file: 'images/plancha.png'   },
 		{ id: 'tren',      label: '🚂 Tren',      file: 'images/train_icon.png'}
 	];
-	window.__AVATAR_OPTIONS = AVATAR_OPTIONS; // exposed for setup() lookup
+	window.GameConfig.avatarOptions = AVATAR_OPTIONS; // exposed for setup() lookup
 	for (var ai = 1; ai <= 8; ai++) {
 		var row = document.getElementById('player' + ai + 'input');
 		if (!row || document.getElementById('player' + ai + 'avatar')) continue;
@@ -2146,8 +2146,8 @@ function _wireManagePanel() {
 		UI.$hide("statswrap");
 		UI.$fadeOut("statsbackground", 400);
 		// If we opened stats from inside the victory overlay, bring it back.
-		if (window.__victoryOverlay && window.__victoryOverlay.parentNode) {
-			var ov = window.__victoryOverlay;
+		if (window.GameState.victoryOverlay && window.GameState.victoryOverlay.parentNode) {
+			var ov = window.GameState.victoryOverlay;
 			ov.style.visibility = '';
 			ov.style.transition = 'opacity 280ms ease-out';
 			ov.style.opacity = '0';
@@ -2227,13 +2227,13 @@ function _initThemeToggle() {
 			var label = t('ui.theme' + mode.charAt(0).toUpperCase() + mode.slice(1));
 			btn.title = t('ui.themeToggle', { mode: label });
 		}
-		window.__THEME = mode;
+		window.GameConfig.theme = mode;
 		try { window.localStorage.setItem('monopoly:theme', mode); } catch (e) { /* localStorage unavailable */ }
 	}
 
-	apply(window.__THEME || 'auto');
+	apply(window.GameConfig.theme || 'auto');
 	btn.addEventListener('click', function () {
-		var current = window.__THEME || 'auto';
+		var current = window.GameConfig.theme || 'auto';
 		var next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
 		apply(next);
 	});

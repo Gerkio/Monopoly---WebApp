@@ -355,7 +355,7 @@ function __attachThrow(primary, partner) {
 		// Also refuse during an active walk — see flingPair() for the
 		// rationale (prevents mid-walk rerolls that desynchronise the dice
 		// from the move that's currently playing).
-		if (window.__walking) return;
+		if (window.GameState.walking) return;
 		if (e.type === 'mousedown' && e.button !== 0) return;
 		var pt = (e.touches && e.touches[0]) || e;
 		startMouseX = pt.clientX;
@@ -536,7 +536,7 @@ function __attachThrow(primary, partner) {
 		// flingPair() would clobber the active die1/die2 mid-walk, leaving
 		// the next roll with stale dice values and the token moving the
 		// wrong number of cells.
-		if (window.__walking) { __diceThrowing = false; return; }
+		if (window.GameState.walking) { __diceThrowing = false; return; }
 		// Stop the idle spin — flingPair takes over rotation control.
 		if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = null; }
 		// 1) Roll the dice now. Values are needed up-front so the cubes
@@ -728,14 +728,14 @@ function __attachThrow(primary, partner) {
 	// cleared right after btn.click() returns — wrapped in try/finally so
 	// an exception inside roll() doesn't leave the flag stuck for future rolls.
 	function continueGameRoll() {
-		window.__skipNextUpdateDice = true;
+		window.GameState.skipNextUpdateDice = true;
 		try {
 			var btn = document.getElementById('nextbutton');
 			if (btn && document.getElementById('control').style.display !== 'none') {
 				btn.click();
 			}
 		} finally {
-			window.__skipNextUpdateDice = false;
+			window.GameState.skipNextUpdateDice = false;
 		}
 	}
 
@@ -802,7 +802,7 @@ function updateDice() {
 	// Flag is NOT cleared here because roll() can call updateDice twice
 	// in the doubles path. continueGameRoll clears it after btn.click()
 	// returns (i.e. after the entire synchronous roll completes).
-	if (window.__skipNextUpdateDice) {
+	if (window.GameState.skipNextUpdateDice) {
 		return;
 	}
 

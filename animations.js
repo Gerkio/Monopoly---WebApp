@@ -94,10 +94,10 @@ function __renderQuickStats(p) {
 	if (av) {
 		av.style.backgroundColor = p.color;
 		var file = '';
-		if (p.avatar && window.__AVATAR_OPTIONS) {
-			for (var i = 0; i < window.__AVATAR_OPTIONS.length; i++) {
-				if (window.__AVATAR_OPTIONS[i].id === p.avatar) {
-					file = window.__AVATAR_OPTIONS[i].file;
+		if (p.avatar && window.GameConfig.avatarOptions) {
+			for (var i = 0; i < window.GameConfig.avatarOptions.length; i++) {
+				if (window.GameConfig.avatarOptions[i].id === p.avatar) {
+					file = window.GameConfig.avatarOptions[i].file;
 					break;
 				}
 			}
@@ -334,7 +334,7 @@ function __formatAIRecap(p) {
 // button; ANY interaction with the dice / button / movement input cancels
 // the timer. When it hits zero, the same code path the human would
 // trigger fires (game.next() → roll()).
-// Configurable via window.__AUTO_ROLL_MS (default 20s). Set <= 0 to
+// Configurable via window.GameConfig.autoRollMs (default 20s). Set <= 0 to
 // disable (e.g. for a relaxed local game).
 // =====================================================================
 var __autoRollInterval = null;
@@ -342,7 +342,7 @@ var __autoRollListenersBound = false;
 var __AUTO_ROLL_MS_DEFAULT = 20000;
 
 function __getAutoRollMs() {
-	var v = (typeof window !== 'undefined') ? window.__AUTO_ROLL_MS : undefined;
+	var v = (typeof window !== 'undefined') ? window.GameConfig.autoRollMs : undefined;
 	if (typeof v === 'number') return v;
 	return __AUTO_ROLL_MS_DEFAULT;
 }
@@ -468,9 +468,9 @@ function popup(HTML, action, option, opts) {
 
 	// Cancel any pending auto-accept from a previous popup (rare but possible
 	// if a second popup opens before the first one's timer fired).
-	if (window.__popupAutoTimer) {
-		clearInterval(window.__popupAutoTimer);
-		window.__popupAutoTimer = null;
+	if (window.GameState.popupAutoTimer) {
+		clearInterval(window.GameState.popupAutoTimer);
+		window.GameState.popupAutoTimer = null;
 	}
 
 	// Remember which element had focus before the popup opened so we can
@@ -576,7 +576,7 @@ function __popupArmAutoAccept(autoMs, labelOverride) {
 		if (btn) btn.click();
 	}
 
-	window.__popupAutoTimer = setInterval(function () {
+	window.GameState.popupAutoTimer = setInterval(function () {
 		remaining -= 1;
 		if (remaining <= 0) {
 			__popupCancelAuto();    // stop the timer first so the click handler
@@ -592,9 +592,9 @@ function __popupArmAutoAccept(autoMs, labelOverride) {
 // Visible state: ring greys out so the user knows their interaction killed
 // the timer before they look away.
 function __popupCancelAuto() {
-	if (window.__popupAutoTimer) {
-		clearInterval(window.__popupAutoTimer);
-		window.__popupAutoTimer = null;
+	if (window.GameState.popupAutoTimer) {
+		clearInterval(window.GameState.popupAutoTimer);
+		window.GameState.popupAutoTimer = null;
 	}
 	var ring = document.getElementById('popupAutoRing');
 	if (ring) ring.classList.add('auto-cancelled');
@@ -609,7 +609,11 @@ function __popupCancelAuto() {
 // (We give up the smooth slide-between-cells animation that the persistent
 // overlay-layer approach provided.)
 
-var __tokens = {};           // playerIndex -> { el: <div> }
+// Tokens registry: declared as a property of GameState so the namespace shim
+// doesn't fire its deprecation warning. Bare reads via `__tokens[i]` still
+// work because the shim's getter on window.__tokens proxies through.
+window.GameState.tokens = window.GameState.tokens || {};
+var __tokens = window.GameState.tokens; // local alias kept for readability
 var __tokensInitialized = false;
 
 // =============================================================
@@ -924,8 +928,8 @@ window.__animateRentFlight = __animateRentFlight;
 function __updateFPBadge() {
 	var fpCell = document.getElementById('cell20');
 	if (!fpCell) return;
-	var rule = window.__HOUSE_RULES && window.__HOUSE_RULES.freeParkingJackpot;
-	var pot = window.__freeParkingPot || 0;
+	var rule = window.GameConfig.houseRules && window.GameConfig.houseRules.freeParkingJackpot;
+	var pot = window.GameState.freeParkingPot || 0;
 	var badge = document.getElementById('fp-pot-badge');
 	if (!rule || pot <= 0) {
 		if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
@@ -943,11 +947,11 @@ window.__updateFPBadge = __updateFPBadge;
 
 // House-rule: collect the Free Parking pot when landing on cell 20.
 function __collectFPPot(p) {
-	if (!window.__HOUSE_RULES || !window.__HOUSE_RULES.freeParkingJackpot) return;
-	var pot = window.__freeParkingPot || 0;
+	if (!window.GameConfig.houseRules || !window.GameConfig.houseRules.freeParkingJackpot) return;
+	var pot = window.GameState.freeParkingPot || 0;
 	if (pot <= 0) return;
 	p.money += pot;
-	window.__freeParkingPot = 0;
+	window.GameState.freeParkingPot = 0;
 	addAlert(t('alert.freeParkingWin', { player: p.name, amount: pot }));
 	if (typeof UI !== 'undefined') {
 		UI.toast(t('alert.freeParkingWin', { player: p.name, amount: pot }), { kind: 'success' });
@@ -985,12 +989,12 @@ window.__highlightBoardCell = function (idx, on) {
 };
 
 // Setup presets — quick/standard/long. Tweaks starting cash and stores it
-// on window.__startingCash; setup() reads from there when instantiating players.
+// on window.GameConfig.startingCash; setup() reads from there when instantiating players.
 window.__applyPreset = function (kind) {
 	var amount = 1500;
 	if (kind === 'quick') amount = 1000;
 	else if (kind === 'long') amount = 2500;
-	window.__startingCash = amount;
+	window.GameConfig.startingCash = amount;
 	// Visual feedback: highlight the chosen preset button.
 	var btns = document.querySelectorAll('.setup-preset');
 	for (var i = 0; i < btns.length; i++) btns[i].classList.remove('setup-preset-active');
@@ -1005,7 +1009,7 @@ window.__startAuctionFromLanded = function () {
 	// Hide the buy/auction prompts and kick off the auction.
 	UI.$hide('landed');
 	UI.$hide('buy');
-	window.__pendingBuyDecision = false;
+	window.GameState.pendingBuyDecision = false;
 	if (game && typeof game.auction === 'function') game.auction();
 };
 
@@ -1267,7 +1271,7 @@ function __showVictory(winner) {
 	overlay.appendChild(statsLink);
 
 	// Remember the overlay so the stats-close handler can re-show it.
-	window.__victoryOverlay = overlay;
+	window.GameState.victoryOverlay = overlay;
 
 	document.body.appendChild(overlay);
 
@@ -1429,7 +1433,7 @@ function __placeTokenInCell(tok, hostEl, leftPx, topPx, cellKey, duration) {
 //      run-id (`tok.__walkRunId`); every nested setTimeout checks its captured
 //      runId matches the current one and bails out otherwise. Result: a stale
 //      walk that beat clearTimeout can never side-effect a newer walk's token.
-//   2. `window.__walking` is the single source of truth used by `game.next()`
+//   2. `window.GameState.walking` is the single source of truth used by `game.next()`
 //      to refuse re-entry. We set it true synchronously here and only release
 //      it when this walk's final done() fires — including in all early-exit
 //      branches.
@@ -1462,11 +1466,11 @@ function __walkPlayerSteps(playerSlot, startPos, steps, done) {
 				el.addEventListener('animationend', onEnd);
 			}
 		} catch (e) {}
-		window.__walking = false;
+		window.GameState.walking = false;
 		if (done) { var d = done; done = null; d(); }
 	}
-	if (!tok || !steps || steps <= 0) { window.__walking = false; if (done) done(); return; }
-	if (!tok.el.parentNode) { window.__walking = false; if (done) done(); return; }
+	if (!tok || !steps || steps <= 0) { window.GameState.walking = false; if (done) done(); return; }
+	if (!tok.el.parentNode) { window.GameState.walking = false; if (done) done(); return; }
 
 	// Cancel any prior walk on this token. Both the timer and the run-id
 	// guard together stop the previous chain from firing further steps.
@@ -1474,7 +1478,7 @@ function __walkPlayerSteps(playerSlot, startPos, steps, done) {
 	tok.__walkRunId = (tok.__walkRunId || 0) + 1;
 	var myRunId = tok.__walkRunId;
 
-	window.__walking = true;
+	window.GameState.walking = true;
 
 	var STEP_MS = 180;        // time the cube needs to feel like a hop
 	var TRANSITION_MS = 150;  // slightly less so the next step can chain
@@ -1580,11 +1584,11 @@ function updatePosition() {
 	// Saves 39 inline-border writes (each a layout-triggering operation)
 	// per call — and updatePosition runs often (every walk step + many
 	// game-engine actions).
-	if (window.__lastHighlightedCellId) {
-		var prevEl = document.getElementById(window.__lastHighlightedCellId);
+	if (window.GameState.lastHighlightedCellId) {
+		var prevEl = document.getElementById(window.GameState.lastHighlightedCellId);
 		if (prevEl) prevEl.style.border = '';
 	}
-	window.__lastHighlightedCellId = null;
+	window.GameState.lastHighlightedCellId = null;
 
 	if (!__tokensInitialized) return;
 
@@ -1639,10 +1643,10 @@ function updatePosition() {
 		// p.avatar holds an option id ("sombrero", "automovil", …); resolve to
 		// a file path through the AVATAR_OPTIONS lookup.
 		var avFile = '';
-		if (p.avatar && window.__AVATAR_OPTIONS) {
-			for (var ax = 0; ax < window.__AVATAR_OPTIONS.length; ax++) {
-				if (window.__AVATAR_OPTIONS[ax].id === p.avatar) {
-					avFile = window.__AVATAR_OPTIONS[ax].file;
+		if (p.avatar && window.GameConfig.avatarOptions) {
+			for (var ax = 0; ax < window.GameConfig.avatarOptions.length; ax++) {
+				if (window.GameConfig.avatarOptions[ax].id === p.avatar) {
+					avFile = window.GameConfig.avatarOptions[ax].file;
 					break;
 				}
 			}
@@ -1725,7 +1729,7 @@ function updatePosition() {
 	var highlightEl = document.getElementById(highlightId);
 	if (highlightEl) {
 		highlightEl.style.border = '1px solid ' + p.color;
-		window.__lastHighlightedCellId = highlightId;
+		window.GameState.lastHighlightedCellId = highlightId;
 	}
 }
 

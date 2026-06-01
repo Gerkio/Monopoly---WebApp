@@ -56,7 +56,11 @@
 		__AI_ADAPTIVE_DEBUG:    { ns: 'config', key: 'aiAdaptiveDebug' }
 	};
 
-	var warned = {};
+	// BC shim: silently proxy legacy window.__foo reads/writes to the new
+	// namespaces. The migration is done in-tree (Sprint cleanup); we keep
+	// the shim because the tests + DevTools-paste snippets still address
+	// flags by the old name. No console noise — the deprecation message
+	// was useful during migration and is now done.
 	for (var oldKey in MIGRATE) {
 		if (!MIGRATE.hasOwnProperty(oldKey)) continue;
 		(function (k) {
@@ -66,16 +70,7 @@
 				Object.defineProperty(window, k, {
 					configurable: true,
 					get: function () { return bag[info.key]; },
-					set: function (v) {
-						if (!warned[k]) {
-							warned[k] = true;
-							if (window.console && console.warn) {
-								console.warn('[Monopoly] window.' + k + ' is deprecated; use ' +
-									(info.ns === 'state' ? 'GameState.' : 'GameConfig.') + info.key);
-							}
-						}
-						bag[info.key] = v;
-					}
+					set: function (v) { bag[info.key] = v; }
 				});
 			} catch (e) { /* defineProperty unsupported on this property */ }
 		})(oldKey);
@@ -107,8 +102,8 @@ function Game() {
 		// Ignore re-entries while a token is mid-walk. Without this, a humano
 		// impatient enough to mash Space mid-animation can fire roll() before
 		// the previous turn's land() resolves, corrupting p.position.
-		if (window.__walking) return;
-		if (window.__pendingBuyDecision) return;
+		if (window.GameState.walking) return;
+		if (window.GameState.pendingBuyDecision) return;
 		// `p` used to leak in as an implicit global from updatePosition's
 		// `p = player[turn]` (no var). When updatePosition was rewritten with
 		// local-only state for the new token layer, the leak disappeared and
@@ -165,7 +160,7 @@ function Game() {
 
 		UI.$hide("popupbackground");
 		UI.$hide("popupwrap");
-		window.__pendingBuyDecision = false;
+		window.GameState.pendingBuyDecision = false;
 
 		if (!game.auction()) {
 			play();
