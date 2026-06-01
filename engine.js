@@ -363,40 +363,54 @@ function Game() {
 		}
 		var cash = document.getElementById("auctionCurrentCash");
 		if (cash) cash.textContent = player[currentbidder].money;
-		document.getElementById("bid").value = "";
-		document.getElementById("bid").style.color = "";
-		document.getElementById("bid").focus();
-		__renderAuctionBidders();
+		// Auction popup may have been torn down during the loop (rare race
+		// when an AI's bid triggers finalizeAuction). Guard each DOM access.
+		var bidEl2 = document.getElementById("bid");
+		if (bidEl2) {
+			bidEl2.value = "";
+			bidEl2.style.color = "";
+			bidEl2.focus();
+		}
+		if (typeof __renderAuctionBidders === 'function') __renderAuctionBidders();
 	};
 
 	this.auctionBid = function(bid) {
-		bid = bid || parseInt(document.getElementById("bid").value, 10);
+		// Defensive: if the auction popup has already been torn down (e.g. a
+		// late AI bid arrives after finalize), the #bid / #highestbid / etc
+		// elements are gone. Guarding here prevents the null.innerHTML crash
+		// that froze the turn cycle.
+		var bidEl = document.getElementById("bid");
+		var highBidEl = document.getElementById("highestbid");
+		var highBidderEl = document.getElementById("highestbidder");
+		if (!bidEl || !highBidEl || !highBidderEl) return;
+
+		bid = bid || parseInt(bidEl.value, 10);
 
 		if (bid === "" || bid === null) {
-			document.getElementById("bid").value = t('auction.enterBid');
-			document.getElementById("bid").style.color = "red";
+			bidEl.value = t('auction.enterBid');
+			bidEl.style.color = "red";
 		} else if (isNaN(bid)) {
-			document.getElementById("bid").value = t('auction.bidNumeric');
-			document.getElementById("bid").style.color = "red";
+			bidEl.value = t('auction.bidNumeric');
+			bidEl.style.color = "red";
 		} else {
 
 			if (bid > player[currentbidder].money) {
-				document.getElementById("bid").value = t('auction.bidNotEnough', { bid: bid });
-				document.getElementById("bid").style.color = "red";
+				bidEl.value = t('auction.bidNotEnough', { bid: bid });
+				bidEl.style.color = "red";
 			} else if (bid > highestbid) {
 				highestbid = bid;
-				document.getElementById("highestbid").innerHTML = parseInt(bid, 10);
+				highBidEl.innerHTML = parseInt(bid, 10);
 				highestbidder = currentbidder;
-				document.getElementById("highestbidder").textContent = player[highestbidder].name;
+				highBidderEl.textContent = player[highestbidder].name;
 
-				document.getElementById("bid").focus();
+				bidEl.focus();
 
 				if (player[currentbidder].human) {
 					this.auctionPass();
 				}
 			} else {
-				document.getElementById("bid").value = "Your bid must be greater than highest bid. ($" + highestbid + ")";
-				document.getElementById("bid").style.color = "red";
+				bidEl.value = "Your bid must be greater than highest bid. ($" + highestbid + ")";
+				bidEl.style.color = "red";
 			}
 		}
 	};
@@ -864,22 +878,32 @@ function Game() {
 
 	this.trade = function(tradeObj) {
 		// AI-to-AI: settle the negotiation without ever showing the human UI.
+		// CRITICAL: AINormal/AIHard.beforeTurn() returned `true` to signal
+		// "trade proposed, don't auto-advance the turn". This branch must
+		// resume play once the AI-vs-AI handshake finishes, otherwise the
+		// turn cycle deadlocks here. The popup callback is `game.next` so
+		// the engine moves on whether the popup is dismissed manually or
+		// times out via autoMs.
 		if (tradeObj instanceof Trade) {
 			var tInit = tradeObj.getInitiator();
 			var tRecip = tradeObj.getRecipient();
 			if (tInit && tRecip && !tInit.human && !tRecip.human) {
 				var resp = tRecip.AI.acceptTrade(tradeObj);
 				if (resp === true) {
-					popup("<p>" + t('popup.tradeAccepted', { recipient: tRecip.name }) + "</p>");
 					var revProps = [];
 					for (var ri = 0; ri < 40; ri++) revProps[ri] = -tradeObj.getProperty(ri);
 					var reversed = new Trade(tRecip, tInit, -tradeObj.getMoney(), revProps, -tradeObj.getCommunityChestJailCard(), -tradeObj.getChanceJailCard());
 					this.acceptTrade(reversed);
+					// acceptTrade did the property/cash swap; the popup just
+					// announces it. game.next resumes the engine afterwards.
+					popup("<p>" + t('popup.tradeAccepted', { recipient: tRecip.name }) + "</p>", game.next, undefined, { autoMs: 4000 });
 				} else if (resp instanceof Trade) {
-					popup("<p>" + t('popup.tradeCounter', { recipient: tRecip.name }) + "</p>");
+					// Counter-offer — keep handing it back through trade(). The
+					// terminal AI-vs-AI exit (accept/reject) will fire game.next.
+					popup("<p>" + t('popup.tradeCounter', { recipient: tRecip.name }) + "</p>", undefined, undefined, { autoMs: 3000 });
 					this.trade(resp);
 				} else {
-					popup("<p>" + t('popup.tradeDeclined', { recipient: tRecip.name }) + "</p>");
+					popup("<p>" + t('popup.tradeDeclined', { recipient: tRecip.name }) + "</p>", game.next, undefined, { autoMs: 4000 });
 				}
 				return;
 			}
