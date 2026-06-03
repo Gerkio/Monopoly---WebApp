@@ -5968,12 +5968,16 @@ input[type="button"] { position: relative; overflow: hidden; }
 }
 
 /* =====================================================================
-   Sprint Setup Item 2 — Visual customization pickers per player.
-   When a player row has .has-visual-pickers, the native <select>s for
-   color / ai / avatar collapse to display:none and the new visual UI
-   takes over. JS keeps the selects in sync so monopoly.js setup() and
-   the smoke tests keep reading `.value` exactly as before.
+   Setup screen — compact player rows + customizer modal.
+   Each player row reduces to a single horizontal line:
+     [avatar circle]  [name input]  [AI dropdown — only when not human]
+   The native <select>s for color/ai/avatar stay in the DOM (hidden) so
+   monopoly.js setup() + the smoke tests keep reading `.value` unchanged.
+   The full token + color picker lives inside #player-customizer-modal,
+   opened by clicking the avatar circle.
    ===================================================================== */
+/* Hide ALL the native <select>s + the legacy inline pickers. The compact
+   in-row UI is the new surface; the token + color pickers live in the modal. */
 .player-input.has-visual-pickers > select#player1color,
 .player-input.has-visual-pickers > select#player2color,
 .player-input.has-visual-pickers > select#player3color,
@@ -5983,35 +5987,139 @@ input[type="button"] { position: relative; overflow: hidden; }
 .player-input.has-visual-pickers > select#player7color,
 .player-input.has-visual-pickers > select#player8color,
 .player-input.has-visual-pickers > select.player-ai-select,
-.player-input.has-visual-pickers > select.player-avatar-select {
+.player-input.has-visual-pickers > select.player-avatar-select,
+.player-input.has-visual-pickers .setup-color-row,
+.player-input.has-visual-pickers .setup-ai-cards {
 	display: none !important;
 }
 
-.setup-player-visual {
-	display: grid;
-	grid-template-columns: 80px 1fr;
-	gap: 12px 16px;
+/* Re-flow the row into a single tight horizontal lane:
+     [preview circle]  [name input]  [AI dropdown — non-human only]. */
+.player-input.has-visual-pickers {
+	display: grid !important;
+	grid-template-columns: 56px 1fr auto;
+	column-gap: 12px;
+	align-items: center;
 	margin-top: 10px;
-	align-items: start;
+	margin-bottom: 6px;
+}
+.player-input.has-visual-pickers > .player-label {
+	grid-column: 1 / -1;
+	grid-row: 1;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ink-muted);
+	margin: 0 0 -2px 64px;
+	opacity: 0.65;
+}
+.player-input.has-visual-pickers > input[type="text"] {
+	grid-column: 2;
+	grid-row: 2;
+	width: 100%;
+	min-width: 0;
+}
+.player-input.has-visual-pickers .setup-player-visual {
+	display: contents;
+}
+.player-input.has-visual-pickers .setup-player-preview {
+	grid-column: 1;
+	grid-row: 2;
+}
+.player-input.has-visual-pickers .setup-ai-dropdown {
+	grid-column: 3;
+	grid-row: 2;
 }
 
-/* Live preview: round avatar swatch on top-left of each player row. */
+/* Clickable avatar circle — primary surface for customization. */
 .setup-player-preview {
-	grid-row: 1 / span 6;
-	width: 72px;
-	height: 72px;
+	display: block;
+	width: 52px;
+	height: 52px;
+	padding: 0;
 	border-radius: 50%;
 	background-color: var(--surface-card);
-	background-size: 70% 70%;
+	background-size: 72% 72%;
 	background-position: center;
 	background-repeat: no-repeat;
 	border: 3px solid var(--gold, #D4AF37);
 	box-shadow: var(--shadow-card);
+	cursor: pointer;
+	position: relative;
 	transition: transform var(--dur-hover) var(--ease-out),
 	            box-shadow var(--dur-hover) var(--ease-out);
 }
+.setup-player-preview::before {
+	content: '\270E'; /* pencil edit affordance */
+	position: absolute;
+	right: -4px;
+	bottom: -4px;
+	width: 18px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--gold, #D4AF37);
+	color: #1A1A1A;
+	font-size: 10px;
+	font-weight: 800;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+	pointer-events: none;
+}
 .setup-player-preview:hover {
-	transform: scale(1.05);
+	transform: scale(1.06);
+	box-shadow: var(--shadow-lifted);
+}
+.setup-player-preview:focus-visible {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 3px;
+}
+
+/* Compact AI-difficulty <select>. Only rendered for non-human slots. */
+.setup-ai-dropdown {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+.setup-ai-dropdown-select {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	padding: 6px 28px 6px 12px;
+	font-family: var(--font-ui);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+	background: var(--surface-card);
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+		linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+	background-position:
+		calc(100% - 16px) calc(50% - 2px),
+		calc(100% - 11px) calc(50% - 2px);
+	background-size: 5px 5px, 5px 5px;
+	background-repeat: no-repeat;
+	border: 2px solid var(--hairline-strong);
+	border-radius: 8px;
+	cursor: pointer;
+	min-width: 140px;
+	transition: border-color var(--dur-hover) var(--ease-out),
+	            transform var(--dur-hover) var(--ease-out);
+}
+.setup-ai-dropdown-select:hover {
+	border-color: var(--accent-bright);
+}
+.setup-ai-dropdown-select:focus-visible {
+	outline: 2px solid var(--accent-bright);
+	outline-offset: 2px;
+}
+
+/* Human slot: no AI selector at all (business rule). Visual accent on circle. */
+.player-input.is-human-slot .setup-player-preview {
+	border-color: var(--accent-bright);
+	box-shadow: 0 0 0 3px rgba(46, 134, 222, 0.18), var(--shadow-card);
 }
 
 .setup-picker-label {
@@ -6021,15 +6129,13 @@ input[type="button"] { position: relative; overflow: hidden; }
 	letter-spacing: 0.08em;
 	color: var(--ink-muted);
 	margin-bottom: 4px;
-	grid-column: 2;
 }
 
-/* Token gallery — 8 tokens in 8-col row (4-col grid on small screens). */
+/* Token gallery — base rules (overridden inside the customizer modal). */
 .setup-token-gallery {
 	display: grid;
-	grid-template-columns: repeat(8, 1fr);
-	gap: 4px;
-	grid-column: 2;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
 }
 .setup-token-pick {
 	width: 100%;
@@ -6060,85 +6166,10 @@ input[type="button"] { position: relative; overflow: hidden; }
 	.setup-token-gallery { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* Compact color picker: single chip showing current color + popover.
-   Click-toggle pattern replaces the old 16-swatch grid to save vertical
-   space and feel less form-y. Popover positions absolute beneath the
-   chip and uses scale+fade entrance. */
-.setup-color-row {
-	grid-column: 2;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	position: relative;
-}
-.setup-picker-label-inline {
-	margin-bottom: 0;
-	flex-shrink: 0;
-}
-.setup-color-chip {
-	width: 36px;
-	height: 36px;
-	padding: 0;
-	border: 3px solid var(--hairline-strong);
-	border-radius: 50%;
-	cursor: pointer;
-	background-color: #FFFF00;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15),
-	            0 0 0 2px rgba(255, 255, 255, 0.40) inset;
-	transition: transform var(--dur-hover) var(--ease-out),
-	            border-color var(--dur-hover) var(--ease-out),
-	            box-shadow var(--dur-hover) var(--ease-out);
-	position: relative;
-}
-.setup-color-chip::after {
-	content: '▾';
-	position: absolute;
-	bottom: -4px;
-	right: -4px;
-	width: 14px;
-	height: 14px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: var(--surface-card);
-	border-radius: 50%;
-	font-size: 10px;
-	color: var(--ink-muted);
-	font-weight: 700;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-	transition: transform var(--dur-hover) var(--ease-out);
-}
-.setup-color-chip:hover {
-	transform: scale(1.08);
-	border-color: var(--gold, #D4AF37);
-}
-.setup-color-chip[aria-expanded="true"]::after {
-	transform: rotate(180deg);
-}
-.setup-color-pop {
-	position: absolute;
-	top: calc(100% + 8px);
-	left: 0;
-	z-index: 20;
-	display: grid;
-	grid-template-columns: repeat(8, 24px);
-	gap: 6px;
-	padding: 10px;
-	background: var(--surface-card);
-	border: 1px solid var(--ledger-border);
-	border-radius: 10px;
-	box-shadow: var(--shadow-lifted);
-	transform-origin: top left;
-	transform: scale(0.85) translateY(-6px);
-	opacity: 0;
-	pointer-events: none;
-	transition: transform 180ms var(--ease-out),
-	            opacity 180ms var(--ease-out);
-}
-.setup-color-row.is-open .setup-color-pop {
-	transform: scale(1) translateY(0);
-	opacity: 1;
-	pointer-events: auto;
+/* (Legacy compact color chip/popover removed — colors live in the modal now.)
+   Base swatch styling is kept below because the customizer dialog reuses it. */
+.setup-color-chip-removed {
+	display: none;
 }
 .setup-color-swatch {
 	width: 24px;
@@ -6158,72 +6189,184 @@ input[type="button"] { position: relative; overflow: hidden; }
 	transform: scale(1.15);
 }
 
-/* AI level cards — 5 cards horizontal (icon + label + short desc). */
-.setup-ai-cards {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: 6px;
-	grid-column: 2;
-}
-.setup-ai-card {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: flex-start;
-	gap: 2px;
-	padding: 8px 6px;
-	background: var(--surface-card);
-	border: 2px solid var(--hairline-strong);
-	border-radius: 10px;
-	cursor: pointer;
-	text-align: center;
-	color: var(--ink);
-	font-family: var(--font-ui);
-	transition: transform var(--dur-hover) var(--ease-out),
-	            border-color var(--dur-hover) var(--ease-out),
-	            background-color var(--dur-hover) var(--ease-out);
-}
-.setup-ai-card-icon {
-	font-size: 20px;
-	line-height: 1;
-}
-.setup-ai-card-label {
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.02em;
-}
-.setup-ai-card-desc {
-	font-size: 9px;
-	font-weight: 500;
-	color: var(--ink-muted);
-	letter-spacing: 0.02em;
-}
-.setup-ai-card:hover {
-	transform: translateY(-2px);
-	border-color: var(--accent-bright);
-}
-.setup-ai-card.is-selected {
-	border-color: var(--gold, #D4AF37);
-	background: linear-gradient(135deg, rgba(212, 175, 55, 0.10), rgba(212, 175, 55, 0.04));
-	box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25) inset;
-}
-.setup-ai-card.is-selected .setup-ai-card-label { color: var(--ink); }
+/* (Legacy AI cards removed — AI difficulty lives in the compact in-row
+   <select> now, and is suppressed entirely for the human slot.) */
 
 @media (max-width: 540px) {
-	.setup-ai-cards { grid-template-columns: repeat(5, 1fr); }
-	.setup-ai-card-icon { font-size: 17px; }
-	.setup-ai-card-label { font-size: 10px; }
-	.setup-ai-card-desc { display: none; }
-	.setup-player-visual { grid-template-columns: 56px 1fr; gap: 10px; }
-	.setup-player-preview { width: 56px; height: 56px; }
+	.player-input.has-visual-pickers {
+		grid-template-columns: 48px 1fr;
+		row-gap: 6px;
+	}
+	.player-input.has-visual-pickers .setup-player-preview {
+		width: 48px;
+		height: 48px;
+		grid-column: 1;
+		grid-row: 2;
+	}
+	.player-input.has-visual-pickers .setup-ai-dropdown {
+		grid-column: 1 / -1;
+		grid-row: 3;
+	}
+	.setup-ai-dropdown-select {
+		width: 100%;
+		min-width: 0;
+	}
+}
+
+/* =====================================================================
+   Customizer modal — opened by clicking a player's avatar circle.
+   ===================================================================== */
+#player-customizer-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 1500;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+}
+#player-customizer-modal.is-open {
+	display: flex;
+	animation: customizer-fade-in 200ms var(--ease-out);
+}
+@keyframes customizer-fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+.player-customizer-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(8, 16, 28, 0.55);
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+}
+.player-customizer-dialog {
+	position: relative;
+	width: min(420px, 100%);
+	max-height: calc(100vh - 32px);
+	overflow-y: auto;
+	background: var(--surface-card);
+	border-radius: 18px;
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+	padding: 20px 22px 18px;
+	border: 1px solid var(--ledger-border);
+	animation: customizer-scale-in 240ms var(--ease-bounce);
+	transform-origin: center;
+}
+@keyframes customizer-scale-in {
+	0%   { opacity: 0; transform: scale(0.88); }
+	60%  { opacity: 1; transform: scale(1.02); }
+	100% { opacity: 1; transform: scale(1); }
+}
+.player-customizer-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+.player-customizer-title {
+	margin: 0;
+	font-family: var(--font-ui);
+	font-size: 17px;
+	font-weight: 800;
+	letter-spacing: 0.02em;
+	color: var(--ink);
+}
+.player-customizer-close {
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--ink-muted);
+	font-size: 18px;
+	cursor: pointer;
+	border-radius: 50%;
+	transition: background-color var(--dur-hover) var(--ease-out),
+	            color var(--dur-hover) var(--ease-out);
+}
+.player-customizer-close:hover {
+	background: rgba(0, 0, 0, 0.08);
+	color: var(--ink);
+}
+.player-customizer-preview {
+	width: 88px;
+	height: 88px;
+	margin: 6px auto 14px;
+	border-radius: 50%;
+	background-color: var(--surface-card);
+	background-size: 70% 70%;
+	background-position: center;
+	background-repeat: no-repeat;
+	border: 4px solid var(--gold, #D4AF37);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.20),
+	            0 0 0 4px rgba(212, 175, 55, 0.18);
+}
+.player-customizer-dialog .setup-picker-label {
+	margin: 12px 0 6px;
+}
+.player-customizer-dialog .setup-token-gallery {
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+}
+@media (min-width: 480px) {
+	.player-customizer-dialog .setup-token-gallery {
+		grid-template-columns: repeat(5, 1fr);
+	}
+}
+.player-customizer-colors {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	gap: 6px;
+}
+.player-customizer-colors .setup-color-swatch {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+}
+.player-customizer-colors .setup-color-swatch:hover {
+	transform: scale(1.18);
+}
+.player-customizer-done {
+	display: block;
+	width: 100%;
+	margin-top: 16px;
+	padding: 12px 16px;
+	font-family: var(--font-ui);
+	font-size: 14px;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #1A1A1A;
+	background: linear-gradient(135deg, #FFD24A, var(--gold, #D4AF37), #B8941F);
+	border: none;
+	border-radius: 12px;
+	cursor: pointer;
+	box-shadow: 0 4px 12px rgba(212, 175, 55, 0.36);
+	transition: transform var(--dur-hover) var(--ease-press),
+	            box-shadow var(--dur-hover) var(--ease-out);
+}
+.player-customizer-done:hover {
+	transform: scale(1.02);
+	box-shadow: 0 6px 16px rgba(212, 175, 55, 0.48);
+}
+.player-customizer-done:active {
+	transform: scale(0.98);
+}
+body.player-customizer-open {
+	overflow: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.setup-token-pick,
 	.setup-color-swatch,
-	.setup-ai-card,
-	.setup-player-preview {
+	.setup-player-preview,
+	.setup-ai-dropdown-select,
+	.player-customizer-done {
 		transition: none !important;
+	}
+	#player-customizer-modal.is-open,
+	.player-customizer-dialog {
+		animation: none !important;
 	}
 }
 
@@ -6445,9 +6588,8 @@ html.theme-dark .setup-edition-card-body,
    ===================================================================== */
 .setup-token-pick:active,
 .setup-color-swatch:active,
-.setup-ai-card:active,
 .setup-edition-card:active,
-.setup-color-chip:active {
+.player-customizer-done:active {
 	transform: scale(0.94);
 	transition-duration: 80ms;
 }
@@ -6459,41 +6601,6 @@ html.theme-dark .setup-edition-card-body,
 }
 .setup-edition-card:hover {
 	transform: translateY(-3px) scale(1.012);
-}
-
-/* Live preview circle — gentle "you're picking me" gold ring sweep. */
-.setup-player-preview {
-	position: relative;
-}
-.setup-player-preview::after {
-	content: '';
-	position: absolute;
-	inset: -6px;
-	border-radius: 50%;
-	border: 2px solid transparent;
-	background: conic-gradient(from 0deg,
-		transparent 0%,
-		var(--gold, #D4AF37) 12%,
-		transparent 24%,
-		transparent 100%);
-	-webkit-mask:
-		linear-gradient(#000, #000) content-box,
-		linear-gradient(#000, #000);
-	mask:
-		linear-gradient(#000, #000) content-box,
-		linear-gradient(#000, #000);
-	-webkit-mask-composite: xor;
-	        mask-composite: exclude;
-	padding: 2px;
-	opacity: 0;
-	animation: setup-preview-ring 4s linear infinite;
-	pointer-events: none;
-}
-@keyframes setup-preview-ring {
-	0%   { opacity: 0; transform: rotate(0deg); }
-	25%  { opacity: 0.7; }
-	75%  { opacity: 0.7; }
-	100% { opacity: 0; transform: rotate(360deg); }
 }
 
 /* PLAY button — sweeter pulse + radial gold halo behind. */
@@ -6518,10 +6625,8 @@ html.theme-dark .setup-edition-card-body,
 
 @media (prefers-reduced-motion: reduce) {
 	#setup-edition-loader,
-	.setup-player-preview::after,
 	#start-game-btn::before {
 		animation: none !important;
 		transition: none !important;
 	}
-	.setup-player-preview::after { display: none; }
 }

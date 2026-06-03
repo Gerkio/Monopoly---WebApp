@@ -1805,10 +1805,141 @@ function _injectAvatarPickers() {
 	}
 }
 
-// Build the visual customization UI for a single player row: live preview
-// (color + avatar circle), token gallery, color swatches grid, AI level cards.
+// Build the compact visual customization UI for a single player row.
+//
+// New (redesign): the row now shows ONLY a clickable avatar preview + the
+// name input + an AI-level dropdown (the dropdown is suppressed entirely
+// for the human player slot — J1 by default — because the toggle is
+// meaningless there). The token gallery + color swatches live in a single
+// shared modal that opens when the avatar circle is clicked. The legacy
+// <select> elements for color / ai / avatar stay in the DOM (hidden) so
+// monopoly.js setup() + the smoke tests keep reading `.value` unchanged.
 function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
 	if (!row || row.querySelector('.setup-player-visual')) return;
+
+	var aiSel = document.getElementById('player' + n + 'ai');
+	// Treat player 1 OR any slot currently set to "Human" (value "0") as
+	// human. The native <select> below is still there for the engine; we
+	// just hide the in-row UI for the human player slot.
+	var isHumanSlot = (n === 1);
+
+	var wrap = document.createElement('div');
+	wrap.className = 'setup-player-visual';
+
+	// 1. Clickable avatar preview — opens the customizer modal.
+	var preview = document.createElement('button');
+	preview.type = 'button';
+	preview.className = 'setup-player-preview';
+	preview.setAttribute('data-player-num', n);
+	preview.setAttribute('aria-label', 'Customize player ' + n + ' token and color');
+	preview.title = 'Personalizar ficha';
+	preview.addEventListener('click', function () {
+		__openCustomizerModal(n);
+	});
+	wrap.appendChild(preview);
+
+	// 2. AI level — compact native <select> wrapped for icon prefix. Skipped
+	//    entirely for the human slot.
+	if (!isHumanSlot) {
+		var aiBox = document.createElement('div');
+		aiBox.className = 'setup-ai-dropdown';
+
+		var aiPick = document.createElement('select');
+		aiPick.className = 'setup-ai-dropdown-select';
+		aiPick.setAttribute('aria-label', 'AI difficulty');
+		// 5 options matching the hidden <select id="player{N}ai"> — emoji prefix
+		// is purely cosmetic to telegraph the level at a glance.
+		var AI_OPTS = [
+			{ v: '0', text: '👤 Humano' },
+			{ v: '1', text: '🎲 Fácil' },
+			{ v: '2', text: '♟️ Normal' },
+			{ v: '3', text: '👑 Difícil' },
+			{ v: '4', text: '🧠 Adaptativa' }
+		];
+		AI_OPTS.forEach(function (o) {
+			var opt = document.createElement('option');
+			opt.value = o.v;
+			opt.textContent = o.text;
+			aiPick.appendChild(opt);
+		});
+		if (aiSel) aiPick.value = aiSel.value || '2';
+
+		aiPick.addEventListener('change', function () {
+			if (aiSel) {
+				aiSel.value = aiPick.value;
+				aiSel.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		});
+
+		aiBox.appendChild(aiPick);
+		wrap.appendChild(aiBox);
+	}
+
+	row.appendChild(wrap);
+	row.classList.add('has-visual-pickers');
+	if (isHumanSlot) row.classList.add('is-human-slot');
+
+	__updatePlayerPreview(n);
+}
+
+// =====================================================================
+// Customizer modal — a single shared modal that the avatar-circle click
+// opens. Contains the live preview + the full token gallery + color
+// swatches. Mirrors the hidden <select>s on every pick so the engine
+// keeps reading state unchanged.
+// =====================================================================
+var __customizerCurrentPlayer = null;
+
+function __openCustomizerModal(n) {
+	var modal = __ensureCustomizerModal();
+	__customizerCurrentPlayer = n;
+	modal.setAttribute('data-player-num', n);
+
+	// Update the title with the player's display name.
+	var nameEl = document.getElementById('player' + n + 'name');
+	var titleEl = modal.querySelector('.player-customizer-title');
+	if (titleEl) {
+		var who = (nameEl && nameEl.value) ? nameEl.value :
+			((typeof t === 'function') ? t('setup.playerLabel', { n: n }) : 'Jugador ' + n);
+		titleEl.textContent = (typeof t === 'function')
+			? t('setup.customizeFor', { player: who })
+			: 'Personalizar — ' + who;
+	}
+
+	// Reset selected state of every modal swatch from the canonical hidden
+	// <select> values for this player.
+	__syncCustomizerModalFromSelects(n);
+	__updateCustomizerPreview(n);
+
+	modal.classList.add('is-open');
+	modal.setAttribute('aria-hidden', 'false');
+	document.body.classList.add('player-customizer-open');
+	// Focus the first interactive element inside the modal for keyboard users.
+	var firstBtn = modal.querySelector('.setup-token-pick');
+	if (firstBtn) firstBtn.focus();
+}
+
+function __closeCustomizerModal() {
+	var modal = document.getElementById('player-customizer-modal');
+	if (!modal) return;
+	var n = __customizerCurrentPlayer;
+	modal.classList.remove('is-open');
+	modal.setAttribute('aria-hidden', 'true');
+	document.body.classList.remove('player-customizer-open');
+	__customizerCurrentPlayer = null;
+	// Return focus to the avatar-circle that opened the modal.
+	if (n != null) {
+		var back = document.querySelector('.setup-player-preview[data-player-num="' + n + '"]');
+		if (back && typeof back.focus === 'function') back.focus();
+	}
+}
+
+function __ensureCustomizerModal() {
+	var existing = document.getElementById('player-customizer-modal');
+	if (existing) return existing;
+
+	var AVATAR_OPTIONS = window.GameConfig && window.GameConfig.avatarOptions;
+	if (!AVATAR_OPTIONS) return null;
 
 	var COLORS_HEX = {
 		'Aqua': '#00FFFF', 'Black': '#000000', 'Blue': '#0000FF', 'Fuchsia': '#FF00FF',
@@ -1816,49 +1947,62 @@ function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
 		'Navy': '#000080', 'Olive': '#808000', 'Orange': '#FFA500', 'Purple': '#800080',
 		'Red': '#FF0000', 'Silver': '#C0C0C0', 'Teal': '#008080', 'Yellow': '#FFFF00'
 	};
-	var AI_LEVELS = [
-		{ v: '0', icon: '👤', labelKey: 'setup.human',       descKey: 'setup.aiHumanDesc' },
-		{ v: '1', icon: '🎲', labelKey: 'setup.aiEasy',      descKey: 'setup.aiEasyDesc' },
-		{ v: '2', icon: '♟️', labelKey: 'setup.aiNormal',    descKey: 'setup.aiNormalDesc' },
-		{ v: '3', icon: '👑', labelKey: 'setup.aiHard',      descKey: 'setup.aiHardDesc' },
-		{ v: '4', icon: '🧠', labelKey: 'setup.aiAdaptive',  descKey: 'setup.aiAdaptiveDesc' }
-	];
 
-	// Container that holds preview + visual pickers. Hides the native selects
-	// (color/ai/avatar) by adding .has-visual-pickers to the row.
-	var wrap = document.createElement('div');
-	wrap.className = 'setup-player-visual';
+	var modal = document.createElement('div');
+	modal.id = 'player-customizer-modal';
+	modal.setAttribute('role', 'dialog');
+	modal.setAttribute('aria-modal', 'true');
+	modal.setAttribute('aria-hidden', 'true');
 
-	// 1. Live preview circle (avatar PNG on color background).
+	var backdrop = document.createElement('div');
+	backdrop.className = 'player-customizer-backdrop';
+	backdrop.addEventListener('click', __closeCustomizerModal);
+	modal.appendChild(backdrop);
+
+	var dialog = document.createElement('div');
+	dialog.className = 'player-customizer-dialog';
+
+	var header = document.createElement('div');
+	header.className = 'player-customizer-header';
+	var title = document.createElement('h3');
+	title.className = 'player-customizer-title';
+	title.textContent = 'Personalizar';
+	header.appendChild(title);
+	var closeBtn = document.createElement('button');
+	closeBtn.type = 'button';
+	closeBtn.className = 'player-customizer-close';
+	closeBtn.setAttribute('aria-label', 'Close');
+	closeBtn.innerHTML = '✕';
+	closeBtn.addEventListener('click', __closeCustomizerModal);
+	header.appendChild(closeBtn);
+	dialog.appendChild(header);
+
+	// Live preview circle inside the modal — updates as user picks.
 	var preview = document.createElement('div');
-	preview.className = 'setup-player-preview';
-	preview.setAttribute('data-player-num', n);
-	preview.setAttribute('aria-hidden', 'true');
-	wrap.appendChild(preview);
+	preview.className = 'player-customizer-preview';
+	dialog.appendChild(preview);
 
-	// 2. Token gallery (8 buttons).
-	var tokenLabel = document.createElement('div');
-	tokenLabel.className = 'setup-picker-label';
-	tokenLabel.textContent = (typeof t === 'function') ? t('setup.playerAvatar') : 'Token';
-	tokenLabel.setAttribute('data-i18n', 'setup.playerAvatar');
-	wrap.appendChild(tokenLabel);
+	// Token gallery.
+	var tokenLbl = document.createElement('div');
+	tokenLbl.className = 'setup-picker-label';
+	tokenLbl.textContent = (typeof t === 'function') ? t('setup.playerAvatar') : 'Token';
+	dialog.appendChild(tokenLbl);
 
 	var tokenGallery = document.createElement('div');
 	tokenGallery.className = 'setup-token-gallery';
-	tokenGallery.setAttribute('data-player-num', n);
 	tokenGallery.setAttribute('role', 'radiogroup');
-	tokenGallery.setAttribute('aria-label', 'Token');
 	AVATAR_OPTIONS.forEach(function (av) {
 		var btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'setup-token-pick';
 		btn.setAttribute('data-avatar', av.id);
 		btn.setAttribute('role', 'radio');
-		btn.setAttribute('aria-checked', 'false');
 		btn.setAttribute('aria-label', av.label);
 		btn.title = av.label;
 		btn.style.backgroundImage = "url('" + av.file + "')";
 		btn.addEventListener('click', function () {
+			var n = __customizerCurrentPlayer;
+			if (n == null) return;
 			var sel = document.getElementById('player' + n + 'avatar');
 			if (sel) { sel.value = av.id; sel.dispatchEvent(new Event('change', { bubbles: true })); }
 			tokenGallery.querySelectorAll('.setup-token-pick').forEach(function (b) {
@@ -1866,173 +2010,142 @@ function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
 				b.classList.toggle('is-selected', picked);
 				b.setAttribute('aria-checked', picked ? 'true' : 'false');
 			});
+			__updateCustomizerPreview(n);
 			__updatePlayerPreview(n);
 		});
 		tokenGallery.appendChild(btn);
 	});
-	wrap.appendChild(tokenGallery);
+	dialog.appendChild(tokenGallery);
 
-	// 3. Compact color picker: a single chip showing the current color,
-	//    click opens a small popover with all 16 swatches. Saves vertical
-	//    space and matches the polish of the rest of the setup.
-	var colorRow = document.createElement('div');
-	colorRow.className = 'setup-color-row';
-	colorRow.setAttribute('data-player-num', n);
-
-	var colorLbl = document.createElement('span');
-	colorLbl.className = 'setup-picker-label setup-picker-label-inline';
+	// Color swatches.
+	var colorLbl = document.createElement('div');
+	colorLbl.className = 'setup-picker-label';
 	colorLbl.textContent = (typeof t === 'function') ? t('setup.playerColor') : 'Color';
-	colorLbl.setAttribute('data-i18n', 'setup.playerColor');
-	colorRow.appendChild(colorLbl);
+	dialog.appendChild(colorLbl);
 
-	var colorChip = document.createElement('button');
-	colorChip.type = 'button';
-	colorChip.className = 'setup-color-chip';
-	colorChip.setAttribute('aria-haspopup', 'true');
-	colorChip.setAttribute('aria-expanded', 'false');
-	colorChip.setAttribute('aria-label', 'Player color');
-	colorRow.appendChild(colorChip);
-
-	var colorPop = document.createElement('div');
-	colorPop.className = 'setup-color-pop';
-	colorPop.setAttribute('role', 'radiogroup');
-	colorPop.setAttribute('aria-label', 'Color');
-	colorPop.setAttribute('aria-hidden', 'true');
-	colorRow.appendChild(colorPop);
-
+	var colorGrid = document.createElement('div');
+	colorGrid.className = 'player-customizer-colors';
+	colorGrid.setAttribute('role', 'radiogroup');
 	Object.keys(COLORS_HEX).forEach(function (colorName) {
 		var swatch = document.createElement('button');
 		swatch.type = 'button';
 		swatch.className = 'setup-color-swatch';
 		swatch.setAttribute('data-color', colorName);
 		swatch.setAttribute('role', 'radio');
-		swatch.setAttribute('aria-checked', 'false');
 		swatch.setAttribute('aria-label', colorName);
 		swatch.title = colorName;
 		swatch.style.backgroundColor = COLORS_HEX[colorName];
-		swatch.addEventListener('click', function (ev) {
-			ev.stopPropagation();
+		swatch.addEventListener('click', function () {
+			var n = __customizerCurrentPlayer;
+			if (n == null) return;
 			var sel = document.getElementById('player' + n + 'color');
 			if (sel) { sel.value = colorName; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-			colorPop.querySelectorAll('.setup-color-swatch').forEach(function (s) {
+			colorGrid.querySelectorAll('.setup-color-swatch').forEach(function (s) {
 				var picked = (s === swatch);
 				s.classList.toggle('is-selected', picked);
 				s.setAttribute('aria-checked', picked ? 'true' : 'false');
 			});
-			colorChip.style.backgroundColor = COLORS_HEX[colorName];
-			colorChip.setAttribute('data-color', colorName);
+			__updateCustomizerPreview(n);
 			__updatePlayerPreview(n);
-			// Auto-close popover after pick (better mobile UX).
-			colorRow.classList.remove('is-open');
-			colorChip.setAttribute('aria-expanded', 'false');
-			colorPop.setAttribute('aria-hidden', 'true');
 		});
-		colorPop.appendChild(swatch);
+		colorGrid.appendChild(swatch);
+	});
+	dialog.appendChild(colorGrid);
+
+	// Done button at the bottom — same as backdrop click / ✕ / Esc.
+	var doneBtn = document.createElement('button');
+	doneBtn.type = 'button';
+	doneBtn.className = 'player-customizer-done';
+	doneBtn.textContent = (typeof t === 'function') ? t('setup.customizeDone') : 'Listo';
+	doneBtn.addEventListener('click', __closeCustomizerModal);
+	dialog.appendChild(doneBtn);
+
+	modal.appendChild(dialog);
+	document.body.appendChild(modal);
+
+	// Esc key closes when the modal is open.
+	document.addEventListener('keydown', function (e) {
+		if (e.key !== 'Escape') return;
+		if (!modal.classList.contains('is-open')) return;
+		e.stopPropagation();
+		__closeCustomizerModal();
 	});
 
-	colorChip.addEventListener('click', function (ev) {
-		ev.stopPropagation();
-		var open = colorRow.classList.toggle('is-open');
-		colorChip.setAttribute('aria-expanded', open ? 'true' : 'false');
-		colorPop.setAttribute('aria-hidden', open ? 'false' : 'true');
-		// Close any OTHER open color pops so only one shows at a time.
-		document.querySelectorAll('.setup-color-row.is-open').forEach(function (other) {
-			if (other !== colorRow) {
-				other.classList.remove('is-open');
-				var oc = other.querySelector('.setup-color-chip');
-				if (oc) oc.setAttribute('aria-expanded', 'false');
-			}
-		});
-	});
-
-	wrap.appendChild(colorRow);
-
-	// 4. AI level cards.
-	var aiLabel = document.createElement('div');
-	aiLabel.className = 'setup-picker-label';
-	aiLabel.textContent = (typeof t === 'function') ? t('setup.playerAi') : 'Type';
-	aiLabel.setAttribute('data-i18n', 'setup.playerAiShort');
-	wrap.appendChild(aiLabel);
-
-	var aiCards = document.createElement('div');
-	aiCards.className = 'setup-ai-cards';
-	aiCards.setAttribute('data-player-num', n);
-	aiCards.setAttribute('role', 'radiogroup');
-	aiCards.setAttribute('aria-label', 'Player type');
-	AI_LEVELS.forEach(function (lvl) {
-		var card = document.createElement('button');
-		card.type = 'button';
-		card.className = 'setup-ai-card';
-		card.setAttribute('data-ai-level', lvl.v);
-		card.setAttribute('role', 'radio');
-		card.setAttribute('aria-checked', 'false');
-		card.innerHTML =
-			'<span class="setup-ai-card-icon" aria-hidden="true">' + lvl.icon + '</span>' +
-			'<span class="setup-ai-card-label" data-i18n="' + lvl.labelKey + '">' +
-				(typeof t === 'function' ? t(lvl.labelKey) : lvl.labelKey) + '</span>' +
-			'<span class="setup-ai-card-desc" data-i18n="' + lvl.descKey + '">' +
-				(typeof t === 'function' ? (t(lvl.descKey) || '') : '') + '</span>';
-		card.addEventListener('click', function () {
-			var sel = document.getElementById('player' + n + 'ai');
-			if (sel) { sel.value = lvl.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-			aiCards.querySelectorAll('.setup-ai-card').forEach(function (c) {
-				var picked = (c === card);
-				c.classList.toggle('is-selected', picked);
-				c.setAttribute('aria-checked', picked ? 'true' : 'false');
-			});
-		});
-		aiCards.appendChild(card);
-	});
-	wrap.appendChild(aiCards);
-
-	row.appendChild(wrap);
-	row.classList.add('has-visual-pickers');
-
-	// Sync initial selected state from each <select>'s current value.
-	__syncVisualPickersFromSelects(n);
-	__updatePlayerPreview(n);
+	return modal;
 }
 
-// Read the canonical state from the hidden <select>s and toggle .is-selected
-// on the matching visual buttons. Used on initial render + after
-// _restoreSetupFromStorage / playernumber_onchange dispatches change events.
-function __syncVisualPickersFromSelects(n) {
+function __syncCustomizerModalFromSelects(n) {
+	var modal = document.getElementById('player-customizer-modal');
+	if (!modal) return;
 	var avatar = document.getElementById('player' + n + 'avatar');
-	var color = document.getElementById('player' + n + 'color');
-	var ai = document.getElementById('player' + n + 'ai');
+	var color  = document.getElementById('player' + n + 'color');
 	if (avatar) {
-		document.querySelectorAll('.setup-token-gallery[data-player-num="' + n + '"] .setup-token-pick').forEach(function (b) {
+		modal.querySelectorAll('.setup-token-pick').forEach(function (b) {
 			var picked = (b.getAttribute('data-avatar') === avatar.value);
 			b.classList.toggle('is-selected', picked);
 			b.setAttribute('aria-checked', picked ? 'true' : 'false');
 		});
 	}
 	if (color) {
-		var COLORS_HEX_SYNC = {
-			'Aqua': '#00FFFF', 'Black': '#000000', 'Blue': '#0000FF', 'Fuchsia': '#FF00FF',
-			'Gray': '#808080', 'Green': '#008000', 'Lime': '#00FF00', 'Maroon': '#800000',
-			'Navy': '#000080', 'Olive': '#808000', 'Orange': '#FFA500', 'Purple': '#800080',
-			'Red': '#FF0000', 'Silver': '#C0C0C0', 'Teal': '#008080', 'Yellow': '#FFFF00'
-		};
-		// Sync the inline color popover swatches.
-		document.querySelectorAll('.setup-color-row[data-player-num="' + n + '"] .setup-color-swatch').forEach(function (s) {
+		modal.querySelectorAll('.setup-color-swatch').forEach(function (s) {
 			var picked = (s.getAttribute('data-color') === color.value);
 			s.classList.toggle('is-selected', picked);
 			s.setAttribute('aria-checked', picked ? 'true' : 'false');
 		});
-		// And tint the chip itself to match the chosen color.
-		var chip = document.querySelector('.setup-color-row[data-player-num="' + n + '"] .setup-color-chip');
-		if (chip) {
-			chip.style.backgroundColor = COLORS_HEX_SYNC[color.value] || color.value.toLowerCase();
-			chip.setAttribute('data-color', color.value);
+	}
+}
+
+function __updateCustomizerPreview(n) {
+	var modal = document.getElementById('player-customizer-modal');
+	if (!modal) return;
+	var prev = modal.querySelector('.player-customizer-preview');
+	if (!prev) return;
+	var color = document.getElementById('player' + n + 'color');
+	var avatar = document.getElementById('player' + n + 'avatar');
+	if (color) prev.style.backgroundColor = color.value.toLowerCase();
+	if (avatar) {
+		var opts = window.GameConfig && window.GameConfig.avatarOptions;
+		if (opts) {
+			for (var i = 0; i < opts.length; i++) {
+				if (opts[i].id === avatar.value) {
+					prev.style.backgroundImage = "url('" + opts[i].file + "')";
+					break;
+				}
+			}
 		}
 	}
-	if (ai) {
-		document.querySelectorAll('.setup-ai-cards[data-player-num="' + n + '"] .setup-ai-card').forEach(function (c) {
-			var picked = (c.getAttribute('data-ai-level') === ai.value);
-			c.classList.toggle('is-selected', picked);
-			c.setAttribute('aria-checked', picked ? 'true' : 'false');
-		});
+}
+
+// (Legacy v1 builder removed — its responsibilities are now split between
+// __buildPlayerVisualPickers (compact in-row UI) and the customizer modal
+// helpers above. The legacy <select>s are still kept hidden so the engine
+// + smoke tests read state unchanged.)
+
+// Read the canonical state from the hidden <select>s and propagate it to the
+// visible compact UI: the AI-level dropdown in-row + the live preview circle.
+// (Token + color pickers now live inside the shared customizer modal, which
+// has its own sync helper — __syncCustomizerModalFromSelects.) Used on
+// initial render + after _restoreSetupFromStorage / playernumber_onchange
+// dispatches change events.
+function __syncVisualPickersFromSelects(n) {
+	var row = document.getElementById('player' + n + 'input');
+	var ai = document.getElementById('player' + n + 'ai');
+
+	// 1. In-row compact AI dropdown — mirror the canonical <select>'s value.
+	if (ai && row) {
+		var aiPick = row.querySelector('.setup-ai-dropdown-select');
+		if (aiPick && aiPick.value !== ai.value) aiPick.value = ai.value;
+	}
+
+	// 2. Live preview circle (avatar + color) — handled by __updatePlayerPreview.
+	__updatePlayerPreview(n);
+
+	// 3. If the customizer modal happens to be open for this player, keep its
+	//    swatches in sync too (otherwise they'd lag behind a programmatic
+	//    update — e.g. restore-from-storage).
+	if (__customizerCurrentPlayer === n) {
+		__syncCustomizerModalFromSelects(n);
+		__updateCustomizerPreview(n);
 	}
 }
 
