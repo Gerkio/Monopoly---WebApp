@@ -75,45 +75,31 @@ var UI = (function () {
 		return el;
 	}
 
-	// Lightweight transient notification. Auto-removes after duration.
-	// kind: 'info' (default) | 'success' | 'warning' | 'danger' | 'recap'
-	// opts.html: render the string as innerHTML (caller must sanitize). Defaults
-	//   to textContent for safety.
-	// opts.accentColor: overrides the border-left-color (used by AI turn recaps
-	//   to tint the toast with the player's color).
-	// Maximum visible toasts at once. Anything beyond this expires the oldest
-	// early so the corner stays uncluttered when a burst of AI turns floods
-	// the queue.
-	var TOAST_STACK_MAX = 3;
-
+	// Legacy entry point — kept so the dozens of existing UI.toast(...) call
+	// sites scattered across engine.js / monopoly.js / animations.js don't all
+	// need editing. Visually silent now: the message is forwarded to the
+	// action-history panel so the game stays free of floating notifications.
 	function toast(messageText, opts) {
 		opts = opts || {};
-		var overlay = ensureOverlay();
-
-		// Trim the stack BEFORE appending so the new toast appears in a tidy
-		// corner. We collapse the oldest immediately if we'd otherwise exceed
-		// the cap — its remove() handler still runs via animationend.
-		var existing = overlay.querySelectorAll('.toast:not(.toast-out)');
-		var overBy = existing.length - (TOAST_STACK_MAX - 1);
-		for (var i = 0; i < overBy; i++) {
-			existing[i].classList.add('toast-out');
-		}
-
-		var node = document.createElement('div');
-		node.className = 'toast toast-' + (opts.kind || 'info');
-		if (opts.html) node.innerHTML = String(messageText);
-		else node.textContent = messageText;
-		if (opts.accentColor) node.style.borderLeftColor = opts.accentColor;
-		overlay.appendChild(node);
-
-		var duration = opts.duration || 2400;
-		// Remove on the out-animation end; setTimeout only adds the exit class.
-		setTimeout(function () { node.classList.add('toast-out'); }, duration);
-		node.addEventListener('animationend', function (e) {
-			if (e.animationName === 'toast-out') {
-				if (node.parentNode) node.parentNode.removeChild(node);
+		// Every former toast surface is now silent — the action-history panel
+		// is the single source of truth for in-game events. Strip any HTML
+		// the caller passed (legacy popup recap built rich markup) so the
+		// history log shows clean text only, and forward the active player's
+		// turn/color so the entry gets the proper divider + bullet tint.
+		var text = String(messageText);
+		if (opts.html) text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+		var meta = { color: opts.accentColor };
+		try {
+			if (typeof window !== 'undefined' && window.player && typeof window.turn === 'number') {
+				var p = window.player[window.turn];
+				if (p) {
+					meta.turn = window.turn;
+					if (!meta.color) meta.color = p.color;
+					meta.playerName = p.name;
+				}
 			}
-		});
+		} catch (e) { /* defensive: globals not set up yet */ }
+		if (typeof historyLog === 'function' && text) historyLog(text, meta);
 	}
 
 	// Single-modal contract. Tracks which modal element is currently open so:
@@ -440,21 +426,12 @@ var Sound = (function () {
 	}
 	function isMuted() { return muted; }
 
-	var firstAudioInit = true;
 	function ensureCtx() {
 		if (!ctx) {
-			// First-tap audio warm-up takes 1-2s on mobile and is silent —
-			// users assume the tap failed. Toast feedback so they see the
-			// gesture registered. Toast auto-dismisses; we don't block.
-			if (firstAudioInit && typeof UI !== 'undefined' && UI.toast) {
-				firstAudioInit = false;
-				var msg = (typeof t === 'function')
-					? (t('audio.warming') || 'Audio loading…')
-					: 'Audio loading…';
-				try { UI.toast(msg, { duration: 1200, kind: 'info' }); } catch (e) {}
-			} else {
-				firstAudioInit = false;
-			}
+			// First-tap audio warm-up takes 1-2s on mobile — we used to surface
+			// a tiny toast so users knew the gesture registered, but the
+			// "no floating noise" UX rule killed it. The music itself fading
+			// in shortly after is the only signal we give now.
 			try {
 				var AC = window.AudioContext || window.webkitAudioContext;
 				if (!AC) { enabled = false; return null; }
