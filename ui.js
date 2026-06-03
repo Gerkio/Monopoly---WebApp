@@ -646,16 +646,30 @@ var Sound = (function () {
 		samples[key] = a;
 		return a;
 	}
-	// Play a one-shot SFX. Re-uses the cached Audio so rapid retriggers are
-	// cheap (rewind to 0, then play). Catches the play() promise rejection
-	// that Chrome throws when a user gesture hasn't unlocked audio yet.
+	// Play a one-shot SFX. Two guards keep rapid-fire callers (AI bursts,
+	// chained turns) from making the sample sound like it's looping:
+	//
+	//  1. Per-key debounce of 120 ms — anything faster than that is dropped.
+	//     A human can't perceptually distinguish two clatters in that window
+	//     anyway, so the floor is silent UX-wise.
+	//  2. If the clip is still playing, do NOT call `currentTime = 0; play()`
+	//     again. Chrome aborts the in-flight play with AbortError and the
+	//     residual buffered tail can audibly retrigger ("loop" symptom).
+	//     Only rewind+replay when the previous play has finished or paused.
+	var __lastPlay = {};
 	function playSample(key, src, vol) {
 		if (!canPlay()) return;
+		var now = (typeof performance !== 'undefined' && performance.now)
+			? performance.now() : Date.now();
+		if (now - (__lastPlay[key] || 0) < 120) return;
+		__lastPlay[key] = now;
 		var a = getSample(key, src);
 		a.volume = (typeof vol === 'number') ? vol : 1.0;
-		try { a.currentTime = 0; } catch (e) {}
-		var p = a.play();
-		if (p && typeof p.catch === 'function') p.catch(function () {});
+		if (a.paused || a.ended) {
+			try { a.currentTime = 0; } catch (e) {}
+			var p = a.play();
+			if (p && typeof p.catch === 'function') p.catch(function () {});
+		}
 	}
 	// Audio files ship as both .opus (small, fast — primary) and .mp3
 	// (fallback for Safari < 14.5 / older Android browsers that can't decode

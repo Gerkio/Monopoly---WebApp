@@ -18,7 +18,10 @@
 // Sprint 6 — bumped to v3 because jQuery 1.11 was removed. v2 clients would
 // still try to fetch the CDN script (no longer referenced in index.html) and
 // fail; bumping forces a fresh install of the updated asset list.
-const CACHE_NAME = "monopoly-cache-v3";
+// v4: fetch handler now bypasses Range requests (audio streaming) so HTML5
+// <audio> elements don't re-trigger plays when the cache returns a full body
+// to a Range request — was causing the "dice clatter loops a few times" bug.
+const CACHE_NAME = "monopoly-cache-v4";
 
 const PRECACHE_URLS = [
   "./",
@@ -111,6 +114,15 @@ self.addEventListener("fetch", function (event) {
 
   // Skip non-http(s) schemes (chrome-extension://, data:, etc.).
   if (req.url.indexOf("http") !== 0) {
+    return;
+  }
+
+  // HTML5 <audio>/<video> elements stream via Range requests. A cache-first
+  // response that returns the FULL body to a "Range: bytes=…" request makes
+  // Chrome retry/restart playback, audible as the dice clatter looping a
+  // few times. Let those go straight to the network — they're not the
+  // perf-sensitive resources anyway.
+  if (req.headers.get("range")) {
     return;
   }
 
