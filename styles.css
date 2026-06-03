@@ -6015,30 +6015,102 @@ input[type="button"] { position: relative; overflow: hidden; }
 	.setup-token-gallery { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* Color swatches — 16 colors in 8-col grid (2 rows). */
-.setup-color-swatches {
-	display: grid;
-	grid-template-columns: repeat(8, 1fr);
-	gap: 6px;
+/* Compact color picker: single chip showing current color + popover.
+   Click-toggle pattern replaces the old 16-swatch grid to save vertical
+   space and feel less form-y. Popover positions absolute beneath the
+   chip and uses scale+fade entrance. */
+.setup-color-row {
 	grid-column: 2;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	position: relative;
+}
+.setup-picker-label-inline {
+	margin-bottom: 0;
+	flex-shrink: 0;
+}
+.setup-color-chip {
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 3px solid var(--hairline-strong);
+	border-radius: 50%;
+	cursor: pointer;
+	background-color: #FFFF00;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15),
+	            0 0 0 2px rgba(255, 255, 255, 0.40) inset;
+	transition: transform var(--dur-hover) var(--ease-out),
+	            border-color var(--dur-hover) var(--ease-out),
+	            box-shadow var(--dur-hover) var(--ease-out);
+	position: relative;
+}
+.setup-color-chip::after {
+	content: '▾';
+	position: absolute;
+	bottom: -4px;
+	right: -4px;
+	width: 14px;
+	height: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--surface-card);
+	border-radius: 50%;
+	font-size: 10px;
+	color: var(--ink-muted);
+	font-weight: 700;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+	transition: transform var(--dur-hover) var(--ease-out);
+}
+.setup-color-chip:hover {
+	transform: scale(1.08);
+	border-color: var(--gold, #D4AF37);
+}
+.setup-color-chip[aria-expanded="true"]::after {
+	transform: rotate(180deg);
+}
+.setup-color-pop {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	z-index: 20;
+	display: grid;
+	grid-template-columns: repeat(8, 24px);
+	gap: 6px;
+	padding: 10px;
+	background: var(--surface-card);
+	border: 1px solid var(--ledger-border);
+	border-radius: 10px;
+	box-shadow: var(--shadow-lifted);
+	transform-origin: top left;
+	transform: scale(0.85) translateY(-6px);
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 180ms var(--ease-out),
+	            opacity 180ms var(--ease-out);
+}
+.setup-color-row.is-open .setup-color-pop {
+	transform: scale(1) translateY(0);
+	opacity: 1;
+	pointer-events: auto;
 }
 .setup-color-swatch {
-	width: 100%;
-	aspect-ratio: 1;
+	width: 24px;
+	height: 24px;
 	border: 2px solid var(--hairline-strong);
 	border-radius: 50%;
 	cursor: pointer;
 	padding: 0;
-	transition: transform var(--dur-hover) var(--ease-out),
-	            outline-offset var(--dur-hover) var(--ease-out);
+	transition: transform 120ms var(--ease-out);
 }
 .setup-color-swatch:hover {
-	transform: scale(1.18);
+	transform: scale(1.25);
 }
 .setup-color-swatch.is-selected {
-	outline: 3px solid var(--gold, #D4AF37);
+	outline: 2px solid var(--gold, #D4AF37);
 	outline-offset: 2px;
-	transform: scale(1.12);
+	transform: scale(1.15);
 }
 
 /* AI level cards — 5 cards horizontal (icon + label + short desc). */
@@ -6288,4 +6360,117 @@ html.theme-dark .setup-edition-card-body,
 		animation: none !important;
 		transition: none !important;
 	}
+}
+
+/* =====================================================================
+   Edition switch — soft loader instead of a hard black flash. The user
+   only sees this overlay when they click PLAY AFTER picking a different
+   edition card; it fades in over the leaving setup and the page reloads
+   while it's covering the viewport, so the cold-load splash takes over
+   without any unstyled gap.
+   ===================================================================== */
+#setup-edition-loader {
+	position: fixed;
+	inset: 0;
+	z-index: 2147483646;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--surface-felt, #1B5E3F), var(--surface-felt-deep, #154832));
+	opacity: 0;
+	transition: opacity 280ms var(--ease-out, ease);
+}
+#setup-edition-loader.is-visible { opacity: 1; }
+#setup-edition-loader .setup-edition-loader-inner {
+	text-align: center;
+}
+
+/* =====================================================================
+   Refined animations — polish round 2.
+   Player rows now slide-up with a longer trail + subtle blur lift.
+   Token / color / AI cards get pressable feel (active scale-down).
+   Edition cards add a gentle tilt on hover. Player preview gets a
+   glow ring sweep that signals "this is your token".
+   ===================================================================== */
+.setup-token-pick:active,
+.setup-color-swatch:active,
+.setup-ai-card:active,
+.setup-edition-card:active,
+.setup-color-chip:active {
+	transform: scale(0.94);
+	transition-duration: 80ms;
+}
+
+.setup-edition-card {
+	transition: transform 220ms var(--ease-out),
+	            border-color 220ms var(--ease-out),
+	            box-shadow 220ms var(--ease-out);
+}
+.setup-edition-card:hover {
+	transform: translateY(-3px) scale(1.012);
+}
+
+/* Live preview circle — gentle "you're picking me" gold ring sweep. */
+.setup-player-preview {
+	position: relative;
+}
+.setup-player-preview::after {
+	content: '';
+	position: absolute;
+	inset: -6px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	background: conic-gradient(from 0deg,
+		transparent 0%,
+		var(--gold, #D4AF37) 12%,
+		transparent 24%,
+		transparent 100%);
+	-webkit-mask:
+		linear-gradient(#000, #000) content-box,
+		linear-gradient(#000, #000);
+	mask:
+		linear-gradient(#000, #000) content-box,
+		linear-gradient(#000, #000);
+	-webkit-mask-composite: xor;
+	        mask-composite: exclude;
+	padding: 2px;
+	opacity: 0;
+	animation: setup-preview-ring 4s linear infinite;
+	pointer-events: none;
+}
+@keyframes setup-preview-ring {
+	0%   { opacity: 0; transform: rotate(0deg); }
+	25%  { opacity: 0.7; }
+	75%  { opacity: 0.7; }
+	100% { opacity: 0; transform: rotate(360deg); }
+}
+
+/* PLAY button — sweeter pulse + radial gold halo behind. */
+#start-game-btn {
+	position: relative;
+}
+#start-game-btn::before {
+	content: '';
+	position: absolute;
+	inset: -10px;
+	border-radius: 999px;
+	background: radial-gradient(circle, rgba(212, 175, 55, 0.35) 0%, transparent 70%);
+	opacity: 0;
+	z-index: -1;
+	animation: setup-cta-halo 2.4s ease-in-out infinite;
+	pointer-events: none;
+}
+@keyframes setup-cta-halo {
+	0%, 100% { opacity: 0; transform: scale(0.92); }
+	50%      { opacity: 1; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#setup-edition-loader,
+	.setup-player-preview::after,
+	#start-game-btn::before {
+		animation: none !important;
+		transition: none !important;
+	}
+	.setup-player-preview::after { display: none; }
 }

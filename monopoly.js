@@ -1859,18 +1859,34 @@ function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
 	});
 	wrap.appendChild(tokenGallery);
 
-	// 3. Color swatches.
-	var colorLabel = document.createElement('div');
-	colorLabel.className = 'setup-picker-label';
-	colorLabel.textContent = (typeof t === 'function') ? t('setup.playerColor') : 'Color';
-	colorLabel.setAttribute('data-i18n', 'setup.playerColor');
-	wrap.appendChild(colorLabel);
+	// 3. Compact color picker: a single chip showing the current color,
+	//    click opens a small popover with all 16 swatches. Saves vertical
+	//    space and matches the polish of the rest of the setup.
+	var colorRow = document.createElement('div');
+	colorRow.className = 'setup-color-row';
+	colorRow.setAttribute('data-player-num', n);
 
-	var colorGrid = document.createElement('div');
-	colorGrid.className = 'setup-color-swatches';
-	colorGrid.setAttribute('data-player-num', n);
-	colorGrid.setAttribute('role', 'radiogroup');
-	colorGrid.setAttribute('aria-label', 'Color');
+	var colorLbl = document.createElement('span');
+	colorLbl.className = 'setup-picker-label setup-picker-label-inline';
+	colorLbl.textContent = (typeof t === 'function') ? t('setup.playerColor') : 'Color';
+	colorLbl.setAttribute('data-i18n', 'setup.playerColor');
+	colorRow.appendChild(colorLbl);
+
+	var colorChip = document.createElement('button');
+	colorChip.type = 'button';
+	colorChip.className = 'setup-color-chip';
+	colorChip.setAttribute('aria-haspopup', 'true');
+	colorChip.setAttribute('aria-expanded', 'false');
+	colorChip.setAttribute('aria-label', 'Player color');
+	colorRow.appendChild(colorChip);
+
+	var colorPop = document.createElement('div');
+	colorPop.className = 'setup-color-pop';
+	colorPop.setAttribute('role', 'radiogroup');
+	colorPop.setAttribute('aria-label', 'Color');
+	colorPop.setAttribute('aria-hidden', 'true');
+	colorRow.appendChild(colorPop);
+
 	Object.keys(COLORS_HEX).forEach(function (colorName) {
 		var swatch = document.createElement('button');
 		swatch.type = 'button';
@@ -1881,19 +1897,42 @@ function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
 		swatch.setAttribute('aria-label', colorName);
 		swatch.title = colorName;
 		swatch.style.backgroundColor = COLORS_HEX[colorName];
-		swatch.addEventListener('click', function () {
+		swatch.addEventListener('click', function (ev) {
+			ev.stopPropagation();
 			var sel = document.getElementById('player' + n + 'color');
 			if (sel) { sel.value = colorName; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-			colorGrid.querySelectorAll('.setup-color-swatch').forEach(function (s) {
+			colorPop.querySelectorAll('.setup-color-swatch').forEach(function (s) {
 				var picked = (s === swatch);
 				s.classList.toggle('is-selected', picked);
 				s.setAttribute('aria-checked', picked ? 'true' : 'false');
 			});
+			colorChip.style.backgroundColor = COLORS_HEX[colorName];
+			colorChip.setAttribute('data-color', colorName);
 			__updatePlayerPreview(n);
+			// Auto-close popover after pick (better mobile UX).
+			colorRow.classList.remove('is-open');
+			colorChip.setAttribute('aria-expanded', 'false');
+			colorPop.setAttribute('aria-hidden', 'true');
 		});
-		colorGrid.appendChild(swatch);
+		colorPop.appendChild(swatch);
 	});
-	wrap.appendChild(colorGrid);
+
+	colorChip.addEventListener('click', function (ev) {
+		ev.stopPropagation();
+		var open = colorRow.classList.toggle('is-open');
+		colorChip.setAttribute('aria-expanded', open ? 'true' : 'false');
+		colorPop.setAttribute('aria-hidden', open ? 'false' : 'true');
+		// Close any OTHER open color pops so only one shows at a time.
+		document.querySelectorAll('.setup-color-row.is-open').forEach(function (other) {
+			if (other !== colorRow) {
+				other.classList.remove('is-open');
+				var oc = other.querySelector('.setup-color-chip');
+				if (oc) oc.setAttribute('aria-expanded', 'false');
+			}
+		});
+	});
+
+	wrap.appendChild(colorRow);
 
 	// 4. AI level cards.
 	var aiLabel = document.createElement('div');
@@ -1956,11 +1995,24 @@ function __syncVisualPickersFromSelects(n) {
 		});
 	}
 	if (color) {
-		document.querySelectorAll('.setup-color-swatches[data-player-num="' + n + '"] .setup-color-swatch').forEach(function (s) {
+		var COLORS_HEX_SYNC = {
+			'Aqua': '#00FFFF', 'Black': '#000000', 'Blue': '#0000FF', 'Fuchsia': '#FF00FF',
+			'Gray': '#808080', 'Green': '#008000', 'Lime': '#00FF00', 'Maroon': '#800000',
+			'Navy': '#000080', 'Olive': '#808000', 'Orange': '#FFA500', 'Purple': '#800080',
+			'Red': '#FF0000', 'Silver': '#C0C0C0', 'Teal': '#008080', 'Yellow': '#FFFF00'
+		};
+		// Sync the inline color popover swatches.
+		document.querySelectorAll('.setup-color-row[data-player-num="' + n + '"] .setup-color-swatch').forEach(function (s) {
 			var picked = (s.getAttribute('data-color') === color.value);
 			s.classList.toggle('is-selected', picked);
 			s.setAttribute('aria-checked', picked ? 'true' : 'false');
 		});
+		// And tint the chip itself to match the chosen color.
+		var chip = document.querySelector('.setup-color-row[data-player-num="' + n + '"] .setup-color-chip');
+		if (chip) {
+			chip.style.backgroundColor = COLORS_HEX_SYNC[color.value] || color.value.toLowerCase();
+			chip.setAttribute('data-color', color.value);
+		}
 	}
 	if (ai) {
 		document.querySelectorAll('.setup-ai-cards[data-player-num="' + n + '"] .setup-ai-card').forEach(function (c) {
@@ -2107,19 +2159,45 @@ function _wireGlobalButtons() {
 		var el = document.getElementById(id);
 		if (el) el.addEventListener('click', fn);
 	};
-	// Sprint Setup Item 3 — PLAY button: trigger a brief "setup-leaving" fade
-	// before running the actual setup() so the transition into the game feels
-	// like a curtain rising. setup() is called after 380ms (the leave keyframe
-	// is 400ms; we call slightly before so the game stage starts revealing as
-	// the setup fades out). prefers-reduced-motion skips the delay.
+	// Sprint Setup Item 3 — PLAY button: smooth setup-leaving fade. If the
+	// edition picker changed since page load (vs the active edition in
+	// GameConfig), do a soft transition (fade-out + splash-in + reload)
+	// instead of a hard reload that flashes black.
 	byId('start-game-btn', function () {
 		var setupEl = document.getElementById('setup');
 		var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		var editionSel2 = document.getElementById('edition-select');
+		var pickedEdition = editionSel2 ? editionSel2.value : null;
+		var activeEdition = (window.GameConfig && window.GameConfig.edition) || 'classic';
+		var needsReload = pickedEdition && pickedEdition !== activeEdition;
+
+		function commitStart() {
+			if (needsReload) {
+				// Persist + reload with a fade-to-splash so there's no flash.
+				try { window.localStorage.setItem('monopoly:edition', pickedEdition); } catch (e) {}
+				// Show a temporary "loading next edition" overlay before reload.
+				var loader = document.createElement('div');
+				loader.id = 'setup-edition-loader';
+				loader.innerHTML = '<div class="setup-edition-loader-inner">' +
+					'<div class="splash-logo">MONOPOLY</div>' +
+					'<div class="splash-loader"><span></span><span></span><span></span></div>' +
+					'</div>';
+				document.body.appendChild(loader);
+				// Fade-in the loader then reload.
+				requestAnimationFrame(function () {
+					loader.classList.add('is-visible');
+					setTimeout(function () { window.location.reload(); }, 320);
+				});
+			} else {
+				setup();
+			}
+		}
+
 		if (setupEl && !reduce) {
 			setupEl.classList.add('setup-leaving');
-			setTimeout(setup, 380);
+			setTimeout(commitStart, 380);
 		} else {
-			setup();
+			commitStart();
 		}
 	});
 	byId('resignbutton',        function () { game.resign(); });
@@ -2128,19 +2206,17 @@ function _wireGlobalButtons() {
 	byId('accepttradebutton',   function () { game.acceptTrade(); });
 	byId('rejecttradebutton',   function () { game.cancelTrade(); });
 
-	// Edition selector: hidden <select> stays for monopoly.js / tests; the
-	// new visual cards above sync its value on click.
+	// Edition selector: hidden <select> stays for monopoly.js / tests.
+	// Importantly, we DO NOT fire a page reload here — the edition only
+	// commits when the user clicks PLAY (see byId('start-game-btn') above).
+	// This avoids the harsh black flash that the old reload-on-change
+	// produced and lets the user toggle editions while exploring the setup.
 	var editionSel = document.getElementById('edition-select');
 	if (editionSel) {
 		editionSel.value = (window.GameConfig && window.GameConfig.edition) || 'classic';
-		editionSel.addEventListener('change', function () {
-			try { window.localStorage.setItem('monopoly:edition', editionSel.value); } catch (e) { /* localStorage unavailable */ }
-			window.location.reload();
-		});
 	}
-	// Sprint Setup Item 3 — edition cards wire. Click syncs the hidden
-	// <select> + fires its change handler (which reloads the page with the
-	// chosen edition). Also toggles visual selected state.
+	// Sprint Setup Item 3 — edition cards wire. Click only syncs the
+	// hidden <select>'s value + toggles visual selected state. No reload.
 	document.querySelectorAll('.setup-edition-card').forEach(function (card) {
 		card.addEventListener('click', function () {
 			var ed = card.getAttribute('data-edition');
@@ -2149,10 +2225,7 @@ function _wireGlobalButtons() {
 				c.classList.toggle('is-selected', picked);
 				c.setAttribute('aria-checked', picked ? 'true' : 'false');
 			});
-			if (editionSel && editionSel.value !== ed) {
-				editionSel.value = ed;
-				editionSel.dispatchEvent(new Event('change', { bubbles: true }));
-			}
+			if (editionSel) editionSel.value = ed;
 		});
 		// Initial selected state matches the hidden select on load.
 		if (editionSel && card.getAttribute('data-edition') === editionSel.value) {
@@ -2558,12 +2631,36 @@ function _spawnSetupParticles() {
 	}
 }
 
+// Global click-outside handler: any click that isn't inside an open color
+// row (or its chip/popover) closes the popover. Set up once on boot.
+function _wireColorPopovers() {
+	document.addEventListener('click', function (e) {
+		var openRow = document.querySelector('.setup-color-row.is-open');
+		if (!openRow) return;
+		if (openRow.contains(e.target)) return;
+		openRow.classList.remove('is-open');
+		var chip = openRow.querySelector('.setup-color-chip');
+		if (chip) chip.setAttribute('aria-expanded', 'false');
+		var pop = openRow.querySelector('.setup-color-pop');
+		if (pop) pop.setAttribute('aria-hidden', 'true');
+	});
+	document.addEventListener('keydown', function (e) {
+		if (e.key !== 'Escape') return;
+		document.querySelectorAll('.setup-color-row.is-open').forEach(function (row) {
+			row.classList.remove('is-open');
+			var chip = row.querySelector('.setup-color-chip');
+			if (chip) chip.setAttribute('aria-expanded', 'false');
+		});
+	});
+}
+
 window.onload = function() {
 	__renderPlayerSetup();
 	_initI18N();
 	_initThemeToggle();
 	_initSettingsMenu();
 	_spawnSetupParticles();
+	_wireColorPopovers();
 
 	fitStage();
 	window.addEventListener('resize', fitStage);
