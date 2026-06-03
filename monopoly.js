@@ -1759,14 +1759,17 @@ function _initI18N() {
 
 function _injectAvatarPickers() {
 	var AVATAR_OPTIONS = [
-		{ id: 'sombrero',  label: '🎩 Sombrero',  file: 'images/sombrero.png'  },
-		{ id: 'automovil', label: '🚗 Auto',      file: 'images/automovil.png' },
-		{ id: 'perro',     label: '🐕 Perro',     file: 'images/perro.png'     },
-		{ id: 'barco',     label: '⛵ Barco',     file: 'images/barco.png'     },
-		{ id: 'zapato',    label: '👞 Zapato',    file: 'images/zapato.png'    },
-		{ id: 'dedal',     label: '🪣 Dedal',     file: 'images/dedal.png'     },
-		{ id: 'plancha',   label: '⚒️ Plancha',  file: 'images/plancha.png'   },
-		{ id: 'tren',      label: '🚂 Tren',      file: 'images/train_icon.png'}
+		{ id: 'sombrero',  label: '🎩 Sombrero',  file: 'images/sombrero.png'   },
+		{ id: 'automovil', label: '🚗 Auto',      file: 'images/automovil.png'  },
+		{ id: 'perro',     label: '🐕 Perro',     file: 'images/perro.png'      },
+		{ id: 'gato',      label: '🐈 Gato',      file: 'images/gatoken.png'    },
+		{ id: 'barco',     label: '⛵ Barco',     file: 'images/barco.png'      },
+		{ id: 'zapato',    label: '👞 Zapato',    file: 'images/zapato.png'     },
+		{ id: 'dedal',     label: '🪣 Dedal',     file: 'images/dedal.png'      },
+		{ id: 'plancha',   label: '⚒️ Plancha',  file: 'images/plancha.png'    },
+		// Locomotora.png (token-only artwork) replaces train_icon.png so the
+		// player piece is visually distinct from the railroad cell icon.
+		{ id: 'tren',      label: '🚂 Tren',      file: 'images/locomotora.png' }
 	];
 	window.GameConfig.avatarOptions = AVATAR_OPTIONS; // exposed for setup() lookup
 	for (var ai = 1; ai <= 8; ai++) {
