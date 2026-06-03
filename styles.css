@@ -5920,54 +5920,66 @@ input[type="button"] { position: relative; overflow: hidden; }
 	100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Decorative dice on either side of the wordmark. CSS-only — six pip
-   layouts via radial-gradient. Float gently with crown-float timing. */
+/* Decorative dice on either side of the wordmark. Uses the same Die_N.png
+   sprites the game uses for the actual roll so the welcome screen feels
+   continuous with gameplay. Each die rotates continuously + bobs up/down,
+   reading as a tumbling roll rather than a static decoration. */
 .setup-decor-dice {
 	position: absolute;
 	top: 50%;
 	transform: translateY(-50%);
 	pointer-events: none;
 	z-index: 2;
-	opacity: 0.85;
+	filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+	/* The wrapper handles the vertical bob; the inner .setup-die handles
+	   the rotation. Splitting them lets the two motions run on independent
+	   easing curves without compounding into a wobble. */
+	animation: setup-dice-bob 3.6s ease-in-out infinite;
 }
 .setup-decor-dice-left  { left: clamp(16px, 4vw, 56px); }
-.setup-decor-dice-right { right: clamp(16px, 4vw, 56px); }
+.setup-decor-dice-right { right: clamp(16px, 4vw, 56px); animation-delay: -1.8s; }
+@keyframes setup-dice-bob {
+	0%, 100% { transform: translateY(-50%); }
+	50%      { transform: translateY(calc(-50% - 8px)); }
+}
 .setup-die {
 	display: block;
-	width: clamp(36px, 4.5vw, 56px);
+	width: clamp(48px, 5.5vw, 72px);
 	aspect-ratio: 1;
-	background: linear-gradient(145deg, #FFFFFF, #E5E5E0);
-	border-radius: 22%;
-	box-shadow:
-		0 4px 12px rgba(0, 0, 0, 0.30),
-		inset 0 -3px 0 rgba(0, 0, 0, 0.08),
-		inset 0 2px 0 rgba(255, 255, 255, 0.50);
-	position: relative;
-	animation: setup-die-float 5.2s ease-in-out infinite;
+	background-color: transparent;
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+	border-radius: 0; /* the PNG already has rounded corners + bevel */
+	box-shadow: none;
+	/* Continuous tumble — slow enough to read individual faces but fast
+	   enough to feel kinetic. Different durations + delays per die so the
+	   pair never sync up (looks more like a real throw). */
+	animation: setup-die-tumble 5.2s linear infinite;
+	transform-origin: 50% 50%;
+	will-change: transform;
 }
-.setup-decor-dice-right .setup-die { animation-delay: -2.6s; }
-@keyframes setup-die-float {
-	0%, 100% { transform: translateY(0) rotate(-8deg); }
-	50%      { transform: translateY(-6px) rotate(6deg); }
+.setup-decor-dice-right .setup-die {
+	animation-duration: 6.1s;
+	animation-direction: reverse;
+	animation-delay: -1.2s;
 }
-/* Pips — black dots positioned via radial-gradient. Face 2 (diagonal) and
-   face 5 (X pattern). */
-.setup-die[data-face="2"] {
-	background-image:
-		linear-gradient(145deg, #FFFFFF, #E5E5E0),
-		radial-gradient(circle 4px at 28% 28%, #1A1A1A 95%, transparent 96%),
-		radial-gradient(circle 4px at 72% 72%, #1A1A1A 95%, transparent 96%);
-	background-blend-mode: normal;
+@keyframes setup-die-tumble {
+	0%   { transform: rotate(-12deg) scale(0.96); }
+	25%  { transform: rotate(95deg)  scale(1.02); }
+	50%  { transform: rotate(182deg) scale(0.98); }
+	75%  { transform: rotate(268deg) scale(1.04); }
+	100% { transform: rotate(348deg) scale(0.96); }
 }
-.setup-die[data-face="5"] {
-	background-image:
-		linear-gradient(145deg, #FFFFFF, #E5E5E0),
-		radial-gradient(circle 3.5px at 25% 25%, #1A1A1A 95%, transparent 96%),
-		radial-gradient(circle 3.5px at 75% 25%, #1A1A1A 95%, transparent 96%),
-		radial-gradient(circle 3.5px at 50% 50%, #1A1A1A 95%, transparent 96%),
-		radial-gradient(circle 3.5px at 25% 75%, #1A1A1A 95%, transparent 96%),
-		radial-gradient(circle 3.5px at 75% 75%, #1A1A1A 95%, transparent 96%);
-}
+/* Each .setup-die's face is the matching Die_N.png. data-face controls
+   which sprite shows; the JS hero-loader could later swap these to add a
+   subtle "settled face" effect when the user finishes setup. */
+.setup-die[data-face="1"] { background-image: url('images/Die_1.png'); }
+.setup-die[data-face="2"] { background-image: url('images/Die_2.png'); }
+.setup-die[data-face="3"] { background-image: url('images/Die_3.png'); }
+.setup-die[data-face="4"] { background-image: url('images/Die_4.png'); }
+.setup-die[data-face="5"] { background-image: url('images/Die_5.png'); }
+.setup-die[data-face="6"] { background-image: url('images/Die_6.png'); }
 
 /* Hide decorative dice on small screens (no room next to the wordmark). */
 @media (max-width: 600px) {
