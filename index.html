@@ -43,9 +43,9 @@
 	<!-- ?v= on every local script forces the browser to refetch after a deploy.
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
-	<script type="text/javascript" src="i18n.js?v=20260603c"></script>
-	<script type="text/javascript" src="ui.js?v=20260603c"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260603c"></script>
+	<script type="text/javascript" src="i18n.js?v=20260603d"></script>
+	<script type="text/javascript" src="ui.js?v=20260603d"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260603d"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,17 +65,17 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260603c"></script>
+	<script type="text/javascript" src="ai.js?v=20260603d"></script>
 	<!-- Sprint 5 — monopoly.js split into 5 focused modules. Load order
 	     matters: engine.js declares the Game ctor + state namespaces that
 	     players.js / animations.js / render.js / monopoly.js all reference
 	     by bare global name. monopoly.js is the slim shell that owns the
 	     window.onload boot sequence and depends on every prior module. -->
-	<script type="text/javascript" src="engine.js?v=20260603c"></script>
-	<script type="text/javascript" src="players.js?v=20260603c"></script>
-	<script type="text/javascript" src="animations.js?v=20260603c"></script>
-	<script type="text/javascript" src="render.js?v=20260603c"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260603c"></script>
+	<script type="text/javascript" src="engine.js?v=20260603d"></script>
+	<script type="text/javascript" src="players.js?v=20260603d"></script>
+	<script type="text/javascript" src="animations.js?v=20260603d"></script>
+	<script type="text/javascript" src="render.js?v=20260603d"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260603d"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -94,7 +94,7 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260603c">
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260603d">
 	<!-- Sprint 4 â€” PWA: manifest + iOS home-screen icon + theme color. -->
 	<link rel="manifest" href="manifest.webmanifest" />
 	<link rel="apple-touch-icon" href="images/icon-192.png" />
@@ -488,7 +488,10 @@
 			     in-game polish. -->
 			<div id="setup-hero" aria-hidden="false">
 				<div class="setup-particles" aria-hidden="true"></div>
-				<div class="setup-wordmark" data-i18n="setup.welcomeTitle">MONOPOLY</div>
+				<!-- Brand logo PNG restored — the CSS wordmark sits beneath as a
+				     stylized subline. PNG carries the official Monopoly typography;
+				     the gradient wordmark adds gold-foil polish without replacing it. -->
+				<img class="setup-logo" src="images/monopoly logo.png" alt="MONOPOLY" />
 				<div class="setup-tagline" data-i18n="setup.welcomeTagline">The timeless classic · Digital edition</div>
 				<div class="setup-decor-dice setup-decor-dice-left" aria-hidden="true">
 					<span class="setup-die" data-face="2"></span>
@@ -519,7 +522,7 @@
 			     stacking vertically and leaving the sides empty. -->
 			<div id="setup-bottom-grid">
 			<div id="edition-select-row">
-				<label data-i18n="setup.editionLabel">Board edition:</label>
+				<label class="setup-bottom-label" data-i18n="setup.editionLabel">Board edition:</label>
 				<!-- Sprint Setup Item 3 — edition cards. The legacy <select> is
 				     hidden but kept for monopoly.js wiring; visual cards click
 				     syncs its value + dispatches change. -->
@@ -545,19 +548,31 @@
 				</select>
 			</div>
 
-			<div id="setup-presets" data-i18n-title="setup.presetsTitle" title="Quick configurations">
-				<button type="button" class="setup-preset" data-preset="quick">
-					<strong data-i18n="setup.presetQuick">Quick</strong>
-					<span data-i18n="setup.presetQuickSub">$1000 Â· faster</span>
-				</button>
-				<button type="button" class="setup-preset" data-preset="standard">
-					<strong data-i18n="setup.presetStandard">Standard</strong>
-					<span data-i18n="setup.presetStandardSub">$1500 Â· classic</span>
-				</button>
-				<button type="button" class="setup-preset" data-preset="long">
-					<strong data-i18n="setup.presetLong">Long</strong>
-					<span data-i18n="setup.presetLongSub">$2500 Â· marathon</span>
-				</button>
+			<div id="setup-presets-row">
+				<label class="setup-bottom-label" data-i18n="setup.presetsLabel">Starting cash:</label>
+				<div id="setup-presets" data-i18n-title="setup.presetsTitle" title="Quick configurations">
+					<button type="button" class="setup-preset" data-preset="quick">
+						<span class="setup-preset-icon" aria-hidden="true">⚡</span>
+						<span class="setup-preset-body">
+							<span class="setup-preset-name" data-i18n="setup.presetQuick">Quick</span>
+							<span class="setup-preset-sub" data-i18n="setup.presetQuickSub">$1000 · faster</span>
+						</span>
+					</button>
+					<button type="button" class="setup-preset setup-preset-active" data-preset="standard" aria-pressed="true">
+						<span class="setup-preset-icon" aria-hidden="true">♟️</span>
+						<span class="setup-preset-body">
+							<span class="setup-preset-name" data-i18n="setup.presetStandard">Standard</span>
+							<span class="setup-preset-sub" data-i18n="setup.presetStandardSub">$1500 · classic</span>
+						</span>
+					</button>
+					<button type="button" class="setup-preset" data-preset="long">
+						<span class="setup-preset-icon" aria-hidden="true">🏆</span>
+						<span class="setup-preset-body">
+							<span class="setup-preset-name" data-i18n="setup.presetLong">Long</span>
+							<span class="setup-preset-sub" data-i18n="setup.presetLongSub">$2500 · marathon</span>
+						</span>
+					</button>
+				</div>
 			</div>
 
 			<details id="house-rules-block">

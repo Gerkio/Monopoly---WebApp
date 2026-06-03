@@ -4073,35 +4073,70 @@ input[type="button"]:disabled:hover { transform: none; }
 }
 
 /* Quick presets row above the start button. */
+/* Setup bottom row: align "Starting cash" + "Board edition" labels so
+   the two sub-sections sit at the same baseline as siblings. */
+.setup-bottom-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.10em;
+	color: var(--ink-muted);
+	margin-bottom: 8px;
+}
+#setup-presets-row { display: flex; flex-direction: column; }
+
 #setup-presets {
-	display: flex;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
 	gap: 8px;
-	margin: 6px 0 14px;
-	flex-wrap: wrap;
+	margin: 0;
 }
 .setup-preset {
-	flex: 1;
-	min-width: 110px;
-	padding: 8px 10px;
-	border: 1px solid var(--hairline-strong);
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 2px solid var(--hairline-strong);
 	border-radius: var(--radius-md);
-	background: var(--surface);
+	background: var(--surface-card);
 	color: var(--ink);
 	font-family: var(--font-ui);
 	font-size: 13px;
 	cursor: pointer;
-	text-align: center;
-	transition: background var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+	text-align: left;
+	transition: background 200ms var(--ease-out),
+	            border-color 200ms var(--ease-out),
+	            transform 200ms var(--ease-out),
+	            box-shadow 200ms var(--ease-out);
+}
+.setup-preset-icon {
+	font-size: 22px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+.setup-preset-body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.setup-preset-name {
+	display: block;
+	font-size: 13px;
+	font-weight: 800;
+	color: var(--ink);
+	letter-spacing: 0.02em;
+}
+.setup-preset-sub {
+	display: block;
+	font-size: 11px;
+	color: var(--ink-muted);
+	margin-top: 1px;
 }
 .setup-preset:hover {
-	background: var(--surface-card);
 	border-color: var(--accent-bright);
-	transform: translateY(-1px);
-}
-.setup-preset.setup-preset-active {
-	background: linear-gradient(180deg, rgba(46, 125, 92, 0.12), rgba(46, 125, 92, 0.04));
-	border-color: var(--accent);
-	box-shadow: 0 0 0 2px rgba(46, 125, 92, 0.15);
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-card);
 }
 
 /* House rules collapsible block. Closed by default to keep setup clean. */
@@ -4209,18 +4244,9 @@ body.speed-mode #board-logo {
 	60%  { transform: translateX(-50%) scale(1.15); opacity: 1; }
 	100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
-.setup-preset strong {
-	display: block;
-	font-size: 13px;
-	font-weight: 800;
-	color: var(--accent);
-	margin-bottom: 2px;
-}
-.setup-preset span {
-	display: block;
-	font-size: 11px;
-	color: var(--ink-muted);
-}
+/* (legacy .setup-preset strong/span rules retired — the buttons now use
+   structured .setup-preset-icon + .setup-preset-body markup; no inner
+   strong tag any longer.) */
 
 #setup input[type="button"] {
 	background: var(--accent);
@@ -5761,33 +5787,26 @@ input[type="button"] { position: relative; overflow: hidden; }
 	35%  { transform: skewX(-18deg) translateX(380%); }
 	100% { transform: skewX(-18deg) translateX(380%); }
 }
-.setup-wordmark {
+/* Brand logo PNG — drops into the hero with a soft scale-in. The
+   filter: drop-shadow adds the same depth the CSS wordmark had so the
+   image doesn't look flat against the felt-green gradient. */
+.setup-logo {
 	position: relative;
 	z-index: 2;
-	font-family: var(--font-ui);
-	font-weight: 900;
-	font-size: clamp(40px, 6vw, 80px);
-	letter-spacing: 0.18em;
-	line-height: 1;
-	background: linear-gradient(180deg, #FFF1B8 0%, var(--gold, #D4AF37) 55%, #B8941F 100%);
-	-webkit-background-clip: text;
-	background-clip: text;
-	-webkit-text-fill-color: transparent;
-	color: transparent;
-	filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.40));
-	animation: setup-wordmark-in 900ms var(--ease-out) both;
+	display: block;
+	margin: 0 auto;
+	max-width: min(560px, 70vw);
+	height: clamp(56px, 8vw, 110px);
+	width: auto;
+	object-fit: contain;
+	filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.50))
+	        drop-shadow(0 0 8px rgba(212, 175, 55, 0.25));
+	animation: setup-logo-in 900ms var(--ease-out) both;
 }
-/* Fallback when background-clip:text isn't supported — solid gold color. */
-@supports not (background-clip: text) {
-	.setup-wordmark {
-		color: var(--gold, #D4AF37);
-		-webkit-text-fill-color: var(--gold, #D4AF37);
-	}
-}
-@keyframes setup-wordmark-in {
-	0%   { letter-spacing: 0.30em; opacity: 0; transform: scale(0.92); }
-	60%  { letter-spacing: 0.16em; opacity: 1; }
-	100% { letter-spacing: 0.18em; opacity: 1; transform: scale(1); }
+@keyframes setup-logo-in {
+	0%   { opacity: 0; transform: scale(0.92) translateY(-6px); }
+	60%  { opacity: 1; }
+	100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 .setup-tagline {
 	position: relative;
@@ -5912,7 +5931,7 @@ input[type="button"] { position: relative; overflow: hidden; }
    wordmark + dice + particles all render statically. */
 @media (prefers-reduced-motion: reduce) {
 	#setup-hero::after,
-	.setup-wordmark,
+	.setup-logo,
 	.setup-tagline,
 	.setup-die,
 	.setup-particle,
@@ -6237,21 +6256,24 @@ input[type="button"] { position: relative; overflow: hidden; }
 	opacity: 0.35;
 	z-index: 0;
 }
-.setup-edition-bg-classic {
-	background:
-		linear-gradient(135deg, #8B4513 0%, transparent 30%),
-		linear-gradient(225deg, #1B5E3F 0%, transparent 30%),
-		linear-gradient(315deg, #D4AF37 0%, transparent 30%),
-		linear-gradient(45deg, #B8001E 0%, transparent 30%),
-		var(--surface-card);
-}
+/* Edition card backgrounds — replaced the noisy 4-corner gradient blobs
+   with a single subtle accent stripe at the top + a stylized initial
+   letter watermark so the cards feel like clean labeled tabs instead
+   of confused color patches. */
+.setup-edition-bg-classic,
 .setup-edition-bg-nyc {
-	background:
-		linear-gradient(135deg, #4B0082 0%, transparent 30%),
-		linear-gradient(225deg, #008080 0%, transparent 30%),
-		linear-gradient(315deg, #FF8C00 0%, transparent 30%),
-		linear-gradient(45deg, #1E3A8A 0%, transparent 30%),
-		var(--surface-card);
+	background: var(--surface-card);
+}
+.setup-edition-bg-classic::before,
+.setup-edition-bg-nyc::before {
+	content: '';
+	position: absolute;
+	top: 0; left: 0; right: 0;
+	height: 6px;
+	background: linear-gradient(90deg, #D4AF37, #B8001E, #1B5E3F);
+}
+.setup-edition-bg-nyc::before {
+	background: linear-gradient(90deg, #4B0082, #008080, #FF8C00);
 }
 .setup-edition-card-body {
 	position: relative;
@@ -6282,12 +6304,15 @@ html.theme-dark .setup-edition-card-body,
 	color: var(--ink-muted);
 }
 
-/* Preset buttons — wire active state. Hover lift kept; selected ring gold. */
+/* Preset buttons — active state uses gold border + soft tint. Matches
+   the visual language of the edition cards / AI cards (also gold-bordered
+   on selection) so the whole bottom row feels cohesive. */
 .setup-preset[aria-pressed="true"],
 .setup-preset.setup-preset-active {
 	border-color: var(--gold, #D4AF37) !important;
-	background: linear-gradient(135deg, rgba(212, 175, 55, 0.16), rgba(212, 175, 55, 0.06)) !important;
-	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32) inset !important;
+	background: linear-gradient(135deg, rgba(212, 175, 55, 0.14), rgba(212, 175, 55, 0.04)) !important;
+	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.28) inset, var(--shadow-card) !important;
+	transform: translateY(-1px);
 }
 
 /* CTA hero — the PLAY button is the moment. Gold gradient + uppercase +
