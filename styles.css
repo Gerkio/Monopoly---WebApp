@@ -3975,16 +3975,9 @@ input[type="button"]:disabled:hover { transform: none; }
 	border: 2px solid var(--surface-card);
 }
 #setup::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
-#setup::before {
-	content: '';
-	display: block;
-	height: 60px;
-	margin: -24px -32px 12px;
-	background: url('images/monopoly logo.png') center center / contain no-repeat,
-	            linear-gradient(180deg, rgba(27, 94, 63, 0.08), transparent);
-	border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-	flex-shrink: 0;
-}
+/* Old PNG header retired in favor of the CSS-built #setup-hero block
+   (Sprint Setup Item 1). The wordmark now scales crisp at all DPRs and
+   composes its own foil shimmer + ambient particles. */
 
 #setup > div { margin-bottom: 12px; }
 
@@ -5716,5 +5709,583 @@ input[type="button"] { position: relative; overflow: hidden; }
 	#popup.auction-popup {
 		width: 94vw !important;
 		max-width: 520px !important;
+	}
+}
+
+/* =====================================================================
+   Sprint Setup — Hero block, decorative dice, ambient golden particles.
+   Reuses the design language from board-shine (gold sweep) + vt-in
+   (letter-spacing tween) + splash-bounce (entry bounce) so the setup
+   matches the in-game polish without inventing new motion vocabulary.
+   ===================================================================== */
+#setup-hero {
+	position: relative;
+	text-align: center;
+	padding: clamp(28px, 4vw, 48px) clamp(20px, 3vw, 36px);
+	margin-bottom: 24px;
+	overflow: hidden;
+	border-radius: var(--radius-lg);
+	background: linear-gradient(135deg, var(--surface-felt), var(--surface-felt-deep));
+	box-shadow:
+		0 12px 32px rgba(0, 0, 0, 0.18),
+		inset 0 0 0 1px rgba(212, 175, 55, 0.22),
+		inset 0 0 0 4px rgba(0, 0, 0, 0.20);
+	isolation: isolate;
+	/* The #setup card is a column flex; without flex-shrink:0 the hero
+	   collapses when the per-player visual pickers push total content
+	   past the card's max-height. */
+	flex-shrink: 0;
+}
+/* Gold foil shimmer that periodically sweeps across the hero. Animates
+   transform only (skewX + translateX on a pseudo-element gradient) so
+   it's compositor-only — no layout or paint thrash. */
+#setup-hero::after {
+	content: '';
+	position: absolute;
+	top: 0; bottom: 0;
+	left: -30%;
+	width: 40%;
+	background: linear-gradient(110deg,
+		transparent 0%,
+		rgba(212, 175, 55, 0.16) 35%,
+		rgba(255, 245, 200, 0.32) 50%,
+		rgba(212, 175, 55, 0.16) 65%,
+		transparent 100%);
+	transform: skewX(-18deg) translateX(0);
+	pointer-events: none;
+	animation: setup-foil-sweep 3600ms 900ms var(--ease-smooth) infinite;
+	z-index: 1;
+}
+@keyframes setup-foil-sweep {
+	0%   { transform: skewX(-18deg) translateX(0); }
+	35%  { transform: skewX(-18deg) translateX(380%); }
+	100% { transform: skewX(-18deg) translateX(380%); }
+}
+.setup-wordmark {
+	position: relative;
+	z-index: 2;
+	font-family: var(--font-ui);
+	font-weight: 900;
+	font-size: clamp(40px, 6vw, 80px);
+	letter-spacing: 0.18em;
+	line-height: 1;
+	background: linear-gradient(180deg, #FFF1B8 0%, var(--gold, #D4AF37) 55%, #B8941F 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.40));
+	animation: setup-wordmark-in 900ms var(--ease-out) both;
+}
+/* Fallback when background-clip:text isn't supported — solid gold color. */
+@supports not (background-clip: text) {
+	.setup-wordmark {
+		color: var(--gold, #D4AF37);
+		-webkit-text-fill-color: var(--gold, #D4AF37);
+	}
+}
+@keyframes setup-wordmark-in {
+	0%   { letter-spacing: 0.30em; opacity: 0; transform: scale(0.92); }
+	60%  { letter-spacing: 0.16em; opacity: 1; }
+	100% { letter-spacing: 0.18em; opacity: 1; transform: scale(1); }
+}
+.setup-tagline {
+	position: relative;
+	z-index: 2;
+	margin-top: 12px;
+	font-size: clamp(13px, 1.4vw, 16px);
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	color: rgba(255, 255, 255, 0.82);
+	font-style: italic;
+	animation: setup-tagline-in 900ms 300ms var(--ease-out) both;
+}
+@keyframes setup-tagline-in {
+	0%   { opacity: 0; transform: translateY(8px); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Decorative dice on either side of the wordmark. CSS-only — six pip
+   layouts via radial-gradient. Float gently with crown-float timing. */
+.setup-decor-dice {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	pointer-events: none;
+	z-index: 2;
+	opacity: 0.85;
+}
+.setup-decor-dice-left  { left: clamp(16px, 4vw, 56px); }
+.setup-decor-dice-right { right: clamp(16px, 4vw, 56px); }
+.setup-die {
+	display: block;
+	width: clamp(36px, 4.5vw, 56px);
+	aspect-ratio: 1;
+	background: linear-gradient(145deg, #FFFFFF, #E5E5E0);
+	border-radius: 22%;
+	box-shadow:
+		0 4px 12px rgba(0, 0, 0, 0.30),
+		inset 0 -3px 0 rgba(0, 0, 0, 0.08),
+		inset 0 2px 0 rgba(255, 255, 255, 0.50);
+	position: relative;
+	animation: setup-die-float 5.2s ease-in-out infinite;
+}
+.setup-decor-dice-right .setup-die { animation-delay: -2.6s; }
+@keyframes setup-die-float {
+	0%, 100% { transform: translateY(0) rotate(-8deg); }
+	50%      { transform: translateY(-6px) rotate(6deg); }
+}
+/* Pips — black dots positioned via radial-gradient. Face 2 (diagonal) and
+   face 5 (X pattern). */
+.setup-die[data-face="2"] {
+	background-image:
+		linear-gradient(145deg, #FFFFFF, #E5E5E0),
+		radial-gradient(circle 4px at 28% 28%, #1A1A1A 95%, transparent 96%),
+		radial-gradient(circle 4px at 72% 72%, #1A1A1A 95%, transparent 96%);
+	background-blend-mode: normal;
+}
+.setup-die[data-face="5"] {
+	background-image:
+		linear-gradient(145deg, #FFFFFF, #E5E5E0),
+		radial-gradient(circle 3.5px at 25% 25%, #1A1A1A 95%, transparent 96%),
+		radial-gradient(circle 3.5px at 75% 25%, #1A1A1A 95%, transparent 96%),
+		radial-gradient(circle 3.5px at 50% 50%, #1A1A1A 95%, transparent 96%),
+		radial-gradient(circle 3.5px at 25% 75%, #1A1A1A 95%, transparent 96%),
+		radial-gradient(circle 3.5px at 75% 75%, #1A1A1A 95%, transparent 96%);
+}
+
+/* Hide decorative dice on small screens (no room next to the wordmark). */
+@media (max-width: 600px) {
+	.setup-decor-dice { display: none; }
+}
+
+/* Ambient golden particles inside the hero. Generated on boot by JS — see
+   monopoly.js _wireSetupHeroParticles(). Each particle rises slowly while
+   fading. Pure transform + opacity, no DOM thrash. */
+.setup-particles {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: hidden;
+	z-index: 0;
+}
+.setup-particle {
+	position: absolute;
+	bottom: -10px;
+	width: 4px;
+	height: 4px;
+	background: var(--gold, #D4AF37);
+	border-radius: 50%;
+	opacity: 0;
+	animation-name: setup-particle-rise;
+	animation-timing-function: linear;
+	animation-iteration-count: infinite;
+	filter: blur(0.5px);
+}
+@keyframes setup-particle-rise {
+	0%   { transform: translateY(0); opacity: 0; }
+	20%  { opacity: 0.55; }
+	80%  { opacity: 0.55; }
+	100% { transform: translateY(-220px); opacity: 0; }
+}
+
+/* Stagger the player setup rows into view after the hero. Reuses the
+   ease-bounce token for a tabletop-toss feel. */
+.player-input {
+	animation: setup-row-in 560ms var(--ease-bounce) both;
+}
+.player-input:nth-child(1) { animation-delay: 360ms; }
+.player-input:nth-child(2) { animation-delay: 430ms; }
+.player-input:nth-child(3) { animation-delay: 500ms; }
+.player-input:nth-child(4) { animation-delay: 570ms; }
+.player-input:nth-child(5) { animation-delay: 640ms; }
+.player-input:nth-child(6) { animation-delay: 710ms; }
+.player-input:nth-child(7) { animation-delay: 780ms; }
+.player-input:nth-child(8) { animation-delay: 850ms; }
+@keyframes setup-row-in {
+	0%   { opacity: 0; transform: translateY(14px) scale(0.97); }
+	70%  { opacity: 1; transform: translateY(-2px) scale(1.01); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Honor reduced-motion: kill the loopers + entrance animations. The hero
+   wordmark + dice + particles all render statically. */
+@media (prefers-reduced-motion: reduce) {
+	#setup-hero::after,
+	.setup-wordmark,
+	.setup-tagline,
+	.setup-die,
+	.setup-particle,
+	.player-input {
+		animation: none !important;
+	}
+	.setup-particles { display: none; }
+}
+
+/* =====================================================================
+   Sprint Setup Item 2 — Visual customization pickers per player.
+   When a player row has .has-visual-pickers, the native <select>s for
+   color / ai / avatar collapse to display:none and the new visual UI
+   takes over. JS keeps the selects in sync so monopoly.js setup() and
+   the smoke tests keep reading `.value` exactly as before.
+   ===================================================================== */
+.player-input.has-visual-pickers > select#player1color,
+.player-input.has-visual-pickers > select#player2color,
+.player-input.has-visual-pickers > select#player3color,
+.player-input.has-visual-pickers > select#player4color,
+.player-input.has-visual-pickers > select#player5color,
+.player-input.has-visual-pickers > select#player6color,
+.player-input.has-visual-pickers > select#player7color,
+.player-input.has-visual-pickers > select#player8color,
+.player-input.has-visual-pickers > select.player-ai-select,
+.player-input.has-visual-pickers > select.player-avatar-select {
+	display: none !important;
+}
+
+.setup-player-visual {
+	display: grid;
+	grid-template-columns: 80px 1fr;
+	gap: 12px 16px;
+	margin-top: 10px;
+	align-items: start;
+}
+
+/* Live preview: round avatar swatch on top-left of each player row. */
+.setup-player-preview {
+	grid-row: 1 / span 6;
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	background-color: var(--surface-card);
+	background-size: 70% 70%;
+	background-position: center;
+	background-repeat: no-repeat;
+	border: 3px solid var(--gold, #D4AF37);
+	box-shadow: var(--shadow-card);
+	transition: transform var(--dur-hover) var(--ease-out),
+	            box-shadow var(--dur-hover) var(--ease-out);
+}
+.setup-player-preview:hover {
+	transform: scale(1.05);
+}
+
+.setup-picker-label {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--ink-muted);
+	margin-bottom: 4px;
+	grid-column: 2;
+}
+
+/* Token gallery — 8 tokens in 8-col row (4-col grid on small screens). */
+.setup-token-gallery {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	gap: 4px;
+	grid-column: 2;
+}
+.setup-token-pick {
+	width: 100%;
+	aspect-ratio: 1;
+	background-color: var(--surface-card);
+	background-size: 78% 78%;
+	background-position: center;
+	background-repeat: no-repeat;
+	border: 2px solid var(--hairline-strong);
+	border-radius: 8px;
+	padding: 0;
+	cursor: pointer;
+	transition: transform var(--dur-hover) var(--ease-out),
+	            border-color var(--dur-hover) var(--ease-out),
+	            background-color var(--dur-hover) var(--ease-out);
+}
+.setup-token-pick:hover {
+	transform: scale(1.10);
+	border-color: var(--accent-bright);
+}
+.setup-token-pick.is-selected {
+	border-color: var(--gold, #D4AF37);
+	background-color: rgba(212, 175, 55, 0.08);
+	transform: scale(1.06);
+	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32);
+}
+@media (max-width: 540px) {
+	.setup-token-gallery { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Color swatches — 16 colors in 8-col grid (2 rows). */
+.setup-color-swatches {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	gap: 6px;
+	grid-column: 2;
+}
+.setup-color-swatch {
+	width: 100%;
+	aspect-ratio: 1;
+	border: 2px solid var(--hairline-strong);
+	border-radius: 50%;
+	cursor: pointer;
+	padding: 0;
+	transition: transform var(--dur-hover) var(--ease-out),
+	            outline-offset var(--dur-hover) var(--ease-out);
+}
+.setup-color-swatch:hover {
+	transform: scale(1.18);
+}
+.setup-color-swatch.is-selected {
+	outline: 3px solid var(--gold, #D4AF37);
+	outline-offset: 2px;
+	transform: scale(1.12);
+}
+
+/* AI level cards — 5 cards horizontal (icon + label + short desc). */
+.setup-ai-cards {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 6px;
+	grid-column: 2;
+}
+.setup-ai-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 2px;
+	padding: 8px 6px;
+	background: var(--surface-card);
+	border: 2px solid var(--hairline-strong);
+	border-radius: 10px;
+	cursor: pointer;
+	text-align: center;
+	color: var(--ink);
+	font-family: var(--font-ui);
+	transition: transform var(--dur-hover) var(--ease-out),
+	            border-color var(--dur-hover) var(--ease-out),
+	            background-color var(--dur-hover) var(--ease-out);
+}
+.setup-ai-card-icon {
+	font-size: 20px;
+	line-height: 1;
+}
+.setup-ai-card-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+.setup-ai-card-desc {
+	font-size: 9px;
+	font-weight: 500;
+	color: var(--ink-muted);
+	letter-spacing: 0.02em;
+}
+.setup-ai-card:hover {
+	transform: translateY(-2px);
+	border-color: var(--accent-bright);
+}
+.setup-ai-card.is-selected {
+	border-color: var(--gold, #D4AF37);
+	background: linear-gradient(135deg, rgba(212, 175, 55, 0.10), rgba(212, 175, 55, 0.04));
+	box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25) inset;
+}
+.setup-ai-card.is-selected .setup-ai-card-label { color: var(--ink); }
+
+@media (max-width: 540px) {
+	.setup-ai-cards { grid-template-columns: repeat(5, 1fr); }
+	.setup-ai-card-icon { font-size: 17px; }
+	.setup-ai-card-label { font-size: 10px; }
+	.setup-ai-card-desc { display: none; }
+	.setup-player-visual { grid-template-columns: 56px 1fr; gap: 10px; }
+	.setup-player-preview { width: 56px; height: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.setup-token-pick,
+	.setup-color-swatch,
+	.setup-ai-card,
+	.setup-player-preview {
+		transition: none !important;
+	}
+}
+
+/* =====================================================================
+   Sprint Setup Item 3 — CTA hero + edition cards + presets + leave anim.
+   ===================================================================== */
+
+/* Edition picker — 2 visual cards instead of a dropdown. The legacy
+   <select id="edition-select"> stays in the DOM (display:none) so the
+   page-reload logic keeps working unchanged. */
+.setup-edition-select-hidden { display: none !important; }
+#edition-select-row label {
+	display: block;
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--ink-muted);
+	margin-bottom: 8px;
+}
+.setup-edition-cards {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 10px;
+}
+.setup-edition-card {
+	position: relative;
+	display: block;
+	padding: 0;
+	border: 2px solid var(--hairline-strong);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	background: var(--surface-card);
+	overflow: hidden;
+	min-height: 90px;
+	text-align: left;
+	color: var(--ink);
+	font-family: var(--font-ui);
+	transition: transform var(--dur-hover) var(--ease-out),
+	            border-color var(--dur-hover) var(--ease-out),
+	            box-shadow var(--dur-hover) var(--ease-out);
+}
+.setup-edition-card:hover {
+	transform: translateY(-2px);
+	border-color: var(--accent-bright);
+	box-shadow: var(--shadow-card);
+}
+.setup-edition-card.is-selected {
+	border-color: var(--gold, #D4AF37);
+	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32) inset,
+	            var(--shadow-lifted);
+}
+.setup-edition-card-bg {
+	position: absolute;
+	inset: 0;
+	opacity: 0.35;
+	z-index: 0;
+}
+.setup-edition-bg-classic {
+	background:
+		linear-gradient(135deg, #8B4513 0%, transparent 30%),
+		linear-gradient(225deg, #1B5E3F 0%, transparent 30%),
+		linear-gradient(315deg, #D4AF37 0%, transparent 30%),
+		linear-gradient(45deg, #B8001E 0%, transparent 30%),
+		var(--surface-card);
+}
+.setup-edition-bg-nyc {
+	background:
+		linear-gradient(135deg, #4B0082 0%, transparent 30%),
+		linear-gradient(225deg, #008080 0%, transparent 30%),
+		linear-gradient(315deg, #FF8C00 0%, transparent 30%),
+		linear-gradient(45deg, #1E3A8A 0%, transparent 30%),
+		var(--surface-card);
+}
+.setup-edition-card-body {
+	position: relative;
+	z-index: 1;
+	display: block;
+	padding: 14px 16px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.92));
+}
+html.theme-dark .setup-edition-card-body,
+@media (prefers-color-scheme: dark) {
+	.setup-edition-card-body {
+		background: linear-gradient(180deg, rgba(20, 24, 28, 0.85), rgba(20, 24, 28, 0.92));
+	}
+}
+.setup-edition-card-name {
+	display: block;
+	font-size: 15px;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	color: var(--ink);
+	margin-bottom: 2px;
+}
+.setup-edition-card-desc {
+	display: block;
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: var(--ink-muted);
+}
+
+/* Preset buttons — wire active state. Hover lift kept; selected ring gold. */
+.setup-preset[aria-pressed="true"],
+.setup-preset.setup-preset-active {
+	border-color: var(--gold, #D4AF37) !important;
+	background: linear-gradient(135deg, rgba(212, 175, 55, 0.16), rgba(212, 175, 55, 0.06)) !important;
+	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32) inset !important;
+}
+
+/* CTA hero — the PLAY button is the moment. Gold gradient + uppercase +
+   wide letter-spacing + pulse loop. Subtitle below. */
+.setup-cta-hero {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin-top: auto;
+	padding-top: 20px;
+}
+#start-game-btn {
+	background: linear-gradient(135deg, #FFE38A 0%, var(--gold, #D4AF37) 50%, #B8941F 100%);
+	color: #1A1A1A;
+	padding: 16px 56px;
+	font-family: var(--font-ui);
+	font-size: clamp(20px, 2.2vw, 26px);
+	font-weight: 900;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	border: none;
+	border-radius: 999px;
+	cursor: pointer;
+	box-shadow:
+		0 6px 20px rgba(212, 175, 55, 0.45),
+		0 0 0 2px rgba(255, 255, 255, 0.25) inset,
+		0 -2px 0 rgba(0, 0, 0, 0.08) inset;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+	animation: setup-cta-pulse 2.4s ease-in-out infinite;
+	transition: transform var(--dur-hover) var(--ease-press),
+	            box-shadow var(--dur-hover) var(--ease-out);
+}
+@keyframes setup-cta-pulse {
+	0%, 100% { transform: scale(1); }
+	50%      { transform: scale(1.04); }
+}
+#start-game-btn:hover {
+	transform: scale(1.06);
+	animation-play-state: paused;
+	box-shadow:
+		0 8px 24px rgba(212, 175, 55, 0.60),
+		0 0 0 2px rgba(255, 255, 255, 0.35) inset;
+}
+#start-game-btn:active {
+	transform: scale(0.98);
+}
+.setup-cta-subtitle {
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	color: var(--ink-muted);
+	font-style: italic;
+}
+
+/* Setup-leaving — fade + scale-up before the game stage appears. */
+#setup.setup-leaving {
+	animation: setup-leave 400ms var(--ease-press) forwards;
+	pointer-events: none;
+}
+@keyframes setup-leave {
+	0%   { opacity: 1; transform: scale(1) translateY(0); }
+	100% { opacity: 0; transform: scale(1.05) translateY(-16px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#start-game-btn,
+	#setup.setup-leaving,
+	.setup-edition-card {
+		animation: none !important;
+		transition: none !important;
 	}
 }

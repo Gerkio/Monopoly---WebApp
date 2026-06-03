@@ -1784,6 +1784,214 @@ function _injectAvatarPickers() {
 			sel.appendChild(opt);
 		}
 		row.appendChild(sel);
+		// Sprint Setup Item 2 — inject the visual pickers ABOVE/BESIDE the
+		// (now hidden) native selects. The selects stay in the DOM because
+		// monopoly.js setup() + the smoke tests both read `.value` from them
+		// directly. The visual buttons just sync the select on click.
+		__buildPlayerVisualPickers(ai, row, AVATAR_OPTIONS);
+	}
+}
+
+// Build the visual customization UI for a single player row: live preview
+// (color + avatar circle), token gallery, color swatches grid, AI level cards.
+function __buildPlayerVisualPickers(n, row, AVATAR_OPTIONS) {
+	if (!row || row.querySelector('.setup-player-visual')) return;
+
+	var COLORS_HEX = {
+		'Aqua': '#00FFFF', 'Black': '#000000', 'Blue': '#0000FF', 'Fuchsia': '#FF00FF',
+		'Gray': '#808080', 'Green': '#008000', 'Lime': '#00FF00', 'Maroon': '#800000',
+		'Navy': '#000080', 'Olive': '#808000', 'Orange': '#FFA500', 'Purple': '#800080',
+		'Red': '#FF0000', 'Silver': '#C0C0C0', 'Teal': '#008080', 'Yellow': '#FFFF00'
+	};
+	var AI_LEVELS = [
+		{ v: '0', icon: '👤', labelKey: 'setup.human',       descKey: 'setup.aiHumanDesc' },
+		{ v: '1', icon: '🎲', labelKey: 'setup.aiEasy',      descKey: 'setup.aiEasyDesc' },
+		{ v: '2', icon: '♟️', labelKey: 'setup.aiNormal',    descKey: 'setup.aiNormalDesc' },
+		{ v: '3', icon: '👑', labelKey: 'setup.aiHard',      descKey: 'setup.aiHardDesc' },
+		{ v: '4', icon: '🧠', labelKey: 'setup.aiAdaptive',  descKey: 'setup.aiAdaptiveDesc' }
+	];
+
+	// Container that holds preview + visual pickers. Hides the native selects
+	// (color/ai/avatar) by adding .has-visual-pickers to the row.
+	var wrap = document.createElement('div');
+	wrap.className = 'setup-player-visual';
+
+	// 1. Live preview circle (avatar PNG on color background).
+	var preview = document.createElement('div');
+	preview.className = 'setup-player-preview';
+	preview.setAttribute('data-player-num', n);
+	preview.setAttribute('aria-hidden', 'true');
+	wrap.appendChild(preview);
+
+	// 2. Token gallery (8 buttons).
+	var tokenLabel = document.createElement('div');
+	tokenLabel.className = 'setup-picker-label';
+	tokenLabel.textContent = (typeof t === 'function') ? t('setup.playerAvatar') : 'Token';
+	tokenLabel.setAttribute('data-i18n', 'setup.playerAvatar');
+	wrap.appendChild(tokenLabel);
+
+	var tokenGallery = document.createElement('div');
+	tokenGallery.className = 'setup-token-gallery';
+	tokenGallery.setAttribute('data-player-num', n);
+	tokenGallery.setAttribute('role', 'radiogroup');
+	tokenGallery.setAttribute('aria-label', 'Token');
+	AVATAR_OPTIONS.forEach(function (av) {
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'setup-token-pick';
+		btn.setAttribute('data-avatar', av.id);
+		btn.setAttribute('role', 'radio');
+		btn.setAttribute('aria-checked', 'false');
+		btn.setAttribute('aria-label', av.label);
+		btn.title = av.label;
+		btn.style.backgroundImage = "url('" + av.file + "')";
+		btn.addEventListener('click', function () {
+			var sel = document.getElementById('player' + n + 'avatar');
+			if (sel) { sel.value = av.id; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+			tokenGallery.querySelectorAll('.setup-token-pick').forEach(function (b) {
+				var picked = (b === btn);
+				b.classList.toggle('is-selected', picked);
+				b.setAttribute('aria-checked', picked ? 'true' : 'false');
+			});
+			__updatePlayerPreview(n);
+		});
+		tokenGallery.appendChild(btn);
+	});
+	wrap.appendChild(tokenGallery);
+
+	// 3. Color swatches.
+	var colorLabel = document.createElement('div');
+	colorLabel.className = 'setup-picker-label';
+	colorLabel.textContent = (typeof t === 'function') ? t('setup.playerColor') : 'Color';
+	colorLabel.setAttribute('data-i18n', 'setup.playerColor');
+	wrap.appendChild(colorLabel);
+
+	var colorGrid = document.createElement('div');
+	colorGrid.className = 'setup-color-swatches';
+	colorGrid.setAttribute('data-player-num', n);
+	colorGrid.setAttribute('role', 'radiogroup');
+	colorGrid.setAttribute('aria-label', 'Color');
+	Object.keys(COLORS_HEX).forEach(function (colorName) {
+		var swatch = document.createElement('button');
+		swatch.type = 'button';
+		swatch.className = 'setup-color-swatch';
+		swatch.setAttribute('data-color', colorName);
+		swatch.setAttribute('role', 'radio');
+		swatch.setAttribute('aria-checked', 'false');
+		swatch.setAttribute('aria-label', colorName);
+		swatch.title = colorName;
+		swatch.style.backgroundColor = COLORS_HEX[colorName];
+		swatch.addEventListener('click', function () {
+			var sel = document.getElementById('player' + n + 'color');
+			if (sel) { sel.value = colorName; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+			colorGrid.querySelectorAll('.setup-color-swatch').forEach(function (s) {
+				var picked = (s === swatch);
+				s.classList.toggle('is-selected', picked);
+				s.setAttribute('aria-checked', picked ? 'true' : 'false');
+			});
+			__updatePlayerPreview(n);
+		});
+		colorGrid.appendChild(swatch);
+	});
+	wrap.appendChild(colorGrid);
+
+	// 4. AI level cards.
+	var aiLabel = document.createElement('div');
+	aiLabel.className = 'setup-picker-label';
+	aiLabel.textContent = (typeof t === 'function') ? t('setup.playerAi') : 'Type';
+	aiLabel.setAttribute('data-i18n', 'setup.playerAiShort');
+	wrap.appendChild(aiLabel);
+
+	var aiCards = document.createElement('div');
+	aiCards.className = 'setup-ai-cards';
+	aiCards.setAttribute('data-player-num', n);
+	aiCards.setAttribute('role', 'radiogroup');
+	aiCards.setAttribute('aria-label', 'Player type');
+	AI_LEVELS.forEach(function (lvl) {
+		var card = document.createElement('button');
+		card.type = 'button';
+		card.className = 'setup-ai-card';
+		card.setAttribute('data-ai-level', lvl.v);
+		card.setAttribute('role', 'radio');
+		card.setAttribute('aria-checked', 'false');
+		card.innerHTML =
+			'<span class="setup-ai-card-icon" aria-hidden="true">' + lvl.icon + '</span>' +
+			'<span class="setup-ai-card-label" data-i18n="' + lvl.labelKey + '">' +
+				(typeof t === 'function' ? t(lvl.labelKey) : lvl.labelKey) + '</span>' +
+			'<span class="setup-ai-card-desc" data-i18n="' + lvl.descKey + '">' +
+				(typeof t === 'function' ? (t(lvl.descKey) || '') : '') + '</span>';
+		card.addEventListener('click', function () {
+			var sel = document.getElementById('player' + n + 'ai');
+			if (sel) { sel.value = lvl.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+			aiCards.querySelectorAll('.setup-ai-card').forEach(function (c) {
+				var picked = (c === card);
+				c.classList.toggle('is-selected', picked);
+				c.setAttribute('aria-checked', picked ? 'true' : 'false');
+			});
+		});
+		aiCards.appendChild(card);
+	});
+	wrap.appendChild(aiCards);
+
+	row.appendChild(wrap);
+	row.classList.add('has-visual-pickers');
+
+	// Sync initial selected state from each <select>'s current value.
+	__syncVisualPickersFromSelects(n);
+	__updatePlayerPreview(n);
+}
+
+// Read the canonical state from the hidden <select>s and toggle .is-selected
+// on the matching visual buttons. Used on initial render + after
+// _restoreSetupFromStorage / playernumber_onchange dispatches change events.
+function __syncVisualPickersFromSelects(n) {
+	var avatar = document.getElementById('player' + n + 'avatar');
+	var color = document.getElementById('player' + n + 'color');
+	var ai = document.getElementById('player' + n + 'ai');
+	if (avatar) {
+		document.querySelectorAll('.setup-token-gallery[data-player-num="' + n + '"] .setup-token-pick').forEach(function (b) {
+			var picked = (b.getAttribute('data-avatar') === avatar.value);
+			b.classList.toggle('is-selected', picked);
+			b.setAttribute('aria-checked', picked ? 'true' : 'false');
+		});
+	}
+	if (color) {
+		document.querySelectorAll('.setup-color-swatches[data-player-num="' + n + '"] .setup-color-swatch').forEach(function (s) {
+			var picked = (s.getAttribute('data-color') === color.value);
+			s.classList.toggle('is-selected', picked);
+			s.setAttribute('aria-checked', picked ? 'true' : 'false');
+		});
+	}
+	if (ai) {
+		document.querySelectorAll('.setup-ai-cards[data-player-num="' + n + '"] .setup-ai-card').forEach(function (c) {
+			var picked = (c.getAttribute('data-ai-level') === ai.value);
+			c.classList.toggle('is-selected', picked);
+			c.setAttribute('aria-checked', picked ? 'true' : 'false');
+		});
+	}
+}
+
+// Refresh the live preview circle (avatar PNG on tinted background) for
+// player `n`. Called whenever color or avatar changes.
+function __updatePlayerPreview(n) {
+	var prev = document.querySelector('.setup-player-preview[data-player-num="' + n + '"]');
+	if (!prev) return;
+	var color = document.getElementById('player' + n + 'color');
+	var avatar = document.getElementById('player' + n + 'avatar');
+	if (color) {
+		prev.style.backgroundColor = color.value.toLowerCase();
+	}
+	if (avatar) {
+		// Map the avatar id to its PNG path via GameConfig.avatarOptions.
+		var opts = window.GameConfig && window.GameConfig.avatarOptions;
+		if (opts) {
+			for (var i = 0; i < opts.length; i++) {
+				if (opts[i].id === avatar.value) {
+					prev.style.backgroundImage = "url('" + opts[i].file + "')";
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -1888,28 +2096,70 @@ function _wireGlobalButtons() {
 	document.querySelectorAll('.setup-preset').forEach(function (b) {
 		b.addEventListener('click', function () {
 			if (typeof window.__applyPreset === 'function') window.__applyPreset(b.getAttribute('data-preset'));
+			// Sprint Setup Item 3 — visual active state for preset row.
+			document.querySelectorAll('.setup-preset').forEach(function (other) {
+				other.classList.toggle('setup-preset-active', other === b);
+				other.setAttribute('aria-pressed', other === b ? 'true' : 'false');
+			});
 		});
 	});
 	var byId = function (id, fn) {
 		var el = document.getElementById(id);
 		if (el) el.addEventListener('click', fn);
 	};
-	byId('start-game-btn',      setup);
+	// Sprint Setup Item 3 — PLAY button: trigger a brief "setup-leaving" fade
+	// before running the actual setup() so the transition into the game feels
+	// like a curtain rising. setup() is called after 380ms (the leave keyframe
+	// is 400ms; we call slightly before so the game stage starts revealing as
+	// the setup fades out). prefers-reduced-motion skips the delay.
+	byId('start-game-btn', function () {
+		var setupEl = document.getElementById('setup');
+		var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (setupEl && !reduce) {
+			setupEl.classList.add('setup-leaving');
+			setTimeout(setup, 380);
+		} else {
+			setup();
+		}
+	});
 	byId('resignbutton',        function () { game.resign(); });
 	byId('proposetradebutton',  function () { game.proposeTrade(); });
 	byId('canceltradebutton',   function () { game.cancelTrade(); });
 	byId('accepttradebutton',   function () { game.acceptTrade(); });
 	byId('rejecttradebutton',   function () { game.cancelTrade(); });
 
-	// Edition selector: reflect the active edition, and switch on change.
+	// Edition selector: hidden <select> stays for monopoly.js / tests; the
+	// new visual cards above sync its value on click.
 	var editionSel = document.getElementById('edition-select');
 	if (editionSel) {
-		editionSel.value = window.__EDITION || 'classic';
+		editionSel.value = (window.GameConfig && window.GameConfig.edition) || 'classic';
 		editionSel.addEventListener('change', function () {
 			try { window.localStorage.setItem('monopoly:edition', editionSel.value); } catch (e) { /* localStorage unavailable */ }
 			window.location.reload();
 		});
 	}
+	// Sprint Setup Item 3 — edition cards wire. Click syncs the hidden
+	// <select> + fires its change handler (which reloads the page with the
+	// chosen edition). Also toggles visual selected state.
+	document.querySelectorAll('.setup-edition-card').forEach(function (card) {
+		card.addEventListener('click', function () {
+			var ed = card.getAttribute('data-edition');
+			document.querySelectorAll('.setup-edition-card').forEach(function (c) {
+				var picked = (c === card);
+				c.classList.toggle('is-selected', picked);
+				c.setAttribute('aria-checked', picked ? 'true' : 'false');
+			});
+			if (editionSel && editionSel.value !== ed) {
+				editionSel.value = ed;
+				editionSel.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		});
+		// Initial selected state matches the hidden select on load.
+		if (editionSel && card.getAttribute('data-edition') === editionSel.value) {
+			card.classList.add('is-selected');
+			card.setAttribute('aria-checked', 'true');
+		}
+	});
 }
 
 // Build the 40 board cells (anchor, color strip, name, price chip, owner
@@ -2285,11 +2535,35 @@ function _initSettingsMenu() {
 	window.__closeSettingsMenu = close;
 }
 
+// Setup hero particles — small golden dots that drift upward through the
+// hero block. CSS handles the rise + fade animation; we just inject the
+// nodes with randomized left + animation-delay + duration so the result
+// looks organic rather than synchronized.
+function _spawnSetupParticles() {
+	var host = document.querySelector('#setup-hero .setup-particles');
+	if (!host) return;
+	// Lower particle count on small screens to keep mobile fps healthy.
+	var count = (window.innerWidth < 600) ? 8 : 16;
+	// Already populated? Skip (idempotent — boot might run twice in dev).
+	if (host.children.length >= count) return;
+	for (var i = 0; i < count; i++) {
+		var p = document.createElement('span');
+		p.className = 'setup-particle';
+		p.style.left = (Math.random() * 100) + '%';
+		p.style.animationDelay = (-Math.random() * 7).toFixed(2) + 's';
+		p.style.animationDuration = (6 + Math.random() * 4).toFixed(2) + 's';
+		p.style.width = (3 + Math.random() * 3).toFixed(1) + 'px';
+		p.style.height = p.style.width;
+		host.appendChild(p);
+	}
+}
+
 window.onload = function() {
 	__renderPlayerSetup();
 	_initI18N();
 	_initThemeToggle();
 	_initSettingsMenu();
+	_spawnSetupParticles();
 
 	fitStage();
 	window.addEventListener('resize', fitStage);
@@ -2486,6 +2760,13 @@ window.onload = function() {
 	_injectAvatarPickers();
 	_restoreSetupFromStorage();
 	_initGameState();
+	// Sprint Setup Item 2 — sync visual pickers from the canonical <select>
+	// state AFTER restore. Otherwise restored values would show in the
+	// hidden selects but the visual buttons would still highlight defaults.
+	for (var __pi = 1; __pi <= 8; __pi++) {
+		__syncVisualPickersFromSelects(__pi);
+		__updatePlayerPreview(__pi);
+	}
 
 	UI.$on("playernumber", "change", playernumber_onchange);
 	playernumber_onchange();
