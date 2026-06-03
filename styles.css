@@ -4000,7 +4000,6 @@ html.theme-dark #setup {
 	margin-bottom: 12px;
 }
 #setup-bottom-grid > * { margin-bottom: 0; }
-#setup-bottom-grid #setup-presets { flex-wrap: wrap; }
 #setup-bottom-grid #house-rules-block { grid-column: 1 / -1; }
 /* When the screen is wide enough (≥ ~1200 px) we let the house-rules
    panel sit as a 3rd column so the whole bottom row is on one line. */
@@ -4071,60 +4070,9 @@ html.theme-dark #setup {
 	color: var(--ink-muted);
 	margin-bottom: 8px;
 }
-#setup-presets-row { display: flex; flex-direction: column; }
-
-#setup-presets {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 8px;
-	margin: 0;
-}
-.setup-preset {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 10px 12px;
-	border: 2px solid var(--hairline-strong);
-	border-radius: var(--radius-md);
-	background: var(--surface-card);
-	color: var(--ink);
-	font-family: var(--font-ui);
-	font-size: 13px;
-	cursor: pointer;
-	text-align: left;
-	transition: background 200ms var(--ease-out),
-	            border-color 200ms var(--ease-out),
-	            transform 200ms var(--ease-out),
-	            box-shadow 200ms var(--ease-out);
-}
-.setup-preset-icon {
-	font-size: 22px;
-	line-height: 1;
-	flex-shrink: 0;
-}
-.setup-preset-body {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-}
-.setup-preset-name {
-	display: block;
-	font-size: 13px;
-	font-weight: 800;
-	color: var(--ink);
-	letter-spacing: 0.02em;
-}
-.setup-preset-sub {
-	display: block;
-	font-size: 11px;
-	color: var(--ink-muted);
-	margin-top: 1px;
-}
-.setup-preset:hover {
-	border-color: var(--accent-bright);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-card);
-}
+/* (Legacy .setup-preset / #setup-presets button rules retired — the
+   starting-cash picker is a native <select id="preset-select"> now,
+   styled via .setup-dropdown-select.) */
 
 /* House rules collapsible block. Closed by default to keep setup clean. */
 #house-rules-block {
@@ -5123,8 +5071,8 @@ input[type="button"] { position: relative; overflow: hidden; }
 /* Setup form spacing chunks. */
 .setup-section-mb-20 { margin-bottom: 20px; }
 .setup-section-my-20 { margin: 20px 0; }
-#edition-select-row { margin: 8px 0 14px; }
-#edition-select-row label { margin-right: 6px; }
+/* (#edition-select-row removed — edition picker is now part of the paired
+   .setup-bottom-dropdowns row alongside the cash preset select.) */
 
 /* Control panel layout — table cells that should not show borders. */
 #control td.bare-cell-left  { text-align: left; vertical-align: top; border: none; }
@@ -6165,7 +6113,8 @@ input[type="button"] { position: relative; overflow: hidden; }
 	display: inline-flex;
 	align-items: center;
 }
-.setup-ai-dropdown-select {
+.setup-ai-dropdown-select,
+.setup-dropdown-select {
 	-webkit-appearance: none;
 	-moz-appearance: none;
 	appearance: none;
@@ -6190,12 +6139,37 @@ input[type="button"] { position: relative; overflow: hidden; }
 	transition: border-color var(--dur-hover) var(--ease-out),
 	            transform var(--dur-hover) var(--ease-out);
 }
-.setup-ai-dropdown-select:hover {
+.setup-ai-dropdown-select:hover,
+.setup-dropdown-select:hover {
 	border-color: var(--accent-bright);
 }
-.setup-ai-dropdown-select:focus-visible {
+.setup-ai-dropdown-select:focus-visible,
+.setup-dropdown-select:focus-visible {
 	outline: 2px solid var(--accent-bright);
 	outline-offset: 2px;
+}
+
+/* Paired bottom-row dropdowns (edition + starting cash). Two equal-width
+   fields side-by-side on desktop, stack vertically on narrow screens. */
+.setup-bottom-dropdowns {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 14px 18px;
+	align-items: end;
+}
+.setup-dropdown-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.setup-dropdown-field .setup-bottom-label {
+	margin-bottom: 0;
+}
+.setup-dropdown-field .setup-dropdown-select {
+	width: 100%;
+	min-width: 0;
+	padding: 9px 32px 9px 14px;
+	font-size: 14px;
 }
 
 /* Human slot: no AI selector at all (business rule). Visual accent on circle. */
@@ -6456,115 +6430,10 @@ body.player-customizer-open {
    Sprint Setup Item 3 — CTA hero + edition cards + presets + leave anim.
    ===================================================================== */
 
-/* Edition picker — 2 visual cards instead of a dropdown. The legacy
-   <select id="edition-select"> stays in the DOM (display:none) so the
-   page-reload logic keeps working unchanged. */
-.setup-edition-select-hidden { display: none !important; }
-#edition-select-row label {
-	display: block;
-	font-size: 12px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	color: var(--ink-muted);
-	margin-bottom: 8px;
-}
-.setup-edition-cards {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: 10px;
-}
-.setup-edition-card {
-	position: relative;
-	display: block;
-	padding: 0;
-	border: 2px solid var(--hairline-strong);
-	border-radius: var(--radius-md);
-	cursor: pointer;
-	background: var(--surface-card);
-	overflow: hidden;
-	min-height: 90px;
-	text-align: left;
-	color: var(--ink);
-	font-family: var(--font-ui);
-	transition: transform var(--dur-hover) var(--ease-out),
-	            border-color var(--dur-hover) var(--ease-out),
-	            box-shadow var(--dur-hover) var(--ease-out);
-}
-.setup-edition-card:hover {
-	transform: translateY(-2px);
-	border-color: var(--accent-bright);
-	box-shadow: var(--shadow-card);
-}
-.setup-edition-card.is-selected {
-	border-color: var(--gold, #D4AF37);
-	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.32) inset,
-	            var(--shadow-lifted);
-}
-.setup-edition-card-bg {
-	position: absolute;
-	inset: 0;
-	opacity: 0.35;
-	z-index: 0;
-}
-/* Edition card backgrounds — replaced the noisy 4-corner gradient blobs
-   with a single subtle accent stripe at the top + a stylized initial
-   letter watermark so the cards feel like clean labeled tabs instead
-   of confused color patches. */
-.setup-edition-bg-classic,
-.setup-edition-bg-nyc {
-	background: var(--surface-card);
-}
-.setup-edition-bg-classic::before,
-.setup-edition-bg-nyc::before {
-	content: '';
-	position: absolute;
-	top: 0; left: 0; right: 0;
-	height: 6px;
-	background: linear-gradient(90deg, #D4AF37, #B8001E, #1B5E3F);
-}
-.setup-edition-bg-nyc::before {
-	background: linear-gradient(90deg, #4B0082, #008080, #FF8C00);
-}
-.setup-edition-card-body {
-	position: relative;
-	z-index: 1;
-	display: block;
-	padding: 14px 16px;
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.92));
-}
-html.theme-dark .setup-edition-card-body,
-@media (prefers-color-scheme: dark) {
-	.setup-edition-card-body {
-		background: linear-gradient(180deg, rgba(20, 24, 28, 0.85), rgba(20, 24, 28, 0.92));
-	}
-}
-.setup-edition-card-name {
-	display: block;
-	font-size: 15px;
-	font-weight: 800;
-	letter-spacing: 0.04em;
-	color: var(--ink);
-	margin-bottom: 2px;
-}
-.setup-edition-card-desc {
-	display: block;
-	font-size: 11px;
-	font-weight: 500;
-	letter-spacing: 0.02em;
-	color: var(--ink-muted);
-}
-
-/* Preset buttons — active state uses gold border + soft tint. Matches
-   the visual language of the edition cards / AI cards (also gold-bordered
-   on selection) so the whole bottom row feels cohesive. */
-.setup-preset[aria-pressed="true"],
-.setup-preset.setup-preset-active {
-	border-color: var(--gold, #D4AF37) !important;
-	background: linear-gradient(135deg, rgba(212, 175, 55, 0.14), rgba(212, 175, 55, 0.04)) !important;
-	box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.28) inset, var(--shadow-card) !important;
-	transform: translateY(-1px);
-}
+/* (Legacy .setup-edition-card / .setup-edition-cards / .setup-edition-bg-*
+   rules retired — the edition picker is a native <select id="edition-select">
+   styled via .setup-dropdown-select. Also drops the .setup-preset active-
+   state rule which paired with the old preset buttons.) */
 
 /* CTA hero — the PLAY button is the moment. Gold gradient + uppercase +
    wide letter-spacing + pulse loop. Subtitle below. */
@@ -6631,8 +6500,7 @@ html.theme-dark .setup-edition-card-body,
 
 @media (prefers-reduced-motion: reduce) {
 	#start-game-btn,
-	#setup.setup-leaving,
-	.setup-edition-card {
+	#setup.setup-leaving {
 		animation: none !important;
 		transition: none !important;
 	}
@@ -6670,19 +6538,9 @@ html.theme-dark .setup-edition-card-body,
    ===================================================================== */
 .setup-token-pick:active,
 .setup-color-swatch:active,
-.setup-edition-card:active,
 .player-customizer-done:active {
 	transform: scale(0.94);
 	transition-duration: 80ms;
-}
-
-.setup-edition-card {
-	transition: transform 220ms var(--ease-out),
-	            border-color 220ms var(--ease-out),
-	            box-shadow 220ms var(--ease-out);
-}
-.setup-edition-card:hover {
-	transform: translateY(-3px) scale(1.012);
 }
 
 /* PLAY button — sweeter pulse + radial gold halo behind. */

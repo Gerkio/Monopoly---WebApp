@@ -980,17 +980,14 @@ window.__highlightBoardCell = function (idx, on) {
 };
 
 // Setup presets — quick/standard/long. Tweaks starting cash and stores it
-// on window.GameConfig.startingCash; setup() reads from there when instantiating players.
+// on window.GameConfig.startingCash; setup() reads from there when
+// instantiating players. The visible selection lives on the
+// <select id="preset-select"> directly; no button highlighting needed.
 window.__applyPreset = function (kind) {
 	var amount = 1500;
 	if (kind === 'quick') amount = 1000;
 	else if (kind === 'long') amount = 2500;
 	window.GameConfig.startingCash = amount;
-	// Visual feedback: highlight the chosen preset button.
-	var btns = document.querySelectorAll('.setup-preset');
-	for (var i = 0; i < btns.length; i++) btns[i].classList.remove('setup-preset-active');
-	var match = document.querySelector('.setup-preset[onclick*="' + kind + '"]');
-	if (match) match.classList.add('setup-preset-active');
 };
 
 // Triggered by the "Auction now" button on the landed-on-unowned-property UI.

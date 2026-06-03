@@ -2210,6 +2210,8 @@ function _restoreSetupFromStorage() {
 		if (typeof s.cash === 'number' && typeof window.__applyPreset === 'function') {
 			var presetKey = s.cash === 1000 ? 'quick' : (s.cash === 2500 ? 'long' : 'standard');
 			try { window.__applyPreset(presetKey); } catch (e) { /* preset load: ignore */ }
+			var presetSel = document.getElementById('preset-select');
+			if (presetSel) presetSel.value = presetKey;
 		}
 		if (s.rules && typeof s.rules === 'object') {
 			var ruleMap = {
@@ -2278,16 +2280,15 @@ function _wireGlobalButtons() {
 	document.querySelectorAll('.lang-btn').forEach(function (b) {
 		b.addEventListener('click', function () { I18N.set(b.getAttribute('data-lang')); });
 	});
-	document.querySelectorAll('.setup-preset').forEach(function (b) {
-		b.addEventListener('click', function () {
-			if (typeof window.__applyPreset === 'function') window.__applyPreset(b.getAttribute('data-preset'));
-			// Sprint Setup Item 3 — visual active state for preset row.
-			document.querySelectorAll('.setup-preset').forEach(function (other) {
-				other.classList.toggle('setup-preset-active', other === b);
-				other.setAttribute('aria-pressed', other === b ? 'true' : 'false');
-			});
+	// Starting-cash preset dropdown — fires __applyPreset() on change.
+	var presetSel = document.getElementById('preset-select');
+	if (presetSel) {
+		presetSel.addEventListener('change', function () {
+			if (typeof window.__applyPreset === 'function') {
+				window.__applyPreset(presetSel.value);
+			}
 		});
-	});
+	}
 	var byId = function (id, fn) {
 		var el = document.getElementById(id);
 		if (el) el.addEventListener('click', fn);
@@ -2339,40 +2340,20 @@ function _wireGlobalButtons() {
 	byId('accepttradebutton',   function () { game.acceptTrade(); });
 	byId('rejecttradebutton',   function () { game.cancelTrade(); });
 
-	// Edition selector: hidden <select> stays for monopoly.js / tests.
-	// Importantly, we DO NOT fire a page reload here — the edition only
-	// commits when the user clicks PLAY (see byId('start-game-btn') above).
-	// This avoids the harsh black flash that the old reload-on-change
-	// produced and lets the user toggle editions while exploring the setup.
+	// Edition selector: now a visible <select>. We DO NOT fire a page reload
+	// on change — the edition only commits when the user clicks PLAY (see
+	// byId('start-game-btn') above). This avoids the harsh black flash and
+	// lets the user toggle editions while exploring the setup. On change we
+	// just pre-warm the new edition's music so PLAY has the audio buffered.
 	var editionSel = document.getElementById('edition-select');
 	if (editionSel) {
 		editionSel.value = (window.GameConfig && window.GameConfig.edition) || 'classic';
-	}
-	// Sprint Setup Item 3 — edition cards wire. Click only syncs the
-	// hidden <select>'s value + toggles visual selected state. No reload.
-	document.querySelectorAll('.setup-edition-card').forEach(function (card) {
-		card.addEventListener('click', function () {
-			var ed = card.getAttribute('data-edition');
-			document.querySelectorAll('.setup-edition-card').forEach(function (c) {
-				var picked = (c === card);
-				c.classList.toggle('is-selected', picked);
-				c.setAttribute('aria-checked', picked ? 'true' : 'false');
-			});
-			if (editionSel) editionSel.value = ed;
-			// Pre-warm the new edition's music so the eventual PLAY click
-			// has the MP3 already buffered. This kicks off in the background;
-			// failures are silent (most likely cause: no AudioContext yet,
-			// which is fine — playMusic() will fetch when it eventually runs).
+		editionSel.addEventListener('change', function () {
 			if (typeof Sound !== 'undefined' && Sound.preloadMusicForEdition) {
-				try { Sound.preloadMusicForEdition(ed); } catch (e) {}
+				try { Sound.preloadMusicForEdition(editionSel.value); } catch (e) {}
 			}
 		});
-		// Initial selected state matches the hidden select on load.
-		if (editionSel && card.getAttribute('data-edition') === editionSel.value) {
-			card.classList.add('is-selected');
-			card.setAttribute('aria-checked', 'true');
-		}
-	});
+	}
 }
 
 // Build the 40 board cells (anchor, color strip, name, price chip, owner

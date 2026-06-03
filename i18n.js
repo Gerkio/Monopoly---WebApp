@@ -384,10 +384,13 @@ var I18N = (function () {
 			'setup.presetsTitle': 'Choose a starting profile',
 			'setup.presetQuick': 'Quick',
 			'setup.presetQuickSub': '$1000 · faster',
+			'setup.presetQuickFull': '⚡ Quick · $1000',
 			'setup.presetStandard': 'Standard',
 			'setup.presetStandardSub': '$1500 · classic',
+			'setup.presetStandardFull': '♟️ Standard · $1500',
 			'setup.presetLong': 'Long',
 			'setup.presetLongSub': '$2500 · marathon',
+			'setup.presetLongFull': '🏆 Long · $2500',
 
 			// House rules
 			'setup.houseRulesTitle': 'House rules (optional)',
@@ -781,10 +784,13 @@ var I18N = (function () {
 			'setup.presetsTitle': 'Elige un perfil de partida',
 			'setup.presetQuick': 'Rápida',
 			'setup.presetQuickSub': '$1000 · ágil',
+			'setup.presetQuickFull': '⚡ Rápida · $1000',
 			'setup.presetStandard': 'Clásica',
 			'setup.presetStandardSub': '$1500 · estándar',
+			'setup.presetStandardFull': '♟️ Clásica · $1500',
 			'setup.presetLong': 'Larga',
 			'setup.presetLongSub': '$2500 · maratón',
+			'setup.presetLongFull': '🏆 Larga · $2500',
 
 			// House rules
 			'setup.houseRulesTitle': 'Reglas de la casa (opcionales)',
