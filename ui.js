@@ -81,9 +81,24 @@ var UI = (function () {
 	//   to textContent for safety.
 	// opts.accentColor: overrides the border-left-color (used by AI turn recaps
 	//   to tint the toast with the player's color).
+	// Maximum visible toasts at once. Anything beyond this expires the oldest
+	// early so the corner stays uncluttered when a burst of AI turns floods
+	// the queue.
+	var TOAST_STACK_MAX = 3;
+
 	function toast(messageText, opts) {
 		opts = opts || {};
 		var overlay = ensureOverlay();
+
+		// Trim the stack BEFORE appending so the new toast appears in a tidy
+		// corner. We collapse the oldest immediately if we'd otherwise exceed
+		// the cap — its remove() handler still runs via animationend.
+		var existing = overlay.querySelectorAll('.toast:not(.toast-out)');
+		var overBy = existing.length - (TOAST_STACK_MAX - 1);
+		for (var i = 0; i < overBy; i++) {
+			existing[i].classList.add('toast-out');
+		}
+
 		var node = document.createElement('div');
 		node.className = 'toast toast-' + (opts.kind || 'info');
 		if (opts.html) node.innerHTML = String(messageText);
