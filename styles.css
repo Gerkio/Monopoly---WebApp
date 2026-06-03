@@ -3951,7 +3951,12 @@ input[type="button"]:disabled:hover { transform: none; }
 	min-height: calc(100% - 32px);
 	box-sizing: border-box;
 	font-size: 16px;
-	background: var(--surface-card);
+	/* Decorative Monopoly-themed background: vector art with money + chips +
+	   dice framing a teal center. A light overlay sits on top to keep text
+	   legible everywhere except the corners where the image art lives. */
+	background:
+		linear-gradient(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.82)),
+		url('images/background-free-vector.jpg') center center / cover no-repeat fixed;
 	border-radius: var(--radius-xl);
 	box-shadow: var(--shadow-lifted), 0 0 0 1px var(--hairline);
 	font-family: var(--font-ui);
@@ -3965,6 +3970,20 @@ input[type="button"]:disabled:hover { transform: none; }
 	max-height: calc(100vh - 48px);
 	overflow-y: auto;
 	overscroll-behavior: contain;
+}
+/* Dark mode: deepen the overlay over the vector background so text reads
+   against the cool dark-card surface, matching the rest of the theme. */
+html.theme-dark #setup {
+	background:
+		linear-gradient(rgba(31, 36, 41, 0.84), rgba(31, 36, 41, 0.90)),
+		url('images/background-free-vector.jpg') center center / cover no-repeat fixed;
+}
+@media (prefers-color-scheme: dark) {
+	html:not(.theme-light) #setup {
+		background:
+			linear-gradient(rgba(31, 36, 41, 0.84), rgba(31, 36, 41, 0.90)),
+			url('images/background-free-vector.jpg') center center / cover no-repeat fixed;
+	}
 }
 /* Custom scrollbar so it doesn't fight the card visual. */
 #setup::-webkit-scrollbar { width: 10px; }
