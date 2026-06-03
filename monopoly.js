@@ -245,7 +245,8 @@ function gotojail() {
 	updateOwned();
 
 	if (!p.human) {
-		__showAIRecapToast(p);
+		// AI turn events are streamed into the persistent action-history
+		// panel via addAlert(); no blocking popup, no floating recap toast.
 		p.AI.alertList = "";
 		game.next();
 	}
@@ -1129,12 +1130,9 @@ function land(increasedRent) {
 	updateOwned();
 
 	if (!p.human) {
-		__showAIRecapToast(p);
 		p.AI.alertList = "";
-		chanceCommunityChest();
-	} else {
-		chanceCommunityChest();
 	}
+	chanceCommunityChest();
 }
 
 // House rule: $500 bonus for snake-eyes (double 1s). No-op unless the rule
@@ -1195,7 +1193,6 @@ function _handleJailTurn(p, die1, die2) {
 	UI.$show("landed");
 	document.getElementById("landed").innerHTML = t('landed.inJail');
 	if (!p.human) {
-		__showAIRecapToast(p);
 		p.AI.alertList = "";
 		game.next();
 	}

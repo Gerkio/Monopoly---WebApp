@@ -306,6 +306,92 @@ var UI = (function () {
 		img.src = src;
 	}
 
+	// =====================================================================
+	// Action history panel — a transparent, persistent log of game events
+	// pinned to the left edge. Replaces the floating recap toasts that
+	// previously stole real estate after every AI turn. Players can scroll
+	// through past actions without anything blocking the board or controls.
+	// =====================================================================
+	var HISTORY_MAX_ENTRIES = 250;
+	var __historyLastTurn = -1;
+
+	function ensureHistory() {
+		var el = document.getElementById('action-history');
+		if (el) return el;
+		el = document.createElement('aside');
+		el.id = 'action-history';
+		el.setAttribute('aria-label', 'Action history');
+		el.setAttribute('aria-live', 'polite');
+		var titleTxt = (typeof t === 'function') ? (t('history.title') || 'History') : 'History';
+		var collapseTxt = (typeof t === 'function') ? (t('history.collapse') || 'Collapse history') : 'Collapse history';
+		el.innerHTML =
+			'<header class="action-history-header">' +
+				'<span class="action-history-title" data-i18n="history.title">' + titleTxt + '</span>' +
+				'<button type="button" class="action-history-toggle" aria-label="' + collapseTxt + '" data-i18n-aria="history.collapse" aria-expanded="true">' +
+					'<span aria-hidden="true">–</span>' +
+				'</button>' +
+			'</header>' +
+			'<div class="action-history-body" role="log"></div>';
+		document.body.appendChild(el);
+		var toggleBtn = el.querySelector('.action-history-toggle');
+		if (toggleBtn) {
+			toggleBtn.addEventListener('click', function () {
+				var collapsed = el.classList.toggle('is-collapsed');
+				toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+				toggleBtn.firstElementChild.textContent = collapsed ? '+' : '–';
+			});
+		}
+		return el;
+	}
+
+	// Public API: append a single event row. opts.color tints the bullet;
+	// opts.turn (number) emits a "Turn X — Name" divider when it differs
+	// from the previous one.
+	function historyLog(text, opts) {
+		opts = opts || {};
+		var el = ensureHistory();
+		var body = el.querySelector('.action-history-body');
+		if (!body) return;
+
+		// Turn divider — only when the active player changes.
+		if (typeof opts.turn === 'number' && opts.turn !== __historyLastTurn) {
+			__historyLastTurn = opts.turn;
+			var sep = document.createElement('div');
+			sep.className = 'history-turn-sep';
+			var dot = document.createElement('span');
+			dot.className = 'history-turn-dot';
+			if (opts.color) dot.style.background = opts.color;
+			sep.appendChild(dot);
+			var lbl = document.createElement('span');
+			lbl.className = 'history-turn-label';
+			lbl.textContent = opts.playerName || ('Turn ' + opts.turn);
+			sep.appendChild(lbl);
+			body.appendChild(sep);
+		}
+
+		var row = document.createElement('div');
+		row.className = 'history-row';
+		if (opts.color) row.style.setProperty('--row-accent', opts.color);
+		row.textContent = text;
+		body.appendChild(row);
+
+		// Cap stored rows so a long game doesn't bloat the DOM.
+		while (body.children.length > HISTORY_MAX_ENTRIES) {
+			body.removeChild(body.firstChild);
+		}
+		body.scrollTop = body.scrollHeight;
+		// Fade in on first entry — keeps the panel invisible during setup.
+		if (!el.classList.contains('is-visible')) el.classList.add('is-visible');
+	}
+
+	function historyClear() {
+		var el = document.getElementById('action-history');
+		if (!el) return;
+		var body = el.querySelector('.action-history-body');
+		if (body) body.innerHTML = '';
+		__historyLastTurn = -1;
+	}
+
 	return {
 		toast: toast,
 		openModal: openModal,
@@ -313,6 +399,9 @@ var UI = (function () {
 		isModalOpen: isModalOpen,
 		bindKeys: bindKeys,
 		ensureOverlay: ensureOverlay,
+		ensureHistory: ensureHistory,
+		historyLog: historyLog,
+		historyClear: historyClear,
 		loadWoodTexture: loadWoodTexture,
 		// Focus + live-region helpers (Item 1: accessibility hardening).
 		closePopup: closePopup,

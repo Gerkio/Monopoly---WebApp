@@ -172,52 +172,63 @@ var __alertLastTurn = -1;
 
 function addAlert(alertText) {
 	var alertEl = document.getElementById("alert");
-	if (!alertEl) return;
+	var p = player[turn];
 
-	// Insert a thin "Turn X — Name" divider whenever the active player changes.
-	if (turn !== __alertLastTurn && player[turn]) {
-		__alertLastTurn = turn;
-		var sep = document.createElement('div');
-		sep.className = 'alert-turn-sep';
-		var dot = document.createElement('span');
-		dot.className = 'alert-turn-dot';
-		dot.style.background = player[turn].color;
-		sep.appendChild(dot);
-		sep.appendChild(document.createTextNode(player[turn].name));
-		alertEl.appendChild(sep);
+	// Mirror the entry into the persistent action-history panel (transparent
+	// left-edge log). UI.historyLog handles its own turn dividers.
+	if (typeof UI !== 'undefined' && UI.historyLog && p) {
+		UI.historyLog(alertText, {
+			turn: turn,
+			color: p.color,
+			playerName: p.name
+		});
 	}
 
-	var row = document.createElement('div');
-	row.className = 'alert-row';
-	var ic = document.createElement('span');
-	ic.className = 'alert-icon';
-	ic.textContent = __alertIcon(alertText);
-	row.appendChild(ic);
-	var msg = document.createElement('span');
-	msg.className = 'alert-msg';
-	msg.textContent = alertText;
-	row.appendChild(msg);
-	alertEl.appendChild(row);
+	if (alertEl) {
+		// Insert a thin "Turn X — Name" divider whenever the active player changes.
+		if (turn !== __alertLastTurn && p) {
+			__alertLastTurn = turn;
+			var sep = document.createElement('div');
+			sep.className = 'alert-turn-sep';
+			var dot = document.createElement('span');
+			dot.className = 'alert-turn-dot';
+			dot.style.background = p.color;
+			sep.appendChild(dot);
+			sep.appendChild(document.createTextNode(p.name));
+			alertEl.appendChild(sep);
+		}
 
-	// Bound DOM growth on long games; oldest entries are scrolled out anyway.
-	var maxEntries = 200;
-	while (alertEl.children.length > maxEntries) {
-		alertEl.removeChild(alertEl.firstChild);
+		var row = document.createElement('div');
+		row.className = 'alert-row';
+		var ic = document.createElement('span');
+		ic.className = 'alert-icon';
+		ic.textContent = __alertIcon(alertText);
+		row.appendChild(ic);
+		var msg = document.createElement('span');
+		msg.className = 'alert-msg';
+		msg.textContent = alertText;
+		row.appendChild(msg);
+		alertEl.appendChild(row);
+
+		// Bound DOM growth on long games; oldest entries are scrolled out anyway.
+		var maxEntries = 200;
+		while (alertEl.children.length > maxEntries) {
+			alertEl.removeChild(alertEl.firstChild);
+		}
+
+		// Smooth-scroll the alert log to the bottom (CSS scroll-behavior:smooth
+		// inside index.html handles the easing — we just set the target).
+		alertEl.scrollTop = alertEl.scrollHeight;
 	}
 
-	// Smooth-scroll the alert log to the bottom (CSS scroll-behavior:smooth
-	// inside index.html handles the easing — we just set the target).
-	alertEl.scrollTop = alertEl.scrollHeight;
-
-	if (!player[turn].human) {
-		// alertList is later injected via innerHTML by popup(); escape the text.
-		player[turn].AI.alertList += "<div>" + I18N.escape(alertText) + "</div>";
-		// Bound AI alertList growth to avoid unbounded memory usage
-		// during very long automated games. Keep the tail end.
+	if (p && !p.human && p.AI) {
+		// alertList is preserved for legacy AI internals; the visible UI is
+		// now the action-history panel above, not the old popup recap.
+		p.AI.alertList += "<div>" + I18N.escape(alertText) + "</div>";
 		try {
 			var maxChars = 8192;
-			if (player[turn].AI.alertList.length > maxChars) {
-				player[turn].AI.alertList = player[turn].AI.alertList.slice(-maxChars);
+			if (p.AI.alertList.length > maxChars) {
+				p.AI.alertList = p.AI.alertList.slice(-maxChars);
 			}
 		} catch (e) { /* defensive: alertList missing on AI mock */ }
 	}
@@ -304,41 +315,8 @@ function __confirmAuctionExit() {
 	}
 }
 
-// Show an AI player's per-turn recap as a compact floating toast in the
-// bottom-right corner — replaces the old blocking popup so AI turns flow
-// without interruption. The alertList is pre-escaped HTML in the shape
-// "<div>line</div><div>line</div>...". We render it inside .ai-recap so
-// the toast inherits the multi-line layout it used to have in the popup,
-// and tint the toast's left accent stripe with the player's color so it's
-// instantly identifiable at a glance.
-function __showAIRecapToast(p) {
-	if (typeof UI === 'undefined' || !UI.toast) return;
-	if (!p || !p.AI) return;
-	var alertList = p.AI.alertList || '';
-	if (!alertList) return; // nothing happened this turn — don't spam the corner.
-
-	var color = p.color || 'var(--ink-muted)';
-	var name = p.name ? I18N.escape(p.name) : '';
-	var labelTurn = t('panel.aiRecapTitle') || 'Turn recap';
-	var html =
-		'<div class="ai-recap ai-recap-toast">' +
-			'<div class="ai-recap-head">' +
-				'<span class="ai-recap-dot" style="background:' + color + '"></span>' +
-				'<div class="ai-recap-headtext">' +
-					'<div class="ai-recap-name" style="color:' + color + '">' + name + '</div>' +
-					'<div class="ai-recap-label">🤖 ' + I18N.escape(labelTurn) + '</div>' +
-				'</div>' +
-			'</div>' +
-			'<div class="ai-recap-body">' + alertList + '</div>' +
-		'</div>';
-
-	// Duration scales loosely with line count so a 5-line turn doesn't vanish
-	// before the user finishes reading. Capped so the corner stays uncluttered.
-	var lines = (alertList.match(/<div>/g) || []).length || 1;
-	var ms = Math.max(3500, Math.min(8000, 2500 + lines * 900));
-
-	UI.toast(html, { kind: 'recap', html: true, accentColor: color, duration: ms });
-}
+// (AI turn recap removed — events are streamed live into the persistent
+// #action-history panel rendered by UI.historyLog from addAlert().)
 
 // =====================================================================
 // Auto-roll countdown — keeps the game flowing when a player wanders off
