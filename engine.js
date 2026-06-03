@@ -536,13 +536,20 @@ function Game() {
 		var netCls = netCash > 0 ? 'trade-summary-net-positive'
 		           : netCash < 0 ? 'trade-summary-net-negative'
 		           : '';
-		var netStr = (netCash >= 0 ? '+$' : '-$') + Math.abs(netCash);
+		// Use the unicode minus glyph (−, U+2212) — wider than ASCII '-' and
+		// renders clearly even with the colored CSS, so color-blind users see
+		// the sign without relying on red/green. The aria-label spells it out.
+		var sign = netCash >= 0 ? '+' : '−';
+		var netStr = sign + '$' + Math.abs(netCash);
+		var netAria = (netCash > 0 ? 'positive ' : (netCash < 0 ? 'negative ' : 'zero ')) +
+		              'net cash ' + Math.abs(netCash) + ' dollars';
 		sumEl.className = 'trade-summary';
 		sumEl.innerHTML =
 			'<div>' + I18N.escape(givesLine.trim()) + '</div>' +
 			'<div>' + I18N.escape(getsLine.trim())  + '</div>' +
 			'<div>' + I18N.escape(t('trade.summaryNet')) + ': ' +
-			'<span class="' + netCls + '">' + netStr + '</span></div>';
+			'<span class="' + netCls + '" aria-label="' + I18N.escape(netAria) + '">' +
+			netStr + '</span></div>';
 	}
 	// Re-render summary as the user edits cash amounts.
 	document.getElementById('trade-leftp-money').addEventListener('input',  __updateTradeSummary);

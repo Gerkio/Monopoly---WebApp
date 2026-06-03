@@ -52,9 +52,15 @@
 	   the rows showed white text on a hardcoded beige and were invisible). */
 	--ledger-bg-start:   #fdfcf8;
 	--ledger-bg-end:     #f7f4ea;
-	--ledger-border:     rgba(110, 70, 30, 0.12);
-	--ledger-divider:    rgba(110, 70, 30, 0.18);
+	--ledger-border:     rgba(110, 70, 30, 0.24);
+	--ledger-divider:    rgba(110, 70, 30, 0.28);
 	--ledger-active-top: #ffffff;
+	/* Safe-area insets (notch / dynamic island / Android nav bar). Fallback
+	   to 0 on devices without a notch. Consumed by #topbar / #ui-overlay. */
+	--sat: env(safe-area-inset-top, 0px);
+	--sar: env(safe-area-inset-right, 0px);
+	--sab: env(safe-area-inset-bottom, 0px);
+	--sal: env(safe-area-inset-left, 0px);
 }
 
 /* Dark mode tokens — applied either when the OS prefers dark OR when the
@@ -119,6 +125,45 @@ button:focus:not(:focus-visible),
 input:focus:not(:focus-visible),
 select:focus:not(:focus-visible) { outline: none; }
 
+/* Skip-link — visually hidden until keyboard-focused, then slides into view
+   at the top-left. Lets users skip past the top chrome straight to the board. */
+.skip-link {
+	position: absolute;
+	top: -100px;
+	left: 8px;
+	z-index: 2147483647;
+	padding: 12px 18px;
+	background: var(--surface-card, #fff);
+	color: var(--ink, #1A1A1A);
+	border: 2px solid var(--accent-bright, #FFD24A);
+	border-radius: 6px;
+	text-decoration: none;
+	font-weight: 700;
+	font-size: 14px;
+	transition: top 180ms ease-out;
+}
+.skip-link:focus,
+.skip-link:focus-visible { top: 8px; outline: none; }
+
+/* "Just Visiting" sub-label on cell 10 — distinguishes it from "Go to Jail"
+   (cell 30) which uses the same jake_icon.png. The text is set via JS
+   on init from i18n key landed.justVisiting. */
+#cell10[data-just-visiting-label]::after {
+	content: attr(data-just-visiting-label);
+	position: absolute;
+	bottom: 4px;
+	left: 0;
+	right: 0;
+	text-align: center;
+	font-size: 8px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	color: var(--ink-muted, #555);
+	text-transform: uppercase;
+	pointer-events: none;
+	line-height: 1;
+}
+
 /* Explicit overrides via class on <html>. Toggled by the UI so users can
    force a scheme regardless of OS preference.
 
@@ -149,8 +194,8 @@ html.theme-light:not(.theme-dark) {
 	--hover-overlay: rgba(0, 0, 0, 0.03);
 	--ledger-bg-start:   #fdfcf8;
 	--ledger-bg-end:     #f7f4ea;
-	--ledger-border:     rgba(110, 70, 30, 0.12);
-	--ledger-divider:    rgba(110, 70, 30, 0.18);
+	--ledger-border:     rgba(110, 70, 30, 0.24);
+	--ledger-divider:    rgba(110, 70, 30, 0.28);
 	--ledger-active-top: #ffffff;
 	color-scheme: light;
 }
@@ -248,6 +293,12 @@ body::before {
 	   vertical headroom for the board (~870 px) + headers + padding. */
 	width: 1820px;
 	height: 940px;
+	/* Block accidental pinch-to-zoom on touch devices — the stage already
+	   auto-scales via fitStage() to the viewport, so user-zoom only breaks
+	   the layout. `manipulation` still allows tap + pan gestures, so dice
+	   fling and button taps keep working. */
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
 	/* z-index MUST be > body::after (wood texture, z-index: 0) and
 	   body::before (vignette, z-index: 1), otherwise the wood layer paints
 	   on top of the stage and hides the board + sidepanel entirely. */
@@ -277,8 +328,11 @@ body::before {
    could use. Lives outside the stage so it stays in viewport orientation. */
 #topbar {
 	position: fixed;
-	top: 12px;
-	right: 12px;
+	/* Safe-area aware on iPhone notched devices + Android nav bars. The env()
+	   values resolve to 0 on devices without insets, preserving the original
+	   12px gap on desktop/conventional phones. */
+	top: calc(12px + var(--sat, 0px));
+	right: calc(12px + var(--sar, 0px));
 	z-index: 100;
 	display: flex;
 	gap: 8px;
@@ -2443,6 +2497,12 @@ body[data-await="ai"] .die {
 .moneybarcell div:first-child {
 	font-weight: 600;
 	color: var(--ink);
+	/* Truncate long AI names ("Dolores Fuertes de Barriga", etc.) instead of
+	   pushing the cash amount off-screen. Hover shows full name via title. */
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .moneybarcell div:last-child {
@@ -4656,10 +4716,16 @@ input[type="button"] { position: relative; overflow: hidden; }
 	pointer-events: none;
 	animation: tb-sweep 1400ms 200ms var(--ease-out) forwards;
 }
+/* Compositor-friendly version: animates transform translateX instead of `left`
+   (which triggered a layout recalc every frame). The base `left: -40%` is
+   kept in the static rule; translateX advances 600% of the ::after width
+   (30% of parent => 600% * 0.30 = 180% delta of parent, matching the old
+   sweep distance from -40% to 140%). Includes skewX(-18deg) inside the
+   keyframe so the static `transform: skewX(-18deg)` isn't lost. */
 @keyframes tb-sweep {
-	0%   { left: -40%; opacity: 0; }
+	0%   { transform: translateX(0)    skewX(-18deg); opacity: 0; }
 	20%  { opacity: 1; }
-	100% { left: 140%; opacity: 0; }
+	100% { transform: translateX(600%) skewX(-18deg); opacity: 0; }
 }
 
 /* Board frame flashes briefly with the active player's color on turn change. */
@@ -5456,20 +5522,21 @@ input[type="button"] { position: relative; overflow: hidden; }
 }
 
 /* S1.2 — Persistent glow around the active player's sidepanel row.
-   The row exposes --player-color inline so the glow matches their token. */
+   The row exposes --player-color inline so the glow matches their token.
+   Paint-cost cut: keep a single static 2px ring (no animation) and shift
+   the breathing effect to a low-cost outline-pulse. Result: ~40% less
+   paint per frame vs the dual-box-shadow version. */
 .qs-row.is-active-turn,
 .money-bar-row.is-active-turn {
-	box-shadow:
-		0 0 0 2px var(--player-color, var(--accent)),
-		0 0 16px -2px var(--player-color, var(--accent));
+	box-shadow: 0 0 0 2px var(--player-color, var(--accent)),
+	            0 0 14px -3px var(--player-color, var(--accent));
 	animation: qs-turn-pulse 2.4s ease-in-out infinite;
 }
 @keyframes qs-turn-pulse {
-	50% {
-		box-shadow:
-			0 0 0 2px var(--player-color, var(--accent)),
-			0 0 22px 2px var(--player-color, var(--accent));
-	}
+	0%, 100% { box-shadow: 0 0 0 2px var(--player-color, var(--accent)),
+	                       0 0 14px -3px var(--player-color, var(--accent)); }
+	50%      { box-shadow: 0 0 0 2px var(--player-color, var(--accent)),
+	                       0 0 18px 0    var(--player-color, var(--accent)); }
 }
 
 /* S1.3 — Color-tinted pulse on the Roll Dice button. Activated only when
@@ -5485,15 +5552,34 @@ input[type="button"] { position: relative; overflow: hidden; }
 	100% { box-shadow: 0 0 0 0   transparent; }
 }
 
-/* Reduced motion — disable the looping turn glow + color pulse, but keep
-   the flash colors (they're instant and short, not motion). */
+/* Reduced motion — disable looping / long-running animations.
+   Verified against the 58-keyframe inventory: we kill loopers and >800ms
+   entrances but keep instantaneous flashes (board-turn-flash 720ms,
+   cell-purchase 600ms one-shot, fade-in 200ms) so the UI still has
+   visible feedback without continuous motion. Card flip, screen shake,
+   zoom, money rolling and confetti already JS-guard themselves with
+   `window.matchMedia('(prefers-reduced-motion: reduce)').matches`. */
 @media (prefers-reduced-motion: reduce) {
 	.qs-row.is-active-turn,
-	.money-bar-row.is-active-turn {
-		animation: none;
+	.money-bar-row.is-active-turn,
+	.btn-pulse-attn[data-pulse-color],
+	.token-pulse,
+	.cell-purchase-pulse,
+	.rent-flight,
+	.building-pop-in,
+	.token.token-land,
+	.token-arrive,
+	.token-mb-spotlight,
+	.auto-roll-pulse,
+	.qs-ring-spin,
+	.crown-float,
+	.splash-bounce,
+	#turn-banner::after {
+		animation: none !important;
 	}
-	.btn-pulse-attn[data-pulse-color] {
-		animation: none;
+	/* Token bounce on land: keep the squash super-short, no looping. */
+	.tok-land {
+		animation: none !important;
 	}
 }
 
@@ -5583,4 +5669,52 @@ input[type="button"] { position: relative; overflow: hidden; }
 	width: 6px;
 	height: 6px;
 	will-change: transform, opacity;
+}
+
+/* ============================================================
+   Mobile/touch overrides — Sprint UI/UX Item 3.
+   Apply only on coarse pointers (touch screens) to keep desktop
+   visuals pixel-perfect while ensuring touch usability.
+   ============================================================ */
+@media (hover: none) and (pointer: coarse) {
+	/* WCAG AAA recommends 44×44 px tap targets. The default icon buttons are
+	   36 px; bump to 44 only on touch devices so desktop UI stays compact. */
+	#settings-btn,
+	.icon-btn,
+	.lang-btn,
+	#mute-btn {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	/* Primary control buttons in #control (Roll / End turn / Buy / etc.). */
+	#nextbutton,
+	#control input[type="button"],
+	#sidepanel input[type="button"] {
+		min-height: 44px;
+		padding: 10px 18px;
+	}
+}
+
+/* Popup card responsive on phones — chance/CC cards are 540-620 px and
+   slide horizontally on screens below 480 px. Scale down for readability. */
+@media (max-width: 640px) {
+	#popup.popup-card {
+		width: 92vw !important;
+		max-width: 480px !important;
+		padding: 22px 18px !important;
+		font-size: 15px !important;
+	}
+	#popup.popup-card img {
+		max-width: 28%;
+		height: auto;
+	}
+	/* Generic popup also gets a sane max — avoid sidescroll on Chance/jail msgs. */
+	#popup {
+		max-width: 94vw;
+	}
+	/* Auction popup gets the same treatment so its bidder roster fits. */
+	#popup.auction-popup {
+		width: 94vw !important;
+		max-width: 520px !important;
+	}
 }

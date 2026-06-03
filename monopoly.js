@@ -1325,7 +1325,11 @@ function play() {
 		__activeRow.classList.add('is-active-turn');
 	}
 
-	document.getElementById("pname").textContent = p.name;
+	var __pnameEl = document.getElementById("pname");
+	__pnameEl.textContent = p.name;
+	// Long AI names (e.g. "Dolores Fuertes de Barriga") trigger ellipsis via
+	// .qs-name-row CSS; expose the full text on hover for sighted users.
+	__pnameEl.title = p.name;
 
 	addAlert(t('alert.isYourTurn', { player: p.name }));
 	// Slide-in banner so the active player is immediately obvious.
@@ -1662,6 +1666,14 @@ function fitStage() {
 		rotateDeg = 0;
 		cos = 1; sin = 0;
 	}
+	// Clamp scale for extreme viewports:
+	//  - Below 0.18: text on the board becomes illegible (~280px-wide fold
+	//    devices, heavily-zoomed-out users). Lock the board to a readable
+	//    minimum and accept the overflow — the user can scroll.
+	//  - Above 1.5: on 4K+ monitors the stage would dominate the screen and
+	//    crowd out the sidepanels. Cap so the sidepanels keep breathing room.
+	if (scale < 0.18) scale = 0.18;
+	if (scale > 1.5)  scale = 1.5;
 	// translate(-50%,-50%) keeps the stage centered before scale/rotate.
 	// Sprint 2 (S2.2/S2.3) — instead of writing transform directly, expose
 	// the base transform via a CSS custom property so the shake / zoom
@@ -1734,6 +1746,12 @@ function _initI18N() {
 	for (var li = 0; li < labels.length; li++) {
 		var n = labels[li].getAttribute('data-player-num');
 		labels[li].textContent = I18N.t('setup.playerLabel', { n: n });
+	}
+	// "Just Visiting" sub-label on cell 10 — set via data attribute so the
+	// CSS ::after rule picks it up. Tag both editions' cell 10.
+	var justVisitCell = document.getElementById('cell10');
+	if (justVisitCell) {
+		justVisitCell.setAttribute('data-just-visiting-label', I18N.t('landed.justVisiting'));
 	}
 	// Highlight active language button.
 	I18N.set(I18N.get());

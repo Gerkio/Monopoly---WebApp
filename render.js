@@ -186,7 +186,9 @@ function updateMoney() {
 		document.getElementById("moneybarrow" + i).style.display = "";
 		rowCell.style.border = "2px solid " + p_i.color;
 		moneyEl.innerHTML = p_i.money;
-		document.getElementById("p" + i + "moneyname").textContent = p_i.name;
+		var __mbName = document.getElementById("p" + i + "moneyname");
+		__mbName.textContent = p_i.name;
+		__mbName.title = p_i.name; // tooltip when ellipsis truncates long names
 
 		// Mark the active player's row with a subtle highlight + expose color
 		// for the active arrow + the net-worth bar gradient.

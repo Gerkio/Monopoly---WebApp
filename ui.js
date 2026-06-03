@@ -252,6 +252,17 @@ var UI = (function () {
 	var woodLoadStarted = false;
 	function loadWoodTexture() {
 		if (woodLoadStarted) return;
+		// Network-aware skip: the texture is ~757 KB. On a small screen with
+		// a slow link, the load stutters the first paint badly. Solid
+		// var(--surface-felt) is a deliberate fallback that looks intentional.
+		var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+		var slowNet = conn && (conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g' || conn.effectiveType === '3g' || conn.saveData);
+		var smallScreen = window.innerWidth < 600;
+		if (slowNet && smallScreen) {
+			document.body.classList.add('wood-skipped');
+			woodLoadStarted = true; // prevent retries
+			return;
+		}
 		woodLoadStarted = true;
 		var src = 'images/maderafondo.png';
 		var img = new Image();
@@ -319,8 +330,21 @@ var Sound = (function () {
 	}
 	function isMuted() { return muted; }
 
+	var firstAudioInit = true;
 	function ensureCtx() {
 		if (!ctx) {
+			// First-tap audio warm-up takes 1-2s on mobile and is silent —
+			// users assume the tap failed. Toast feedback so they see the
+			// gesture registered. Toast auto-dismisses; we don't block.
+			if (firstAudioInit && typeof UI !== 'undefined' && UI.toast) {
+				firstAudioInit = false;
+				var msg = (typeof t === 'function')
+					? (t('audio.warming') || 'Audio loading…')
+					: 'Audio loading…';
+				try { UI.toast(msg, { duration: 1200, kind: 'info' }); } catch (e) {}
+			} else {
+				firstAudioInit = false;
+			}
 			try {
 				var AC = window.AudioContext || window.webkitAudioContext;
 				if (!AC) { enabled = false; return null; }
