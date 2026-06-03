@@ -598,7 +598,7 @@ var Sound = (function () {
 		if (music) return music;
 		music = new Audio();
 		music.loop = true;
-		music.preload = 'metadata';   // don't waterfall the full file on page load
+		music.preload = 'auto';   // start fetching as soon as the src is set
 		music.volume = 0;
 		return music;
 	}
@@ -610,8 +610,13 @@ var Sound = (function () {
 		if (!enabled || muted) return;     // browser blocked us OR user muted
 		var m = ensureMusic();
 		if (musicSrc === src && !m.paused) return;
-		musicSrc = src;
-		m.src = src;
+		// Only reassign src if it changed (otherwise we throw away buffered data
+		// and the file decode-stalls again, which manifested as a noticeable
+		// freeze right when the board first painted).
+		if (musicSrc !== src) {
+			musicSrc = src;
+			m.src = src;
+		}
 		m.volume = 0;
 		var p = m.play();
 		if (p && typeof p.catch === 'function') p.catch(function () {});
@@ -622,12 +627,29 @@ var Sound = (function () {
 		var m = music;
 		fadeTo(m, 0, 400, function () { try { m.pause(); } catch (e) {} });
 	}
+	// Warm up the audio file without playing it. Use this BEFORE the moment
+	// the music actually needs to start (e.g. while the user is configuring
+	// the setup screen) so the browser has already fetched + decoded the
+	// MP3 by the time playMusic() fires. The audio element is paused with
+	// volume:0, so it's silent until the real play().
+	function preloadMusic(src) {
+		if (!src || musicSrc === src) return;
+		var m = ensureMusic();
+		musicSrc = src;
+		m.src = src;
+		try { m.load(); } catch (e) { /* some browsers throw without user gesture */ }
+	}
 	// Convenience: pick the right track for the active edition. Falls back
 	// to classic when __EDITION isn't set yet.
 	function playMusicForEdition(edition, vol) {
 		var ed = edition || (typeof window !== 'undefined' && window.__EDITION) || 'classic';
 		var src = (ed === 'nyc') ? 'audio/music-nyc.mp3' : 'audio/music-classic.mp3';
 		playMusic(src, vol);
+	}
+	function preloadMusicForEdition(edition) {
+		var ed = edition || (typeof window !== 'undefined' && window.__EDITION) || 'classic';
+		var src = (ed === 'nyc') ? 'audio/music-nyc.mp3' : 'audio/music-classic.mp3';
+		preloadMusic(src);
 	}
 
 	// Hook mute into music: pause/resume rather than just gain-zero so we
@@ -655,6 +677,8 @@ var Sound = (function () {
 		// Music
 		playMusic: playMusic, stopMusic: stopMusic,
 		playMusicForEdition: playMusicForEdition,
+		preloadMusic: preloadMusic,
+		preloadMusicForEdition: preloadMusicForEdition,
 		ensureCtx: ensureCtx, setMuted: setMuted, isMuted: isMuted
 	};
 })();

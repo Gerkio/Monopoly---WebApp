@@ -450,10 +450,17 @@ body::before {
 }
 .icon-btn svg { fill: currentColor; }
 
-/* Toggle SVG paths via .muted class on the button. */
-.icon-btn .ico-sound-off { display: none; }
-.icon-btn.muted .ico-sound-on  { display: none; }
-.icon-btn.muted .ico-sound-off { display: inline; }
+/* Toggle SVG paths via .muted class on the mute button. Works whether the
+   button is the legacy floating .icon-btn or the Sprint settings-menu row. */
+.icon-btn .ico-sound-off,
+#mute-btn .ico-sound-off { display: none; }
+.icon-btn.muted .ico-sound-on,
+#mute-btn.muted .ico-sound-on  { display: none; }
+.icon-btn.muted .ico-sound-off,
+#mute-btn.muted .ico-sound-off { display: inline; }
+/* When muted, color the icon red-ish so the state reads at a glance even
+   if the user doesn't recognize the speaker-with-X glyph. */
+#mute-btn.muted svg { color: #B43A2D; }
 .icon-btn.muted { color: var(--warning); }
 
 /* Theme button: shows only the icon for the currently active preference.

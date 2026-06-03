@@ -1442,12 +1442,22 @@ function setup() {
 	turn = 0;
 	doublecount = 0;
 
-	// Start background music matching the chosen edition. setup() runs from
-	// a user click so the AudioContext is already unlocked; the play()
-	// promise is wrapped in catch() inside Sound, so a denied autoplay
-	// won't throw.
+	// Start background music matching the chosen edition. Deferred via
+	// rAF + idle callback so the board's first paint isn't competing with
+	// the MP3 decode (which used to look like the board "restarted"
+	// briefly when the edition changed). The user click + the setup
+	// screen's preloadMusicForEdition both already unlocked the audio
+	// context and started buffering; this just hands play() control to
+	// the next idle frame.
 	if (typeof Sound !== 'undefined' && Sound.playMusicForEdition) {
-		Sound.playMusicForEdition(window.__EDITION);
+		var __startMusic = function () {
+			try { Sound.playMusicForEdition(window.GameConfig && window.GameConfig.edition); } catch (e) {}
+		};
+		if (window.requestIdleCallback) {
+			requestAnimationFrame(function () { requestIdleCallback(__startMusic, { timeout: 1200 }); });
+		} else {
+			setTimeout(__startMusic, 250);
+		}
 	}
 
 	// ----- House rules: read toggles, expose globally for game logic -----
@@ -2229,6 +2239,13 @@ function _wireGlobalButtons() {
 				c.setAttribute('aria-checked', picked ? 'true' : 'false');
 			});
 			if (editionSel) editionSel.value = ed;
+			// Pre-warm the new edition's music so the eventual PLAY click
+			// has the MP3 already buffered. This kicks off in the background;
+			// failures are silent (most likely cause: no AudioContext yet,
+			// which is fine — playMusic() will fetch when it eventually runs).
+			if (typeof Sound !== 'undefined' && Sound.preloadMusicForEdition) {
+				try { Sound.preloadMusicForEdition(ed); } catch (e) {}
+			}
 		});
 		// Initial selected state matches the hidden select on load.
 		if (editionSel && card.getAttribute('data-edition') === editionSel.value) {
@@ -2664,6 +2681,19 @@ window.onload = function() {
 	_initSettingsMenu();
 	_spawnSetupParticles();
 	_wireColorPopovers();
+	// Warm up the music file for the current edition while the user is on
+	// the setup screen. By the time they click PLAY the MP3 is already
+	// buffered, so the audio decode no longer competes with the board's
+	// first paint (which used to look like the board "restarted").
+	if (typeof Sound !== 'undefined' && Sound.preloadMusicForEdition) {
+		var __doPreload = function () {
+			try {
+				Sound.preloadMusicForEdition((window.GameConfig && window.GameConfig.edition) || 'classic');
+			} catch (e) { /* preload best-effort */ }
+		};
+		if (window.requestIdleCallback) requestIdleCallback(__doPreload, { timeout: 2500 });
+		else setTimeout(__doPreload, 800);
+	}
 
 	fitStage();
 	window.addEventListener('resize', fitStage);
