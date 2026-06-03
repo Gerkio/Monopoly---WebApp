@@ -191,6 +191,76 @@ function __aiLooseProps(playerIdx) {
 	return out;
 }
 
+// Estimated annual rent collection threat from a SPECIFIC opponent based on
+// their built structures + group strength. Higher = more dangerous to land on.
+// Used by Hard to prioritize blocking pitches + endgame escape (jail).
+function __aiOpponentThreatScore(opponentIdx) {
+	if (!player[opponentIdx] || player[opponentIdx].bankrupt) return 0;
+	var threat = 0;
+	for (var i = 0; i < 40; i++) {
+		var s = square[i];
+		if (s.owner !== opponentIdx || s.mortgage) continue;
+		var groupVal = __AI_GROUP_VALUE[s.groupNumber] || 5;
+		// Base rent strength × group landing-frequency weight.
+		if (s.hotel)       threat += (s.rent5 || 0) * 1.5 * (groupVal / 5);
+		else if (s.house > 0) {
+			var rk = ['rent1','rent2','rent3','rent4'][s.house - 1];
+			threat += (s[rk] || 0) * (groupVal / 5);
+		}
+		else if (__aiOwnsGroup(opponentIdx, s.groupNumber)) {
+			threat += (s.baserent || 0) * 2 * (groupVal / 5);
+		}
+		else {
+			threat += (s.baserent || 0) * 0.5 * (groupVal / 5);
+		}
+	}
+	return Math.round(threat);
+}
+
+// Probability heuristic: how likely is a random opponent to land here within
+// the next ~4 turns? Based on per-cell landing distribution (post-jail bias).
+// Returns 0..1. Used by Hard to prefer buy/build decisions on high-traffic cells.
+function __aiCellLandingFreq(cellIdx) {
+	// Empirical Monte Carlo distribution (10K rolls, post-jail dominance):
+	// Top-frequency cells: 24 (Illinois 3.18%), 11 (St Charles 2.82%), 25 (B&O 2.74%),
+	// 21 (Kentucky 2.71%), 28 (Water Works 2.69%), 19 (NY Av 2.64%).
+	// Orange group cells (16/18/19) are the most-landed properties.
+	// Group-level averages (used as a coarse proxy for non-cataloged cells):
+	var g = square[cellIdx] && square[cellIdx].groupNumber;
+	if (!g) return 0.02;
+	var groupFreq = { 1: 0.026, 2: 0.025, 3: 0.022, 4: 0.025,
+	                  5: 0.026, 6: 0.029, 7: 0.027, 8: 0.025,
+	                  9: 0.024, 10: 0.023 };
+	return groupFreq[g] || 0.025;
+}
+
+// True if the AI is currently in a "race" for a group — both AI and at least
+// one opponent own properties in it, neither is complete. The next purchase
+// in that group decides who locks the monopoly out, so the AI should be
+// aggressive about buying it.
+function __aiGroupRace(playerIdx, groupNumber) {
+	if (!groupNumber || groupNumber < 3) return false; // only color groups race
+	var mine = __aiOwnedInGroup(playerIdx, groupNumber);
+	if (mine === 0 || mine === __aiGroupSize(groupNumber)) return false;
+	for (var pp = 1; pp <= pcount; pp++) {
+		if (pp === playerIdx) continue;
+		if (__aiOwnedInGroup(pp, groupNumber) >= 1) return true;
+	}
+	return false;
+}
+
+// Houses currently on the board across all groups. The bank starts with 32;
+// when this approaches 32 there's a real shortage and Hard's "cap at 3"
+// strategy starts mattering. (Hotels return their 4 houses to the bank, so
+// they DON'T count toward exhaustion.)
+function __aiHousesOnBoard() {
+	var n = 0;
+	for (var i = 0; i < 40; i++) {
+		if (square[i].house > 0 && !square[i].hotel) n += square[i].house;
+	}
+	return n;
+}
+
 
 // ============================================================
 //  EASY — "naive kid"
@@ -647,13 +717,17 @@ function AIHard(p) {
 		if (__aiCompletesGroup(p.index, index)) return true;
 
 		var g = s.groupNumber;
+		var gv = __AI_GROUP_VALUE[g] || 5;
 
 		// DEFENSIVE LV1: snipe if not buying lets an opponent complete their group.
 		if (g >= 3) {
 			for (var pp = 1; pp <= pcount; pp++) {
 				if (pp === p.index) continue;
 				if (__aiOwnedInGroup(pp, g) === __aiGroupSize(g) - 1) {
-					if (p.money >= s.price + 50) return true;
+					// Always snipe — even if it dents our reserve. Letting them
+					// complete a monopoly is more expensive long-term than a
+					// thin cash cushion.
+					if (p.money >= s.price + 30) return true;
 				}
 			}
 		}
@@ -665,18 +739,25 @@ function AIHard(p) {
 			for (var pp = 1; pp <= pcount; pp++) {
 				if (pp === p.index) continue;
 				if (__aiOwnedInGroup(pp, g) >= 1) {
-					var gvDef = __AI_GROUP_VALUE[g] || 5;
-					if (gvDef >= 7 && p.money >= s.price + reserve() + 60) return true;
+					if (gv >= 7 && p.money >= s.price + reserve() + 60) return true;
 				}
 			}
 		}
 
+		// OFFENSIVE: we're racing for this group. Push harder than the regular
+		// reserve check would — winning a race is high-value, losing it caps
+		// the group's future value at zero rent.
+		if (__aiGroupRace(p.index, g) && p.money >= s.price + reserve() - 20) {
+			return true;
+		}
+
 		var rsv = reserve();
-		var gv = __AI_GROUP_VALUE[g] || 5;
 		if (gv >= 8) rsv -= 60;   // pay more for top ROI groups
 		if (gv <= 4) rsv += 50;   // wary of low-ROI
 		// Snipe high-ROI when we own one of the group (working toward monopoly).
 		if (gv >= 8 && __aiOwnedInGroup(p.index, g) >= 1) rsv -= 40;
+		// Railroads compound — owning 2+ is a meaningful income stream.
+		if (g === 1 && __aiOwnedInGroup(p.index, g) >= 1) rsv -= 50;
 		return p.money > s.price + rsv;
 	};
 
@@ -687,31 +768,64 @@ function AIHard(p) {
 		var prop = [];
 		var tradeValue = money;
 
-		tradeValue += 15 * tradeObj.getCommunityChestJailCard();
-		tradeValue += 15 * tradeObj.getChanceJailCard();
+		// Jail cards: more valuable to Hard than Normal because Hard uses jail
+		// strategically when opponents are built up (see postBail).
+		tradeValue += 22 * tradeObj.getCommunityChestJailCard();
+		tradeValue += 22 * tradeObj.getChanceJailCard();
 
+		// Track per-direction property value so we can grade the deal richly.
+		var givingAway = 0, receiving = 0;
 		for (var i = 0; i < 40; i++) {
 			prop[i] = tradeObj.getProperty(i);
 			if (!prop[i]) continue;
 			var sq = square[i];
+			var groupVal = (__AI_GROUP_VALUE[sq.groupNumber] || 5);
+			// Base property value scales with mortgage status + group ROI +
+			// expected landing frequency (high-traffic = better income).
 			var v = sq.price * (sq.mortgage ? 0.55 : 1);
-			v *= (__AI_GROUP_VALUE[sq.groupNumber] || 5) / 5;
-			if (prop[i] === 1 && __aiCompletesGroup(p.index, i))             v += sq.price * 1.0;
-			if (prop[i] === -1 && __aiCompletesGroup(initiator.index, i))   v -= sq.price * 0.8;
-			tradeValue += prop[i] * v;
+			v *= groupVal / 5;
+			v *= (1 + __aiCellLandingFreq(i) * 4); // ~+0.08-0.12 boost per cell
+
+			if (prop[i] === 1) {
+				if (__aiCompletesGroup(p.index, i)) v += sq.price * 1.4;   // big monopoly bonus
+				if (__aiGroupRace(p.index, sq.groupNumber)) v += sq.price * 0.3;
+				receiving += v;
+			} else { // prop[i] === -1, we give it away
+				if (__aiCompletesGroup(initiator.index, i)) v *= 1.5;       // very expensive to lose
+				if (__aiOwnsGroup(p.index, sq.groupNumber)) v *= 1.8;       // never break a monopoly
+				givingAway += v;
+			}
 		}
+		tradeValue += receiving - givingAway;
 
 		// HARD REFUSAL: if this trade hands the initiator a monopoly, only
 		// accept if obscenely overcompensated.
-		if (__aiTradeGivesOpponentMonopoly(initiator.index, prop) && tradeValue < 300) {
+		if (__aiTradeGivesOpponentMonopoly(initiator.index, prop) && tradeValue < 350) {
 			return false;
 		}
 
-		if (tradeValue > 100) return true;
+		// Cash advantage post-trade: if we end up with MORE cash buffer than
+		// the initiator (relative to our reserve), trade is even better.
+		// Skews acceptances toward Hard outmaneuvering the opponent on liquidity.
+		var ourCashAfter = p.money + money;
+		var theirCashAfter = initiator.money - money;
+		if (ourCashAfter > theirCashAfter && ourCashAfter > reserve() + 200) {
+			tradeValue += 40;
+		}
 
-		// Counter offer for a fair-ish trade.
-		if (tradeValue > -150 && initiator.money > Math.abs(tradeValue) + 80) {
-			var counterMoney = money + Math.max(50, 120 - Math.round(tradeValue));
+		// Threat reduction: if accepting this trade lowers the threat we face
+		// (e.g. opponent gives us property of their high-traffic group), bonus.
+		var preThreat = __aiOpponentThreatScore(initiator.index);
+		if (preThreat > 200) tradeValue += Math.min(120, preThreat * 0.15);
+
+		if (tradeValue > 80) return true;
+
+		// Counter offer for a fair-ish trade. Hard now scales the ask:
+		// - Far from acceptance? Ask for big cash adjustment.
+		// - Close to acceptance? Small bump that opponent will likely accept.
+		if (tradeValue > -200 && initiator.money > Math.abs(tradeValue) + 80) {
+			var gap = 100 - Math.round(tradeValue); // how far from "+100 accept"
+			var counterMoney = money + Math.max(40, Math.min(350, gap));
 			return new Trade(initiator, recipient, counterMoney, prop,
 				tradeObj.getCommunityChestJailCard(), tradeObj.getChanceJailCard());
 		}
@@ -721,9 +835,39 @@ function AIHard(p) {
 	this.beforeTurn = function () {
 		var activePlayers = __aiActivePlayerCount();
 		var multiplayer = activePlayers >= 4;
-		// Endgame heuristic: two players left → all-in on hotels to crush the
-		// other side with rent. The house-shortage trick is moot 1-on-1.
 		var endgame = activePlayers === 2;
+
+		// House-shortage check (real Monopoly pro move): if the bank's 32-house
+		// pool is nearly depleted, cap our builds at 3 even in 3-player games
+		// so opponents can't build at all. Threshold is "if the bank has 8 or
+		// fewer houses left, push the shortage harder".
+		var housesOnBoard = __aiHousesOnBoard();
+		var housesLeft = 32 - housesOnBoard;
+		var aggressiveShortage = housesLeft <= 8 && !endgame;
+
+		// Unmortgage FIRST so the new properties contribute to building cap
+		// math + rent income before this turn fires. Group-monopoly lots come
+		// first, ordered by ROI (high-value groups recover the unmortgage cost
+		// fastest via doubled rent).
+		var unmortgageOrder = [6, 7, 8, 1, 9, 10, 5, 4, 3, 2];
+		for (var ui = 0; ui < unmortgageOrder.length; ui++) {
+			var ug = unmortgageOrder[ui];
+			if (!__aiOwnsGroup(p.index, ug)) continue;
+			for (var i = 0; i < 40; i++) {
+				var s = square[i];
+				if (s.owner !== p.index || !s.mortgage || s.groupNumber !== ug) continue;
+				if (p.money > Math.round(s.price * 0.55) + reserve()) unmortgage(i);
+			}
+		}
+		// Then loose lots if very cash-comfortable (preserve a bigger buffer
+		// because non-monopoly props return less rent).
+		for (var i = 0; i < 40; i++) {
+			var s = square[i];
+			if (s.owner === p.index && s.mortgage &&
+			    p.money > Math.round(s.price * 0.55) + reserve() + 200) {
+				unmortgage(i);
+			}
+		}
 
 		// Build on owned groups, prioritizing by ROI.
 		var prio = [6, 7, 8, 9, 10, 5, 4, 3];
@@ -733,11 +877,13 @@ function AIHard(p) {
 
 			// House cap rules:
 			//  - 2-player endgame: always go to hotels (cap 5) — maximum rent.
-			//  - 4+ players & cash < 1500: cap at 3 to exploit the bank's
-			//    32-house pool shortage (opponents can't build).
+			//  - House shortage biting (≤8 left, 3+ players): cap at 3 to
+			//    exhaust the bank's pool and block opponents from building.
+			//  - 4+ players & cash < 1500: cap at 3 for same reason.
 			//  - Otherwise: full hotels.
 			var houseCap = 5;
-			if (multiplayer && p.money < 1500 && !endgame) houseCap = 3;
+			if (aggressiveShortage) houseCap = 3;
+			else if (multiplayer && p.money < 1500 && !endgame) houseCap = 3;
 
 			while (true) {
 				var leastIdx = -1, leastH = 6, blocked = false;
@@ -754,28 +900,24 @@ function AIHard(p) {
 			}
 		}
 
-		// Unmortgage: group-owned lots first.
-		for (var i = 0; i < 40; i++) {
-			var s = square[i];
-			if (s.owner !== p.index || !s.mortgage) continue;
-			if (!__aiOwnsGroup(p.index, s.groupNumber)) continue;
-			if (p.money > Math.round(s.price * 0.55) + reserve()) unmortgage(i);
-		}
-		// Then loose lots if very cash-comfortable.
-		for (var i = 0; i < 40; i++) {
-			var s = square[i];
-			if (s.owner === p.index && s.mortgage &&
-			    p.money > Math.round(s.price * 0.55) + reserve() + 200) {
-				unmortgage(i);
-			}
-		}
+		// PRO-ACTIVE TRADE PITCH (moved out of onLand-only). On every turn
+		// where we own N-1 of a non-utility group AND haven't pitched the
+		// owner in the last few turns, try a fresh pitch. Cooldown is N turns,
+		// not permanent — situations change (opponent gets more cash, etc).
+		__pitchTradeIfWorthwhile();
+
 		return false;
 	};
 
-	var pitchedTradeTo = {}; // recipient idx → true (don't spam same player)
+	// Turn-counter cooldown: pitchedTradeTo[ownerIdx] = turnNumber when we
+	// last pitched. We retry after PITCH_COOLDOWN turns because cash + group
+	// composition shift mid-game, so old "no" can become a new "yes".
+	var pitchedTradeTo = {};
+	var __turnsSinceStart = 0;
+	var PITCH_COOLDOWN = 6;
 
-	this.onLand = function () {
-		// Order candidate groups by ROI so the most valuable pitch fires first.
+	function __pitchTradeIfWorthwhile() {
+		__turnsSinceStart++;
 		var pitchOrder = [6, 7, 8, 1, 9, 10, 5, 4, 3, 2];
 		for (var pi = 0; pi < pitchOrder.length; pi++) {
 			var myG = pitchOrder[pi];
@@ -790,11 +932,13 @@ function AIHard(p) {
 				}
 			}
 			if (missing < 0 || ownerIdx === 0 || ownerIdx === p.index) continue;
-			if (pitchedTradeTo[ownerIdx]) continue;
+			// Cooldown: skip if we pitched this player within the last 6 turns.
+			var lastPitch = pitchedTradeTo[ownerIdx];
+			if (typeof lastPitch === 'number' && (__turnsSinceStart - lastPitch) < PITCH_COOLDOWN) continue;
+			// Older boolean entries (from legacy code paths) — convert + skip.
+			if (lastPitch === true) { pitchedTradeTo[ownerIdx] = __turnsSinceStart; continue; }
 
 			// Try first to sweeten with a property that COMPLETES the opponent's group.
-			// Fall back to any spare unimproved property if none qualifies (still useful
-			// as a small bribe — Hard now refuses to be limited to perfect-sweetener pitches).
 			var offering = -1;
 			for (var theirG = 1; theirG <= 10; theirG++) {
 				if (__aiOwnedInGroup(ownerIdx, theirG) !== __aiGroupSize(theirG) - 1) continue;
@@ -819,19 +963,31 @@ function AIHard(p) {
 			var prop = new Array(40).fill(0);
 			prop[missing] = -1;
 			if (offering >= 0) prop[offering] = 1;
-			// Cash sweetener: 60% of the value gap (or full price if we have no
-			// property to offer). Capped to keep our reserve intact.
+			// Cash sweetener: 70% of the value gap (was 60%) to make pitches
+			// more compelling — Hard accepts paying a small premium to lock
+			// in monopoly completions.
 			var priceGap = square[missing].price - (offering >= 0 ? square[offering].price : 0);
-			var cash = Math.max(0, Math.round(priceGap * 0.6));
-			if (offering < 0) cash = Math.max(cash, Math.round(square[missing].price * 0.7));
+			var cash = Math.max(0, Math.round(priceGap * 0.7));
+			if (offering < 0) cash = Math.max(cash, Math.round(square[missing].price * 0.75));
+			// Threat-aware bonus: if this opponent is dangerous, pay extra to
+			// neutralize the threat AND lock our monopoly.
+			var threat = __aiOpponentThreatScore(ownerIdx);
+			if (threat > 300) cash += Math.min(150, Math.round(threat * 0.1));
 			if (cash > p.money - reserve()) cash = Math.max(0, p.money - reserve());
 			// Don't pitch a deal we literally can't afford.
 			if (cash === 0 && offering < 0) continue;
-			pitchedTradeTo[ownerIdx] = true;
+			pitchedTradeTo[ownerIdx] = __turnsSinceStart;
 			game.trade(new Trade(p, player[ownerIdx], cash, prop, 0, 0));
 			return true;
 		}
 		return false;
+	}
+
+	this.onLand = function () {
+		// onLand can still trigger an opportunistic pitch — same helper as
+		// beforeTurn so cooldown is shared. Useful when we just landed on
+		// (and bought) the second-to-last property of a group.
+		return __pitchTradeIfWorthwhile();
 	};
 
 	this.postBail = function () {
@@ -879,30 +1035,43 @@ function AIHard(p) {
 
 	this.bid = function (property, currentBid) {
 		var s = square[property];
+		var g = s.groupNumber;
+		var gv = __AI_GROUP_VALUE[g] || 5;
 		var cap = s.price * 1.3;
-		if (__aiCompletesGroup(p.index, property)) cap = s.price * 2.2;
+
+		// Monopoly-completer is THE highest priority — Hard pays up to 2.6×
+		// face value (was 2.2×) because completing a set unlocks 2× rent +
+		// the option to build, which dwarfs the bid premium.
+		if (__aiCompletesGroup(p.index, property)) cap = s.price * 2.6;
+
+		// Race property: both AI and opponent own ≥1, neither complete. Buy
+		// at premium so the opponent doesn't lock the monopoly.
+		if (__aiGroupRace(p.index, g)) cap = Math.max(cap, s.price * 1.7);
+
 		var blockBid = false;
 		for (var pp = 1; pp <= pcount; pp++) {
 			if (pp === p.index) continue;
-			if (__aiOwnedInGroup(pp, s.groupNumber) === __aiGroupSize(s.groupNumber) - 1) {
+			if (__aiOwnedInGroup(pp, g) === __aiGroupSize(g) - 1) {
 				blockBid = true;
-				cap = Math.max(cap, s.price * 1.5);
+				// Block at all costs — pay up to 1.8× to deny their monopoly.
+				cap = Math.max(cap, s.price * 1.8);
 			}
 		}
-		var gv = __AI_GROUP_VALUE[s.groupNumber] || 5;
-		if (gv >= 8) cap *= 1.2;
+		if (gv >= 8) cap *= 1.25;
+		else if (gv >= 7) cap *= 1.10;
 
 		// Stepped increment: chunky bumps while well below cap, tiny bumps
 		// near the ceiling so we don't overshoot.
 		var headroom = cap - currentBid;
 		var increment;
-		if (headroom > cap * 0.4)      increment = blockBid ? 30 + Math.random() * 50 : 20 + Math.random() * 30;
-		else if (headroom > cap * 0.15) increment = blockBid ? 15 + Math.random() * 25 : 10 + Math.random() * 15;
+		if (headroom > cap * 0.4)       increment = blockBid ? 35 + Math.random() * 55 : 22 + Math.random() * 32;
+		else if (headroom > cap * 0.15) increment = blockBid ? 18 + Math.random() * 28 : 12 + Math.random() * 18;
 		else                            increment = blockBid ? 5  + Math.random() * 10 : 3  + Math.random() * 7;
 		var bid = currentBid + Math.round(increment);
 		if (bid > cap) return -1;
-		// Never bid past liquidity safety: keep reserve + 60.
-		if (bid + reserve() + 60 > p.money) return -1;
+		// Liquidity floor: keep reserve + $40 (tighter than the old +60 —
+		// Hard accepts narrower cushion to win race / blocker auctions).
+		if (bid + reserve() + 40 > p.money) return -1;
 		return bid;
 	};
 }
@@ -973,8 +1142,13 @@ function AIAdaptive(p) {
 	// inner to leave it. Asymmetric bands prevent ping-ponging.
 	var UP_ENTER   = 1.30, UP_LEAVE   = 1.20; // Hard ↔ Normal
 	var DOWN_ENTER = 0.75, DOWN_LEAVE = 0.85; // Easy ↔ Normal
-	var WARMUP_TURNS = 4;
-	var EVAL_EVERY   = 2;
+	var WARMUP_TURNS = 3;   // was 4 — start adapting one turn sooner
+	var EVAL_EVERY   = 1;   // was 2 — re-evaluate every turn for snappier response
+	// Streak bypass: if the human dominates by a wide margin (≥ STREAK_GAP)
+	// for STREAK_LEN evals in a row, skip the hysteresis lag and upgrade
+	// immediately. Same logic in reverse for collapse → Easy.
+	var STREAK_LEN = 3;
+	var STREAK_GAP = 0.18; // 18% above/below the regular bands
 
 	// ----- Sprint 7.1: heavy compute offloaded to Web Worker -----
 	// The worker computes the composite score off the main thread. Because
@@ -1060,8 +1234,23 @@ function AIAdaptive(p) {
 
 	// Layer hysteresis on top of the worker's raw level recommendation so
 	// the public behavior matches the original sync code exactly.
+	// Plus a STREAK BYPASS: if the human's score has been consistently above
+	// UP_ENTER + STREAK_GAP for STREAK_LEN evals, escalate immediately to
+	// Hard regardless of current state — the player is genuinely outclassing
+	// the AI and the hysteresis lag would feel unresponsive.
 	function __applyHysteresis(rawLevel, score) {
 		var prev = self._level;
+		// Streak bypass — only fires when scoreHistory has enough samples.
+		if (scoreHistory.length >= STREAK_LEN) {
+			var recent = scoreHistory.slice(-STREAK_LEN);
+			var allHigh = true, allLow = true;
+			for (var s = 0; s < recent.length; s++) {
+				if (recent[s] < UP_ENTER + STREAK_GAP)   allHigh = false;
+				if (recent[s] > DOWN_ENTER - STREAK_GAP) allLow = false;
+			}
+			if (allHigh) return 'hard';
+			if (allLow)  return 'easy';
+		}
 		if (prev === 'hard') {
 			if (score < UP_LEAVE) return (score < DOWN_ENTER ? 'easy' : 'normal');
 			return 'hard';
