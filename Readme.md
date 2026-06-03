@@ -150,11 +150,15 @@ window.__AUTO_ROLL_MS = 10000;
 │   ├── harness.js
 │   ├── run-tests.{sh,bat}
 │   └── tests/                  ← 5 tests independientes
-├── audio/
-│   ├── music-classic.mp3       ← música de fondo Classic (96 kbps VBR)
-│   ├── music-nyc.mp3           ← música de fondo NYC
-│   ├── sfx-dice.mp3            ← sonido de dados (mono 80 kbps)
-│   ├── sfx-siren.mp3           ← sirena de policía
+├── audio/                     ← .opus servido por defecto, .mp3 como fallback
+│   ├── music-classic.opus      ← música de fondo Classic
+│   ├── music-classic.mp3       ← fallback Safari < 14.5 / Android viejos
+│   ├── music-nyc.opus          ← música de fondo NYC
+│   ├── music-nyc.mp3           ← fallback
+│   ├── sfx-dice.opus           ← sonido de dados (74% más liviano que mp3)
+│   ├── sfx-dice.mp3            ← fallback
+│   ├── sfx-siren.opus          ← sirena de policía (63% más liviana)
+│   ├── sfx-siren.mp3           ← fallback
 │   └── originals/              ← fuentes WAV/MP3 sin comprimir (para re-encodes)
 └── images/                     ← iconos de board, avatares, dice faces, etc.
 ```

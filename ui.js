@@ -680,10 +680,23 @@ var Sound = (function () {
 		var p = a.play();
 		if (p && typeof p.catch === 'function') p.catch(function () {});
 	}
+	// Audio files ship as both .opus (small, fast — primary) and .mp3
+	// (fallback for Safari < 14.5 / older Android browsers that can't decode
+	// Opus). We feature-detect once at boot and rewrite all subsequent
+	// URLs through audioSrc(); callers stay extension-agnostic.
+	var __audioExt = (function () {
+		try {
+			var a = document.createElement('audio');
+			var can = a.canPlayType && a.canPlayType('audio/ogg; codecs="opus"');
+			return (can === 'probably' || can === 'maybe') ? '.opus' : '.mp3';
+		} catch (e) { return '.mp3'; }
+	})();
+	function audioSrc(stem) { return 'audio/' + stem + __audioExt; }
+
 	// Replace the synthesized dice/siren with the recorded samples when
 	// they're available. Same callable names so monopoly.js doesn't change.
-	function diceSample()  { playSample('dice',  'audio/sfx-dice.mp3',  0.65); }
-	function sirenSample() { playSample('siren', 'audio/sfx-siren.mp3', 0.50); }
+	function diceSample()  { playSample('dice',  audioSrc('sfx-dice'),  0.65); }
+	function sirenSample() { playSample('siren', audioSrc('sfx-siren'), 0.50); }
 
 	// =====================================================================
 	// Background music — loops with smooth fade in/out. Only one track
@@ -740,7 +753,7 @@ var Sound = (function () {
 	// Warm up the audio file without playing it. Use this BEFORE the moment
 	// the music actually needs to start (e.g. while the user is configuring
 	// the setup screen) so the browser has already fetched + decoded the
-	// MP3 by the time playMusic() fires. The audio element is paused with
+	// audio by the time playMusic() fires. The audio element is paused with
 	// volume:0, so it's silent until the real play().
 	function preloadMusic(src) {
 		if (!src || musicSrc === src) return;
@@ -753,12 +766,12 @@ var Sound = (function () {
 	// to classic when __EDITION isn't set yet.
 	function playMusicForEdition(edition, vol) {
 		var ed = edition || (typeof window !== 'undefined' && window.__EDITION) || 'classic';
-		var src = (ed === 'nyc') ? 'audio/music-nyc.mp3' : 'audio/music-classic.mp3';
+		var src = audioSrc(ed === 'nyc' ? 'music-nyc' : 'music-classic');
 		playMusic(src, vol);
 	}
 	function preloadMusicForEdition(edition) {
 		var ed = edition || (typeof window !== 'undefined' && window.__EDITION) || 'classic';
-		var src = (ed === 'nyc') ? 'audio/music-nyc.mp3' : 'audio/music-classic.mp3';
+		var src = audioSrc(ed === 'nyc' ? 'music-nyc' : 'music-classic');
 		preloadMusic(src);
 	}
 
