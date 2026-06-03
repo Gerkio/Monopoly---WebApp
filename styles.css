@@ -3992,23 +3992,17 @@ html.theme-dark #setup {
    side. On a wide 1820 px stage this puts everything visible at once
    below the players grid instead of stacking and leaving the right half
    of the card empty. Collapses to a single column on narrow viewports. */
+/* Bottom of setup: the centered dropdowns row + the collapsible house
+   rules block stack vertically, both centered horizontally so neither
+   stretches across the full card width. */
 #setup-bottom-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-	gap: 16px;
-	align-items: start;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
 	margin-bottom: 12px;
 }
-#setup-bottom-grid > * { margin-bottom: 0; }
-#setup-bottom-grid #house-rules-block { grid-column: 1 / -1; }
-/* When the screen is wide enough (≥ ~1200 px) we let the house-rules
-   panel sit as a 3rd column so the whole bottom row is on one line. */
-@media (min-width: 1200px) {
-	#setup-bottom-grid {
-		grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.6fr) minmax(380px, 2fr);
-	}
-	#setup-bottom-grid #house-rules-block { grid-column: auto; }
-}
+#setup-bottom-grid > * { margin-bottom: 0; width: 100%; max-width: 720px; }
 
 #setup select,
 #setup input[type="text"] {
@@ -6024,9 +6018,12 @@ input[type="button"] { position: relative; overflow: hidden; }
 }
 
 /* Re-flow the row into a single tight horizontal lane:
-     [preview circle]  [name input]  [AI dropdown — non-human only]. */
+     [preview circle]  [name input]  [AI dropdown — non-human only].
+   No !important here on purpose: $hide(id) sets an inline style="display:none"
+   to hide rows above pcount, and that inline rule must be able to win over
+   this class-level grid (inline > class without !important). */
 .player-input.has-visual-pickers {
-	display: grid !important;
+	display: grid;
 	grid-template-columns: 56px 1fr auto;
 	column-gap: 12px;
 	align-items: center;
@@ -6149,18 +6146,28 @@ input[type="button"] { position: relative; overflow: hidden; }
 	outline-offset: 2px;
 }
 
-/* Paired bottom-row dropdowns (edition + starting cash). Two equal-width
-   fields side-by-side on desktop, stack vertically on narrow screens. */
+/* Paired bottom-row dropdowns (edition + starting cash). The outer wrap
+   centers the pair horizontally on the setup card so they don't stretch
+   to the full width; the inner row lays them out side-by-side. On narrow
+   screens the inner row wraps and the wrap keeps its center alignment. */
+.setup-bottom-dropdowns-wrap {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+}
 .setup-bottom-dropdowns {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-	gap: 14px 18px;
-	align-items: end;
+	display: inline-flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 12px 20px;
+	align-items: flex-end;
+	justify-content: center;
 }
 .setup-dropdown-field {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	min-width: 180px;
 }
 .setup-dropdown-field .setup-bottom-label {
 	margin-bottom: 0;

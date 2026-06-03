@@ -43,9 +43,9 @@
 	<!-- ?v= on every local script forces the browser to refetch after a deploy.
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
-	<script type="text/javascript" src="i18n.js?v=20260604l"></script>
-	<script type="text/javascript" src="ui.js?v=20260604l"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260604l"></script>
+	<script type="text/javascript" src="i18n.js?v=20260604m"></script>
+	<script type="text/javascript" src="ui.js?v=20260604m"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260604m"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,17 +65,17 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260604l"></script>
+	<script type="text/javascript" src="ai.js?v=20260604m"></script>
 	<!-- Sprint 5 — monopoly.js split into 5 focused modules. Load order
 	     matters: engine.js declares the Game ctor + state namespaces that
 	     players.js / animations.js / render.js / monopoly.js all reference
 	     by bare global name. monopoly.js is the slim shell that owns the
 	     window.onload boot sequence and depends on every prior module. -->
-	<script type="text/javascript" src="engine.js?v=20260604l"></script>
-	<script type="text/javascript" src="players.js?v=20260604l"></script>
-	<script type="text/javascript" src="animations.js?v=20260604l"></script>
-	<script type="text/javascript" src="render.js?v=20260604l"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260604l"></script>
+	<script type="text/javascript" src="engine.js?v=20260604m"></script>
+	<script type="text/javascript" src="players.js?v=20260604m"></script>
+	<script type="text/javascript" src="animations.js?v=20260604m"></script>
+	<script type="text/javascript" src="render.js?v=20260604m"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260604m"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -94,7 +94,7 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260604l">
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260604m">
 	<!-- Sprint 4 â€” PWA: manifest + iOS home-screen icon + theme color. -->
 	<link rel="manifest" href="manifest.webmanifest" />
 	<link rel="apple-touch-icon" href="images/icon-192.png" />
@@ -523,23 +523,27 @@
 			<div id="setup-bottom-grid">
 			<!-- Two paired dropdowns: edition + starting cash. Native <select>s
 			     keep the bottom row visually quiet AND scale to N options as
-			     new boards / cash tiers are added without bloating the screen. -->
-			<div class="setup-bottom-dropdowns">
-				<label class="setup-dropdown-field">
-					<span class="setup-bottom-label" data-i18n="setup.editionLabel">Board edition:</span>
-					<select id="edition-select" class="setup-dropdown-select" data-i18n-title="setup.editionTitle" title="Pick a board layout. Reloads the page.">
-						<option value="classic" data-i18n="setup.editionClassic">Classic</option>
-						<option value="nyc" data-i18n="setup.editionNYC">New York City</option>
-					</select>
-				</label>
-				<label class="setup-dropdown-field">
-					<span class="setup-bottom-label" data-i18n="setup.presetsLabel">Starting cash:</span>
-					<select id="preset-select" class="setup-dropdown-select" data-i18n-title="setup.presetsTitle" title="Quick configurations">
-						<option value="quick"    data-i18n="setup.presetQuickFull">⚡ Quick · $1000</option>
-						<option value="standard" data-i18n="setup.presetStandardFull" selected>♟️ Standard · $1500</option>
-						<option value="long"     data-i18n="setup.presetLongFull">🏆 Long · $2500</option>
-					</select>
-				</label>
+			     new boards / cash tiers are added without bloating the screen.
+			     Wrapper centers the pair horizontally so they never stretch
+			     to the full setup-card width. -->
+			<div class="setup-bottom-dropdowns-wrap">
+				<div class="setup-bottom-dropdowns">
+					<label class="setup-dropdown-field">
+						<span class="setup-bottom-label" data-i18n="setup.editionLabel">Board edition:</span>
+						<select id="edition-select" class="setup-dropdown-select" data-i18n-title="setup.editionTitle" title="Pick a board layout. Reloads the page.">
+							<option value="classic" data-i18n="setup.editionClassic">Classic</option>
+							<option value="nyc" data-i18n="setup.editionNYC">New York City</option>
+						</select>
+					</label>
+					<label class="setup-dropdown-field">
+						<span class="setup-bottom-label" data-i18n="setup.presetsLabel">Starting cash:</span>
+						<select id="preset-select" class="setup-dropdown-select" data-i18n-title="setup.presetsTitle" title="Quick configurations">
+							<option value="quick"    data-i18n="setup.presetQuickFull">⚡ Quick · $1000</option>
+							<option value="standard" data-i18n="setup.presetStandardFull" selected>♟️ Standard · $1500</option>
+							<option value="long"     data-i18n="setup.presetLongFull">🏆 Long · $2500</option>
+						</select>
+					</label>
+				</div>
 			</div>
 
 			<details id="house-rules-block">
