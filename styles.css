@@ -5341,10 +5341,12 @@ input[type="button"] { position: relative; overflow: hidden; }
    ============================================================ */
 #action-history {
 	position: fixed;
-	top: 96px;
-	left: 12px;
-	width: 240px;
-	max-height: calc(100vh - 280px);
+	right: 16px;
+	bottom: 16px;
+	top: auto;
+	left: auto;
+	width: 260px;
+	max-height: 280px;
 	z-index: 90; /* below modals (1500) + topbar but above board chrome */
 	display: flex;
 	flex-direction: column;
@@ -5359,7 +5361,7 @@ input[type="button"] { position: relative; overflow: hidden; }
 	pointer-events: auto;
 	overflow: hidden;
 	opacity: 0;
-	transform: translateX(-8px);
+	transform: translateX(8px);
 	transition: opacity 220ms var(--ease-out),
 	            transform 220ms var(--ease-out);
 }
