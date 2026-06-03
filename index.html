@@ -43,9 +43,9 @@
 	<!-- ?v= on every local script forces the browser to refetch after a deploy.
 	     Bump this single constant in the edition loader below whenever any
 	     bundled JS ships changes; the cache-bust applies to all sibling scripts. -->
-	<script type="text/javascript" src="i18n.js?v=20260604b"></script>
-	<script type="text/javascript" src="ui.js?v=20260604b"></script>
-	<script type="text/javascript" src="edition-common.js?v=20260604b"></script>
+	<script type="text/javascript" src="i18n.js?v=20260604c"></script>
+	<script type="text/javascript" src="ui.js?v=20260604c"></script>
+	<script type="text/javascript" src="edition-common.js?v=20260604c"></script>
 	<!-- Edition selection: ?edition=nyc in the URL, or localStorage('monopoly:edition'),
 	     overrides the default ('classic'). Synchronous document.write keeps the
 	     normal script-order load semantics that monopoly.js relies on. -->
@@ -65,17 +65,17 @@
 			document.write('<script type="text/javascript" src="' + EDITIONS[edition] + '?v=' + V + '"><\/script>');
 		})();
 	</script>
-	<script type="text/javascript" src="ai.js?v=20260604b"></script>
+	<script type="text/javascript" src="ai.js?v=20260604c"></script>
 	<!-- Sprint 5 — monopoly.js split into 5 focused modules. Load order
 	     matters: engine.js declares the Game ctor + state namespaces that
 	     players.js / animations.js / render.js / monopoly.js all reference
 	     by bare global name. monopoly.js is the slim shell that owns the
 	     window.onload boot sequence and depends on every prior module. -->
-	<script type="text/javascript" src="engine.js?v=20260604b"></script>
-	<script type="text/javascript" src="players.js?v=20260604b"></script>
-	<script type="text/javascript" src="animations.js?v=20260604b"></script>
-	<script type="text/javascript" src="render.js?v=20260604b"></script>
-	<script type="text/javascript" src="monopoly.js?v=20260604b"></script>
+	<script type="text/javascript" src="engine.js?v=20260604c"></script>
+	<script type="text/javascript" src="players.js?v=20260604c"></script>
+	<script type="text/javascript" src="animations.js?v=20260604c"></script>
+	<script type="text/javascript" src="render.js?v=20260604c"></script>
+	<script type="text/javascript" src="monopoly.js?v=20260604c"></script>
 	<!-- Apply theme preference BEFORE styles load to avoid a flash. The
 	     saved value is one of 'auto' / 'light' / 'dark'. 'auto' (default)
 	     defers to the system via @media (prefers-color-scheme). -->
@@ -94,7 +94,7 @@
 	<!-- ?v= forces the browser to refetch the CSS when it changes. Bump
 	     this number whenever styles.css ships visual fixes so users don't
 	     end up on a stale cached copy. -->
-	<link rel="stylesheet" type="text/css" href="styles.css?v=20260604b">
+	<link rel="stylesheet" type="text/css" href="styles.css?v=20260604c">
 	<!-- Sprint 4 â€” PWA: manifest + iOS home-screen icon + theme color. -->
 	<link rel="manifest" href="manifest.webmanifest" />
 	<link rel="apple-touch-icon" href="images/icon-192.png" />

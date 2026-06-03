@@ -304,17 +304,24 @@ function __confirmAuctionExit() {
 	}
 }
 
-// Wrap an AI player's per-turn recap (the accumulated alertList) in a
-// rich header so the popup is visually consistent with the rest of the
-// game and easy to scan from across a tabletop. The alertList itself is
-// pre-built HTML built up by addAlert(); we just prepend a header card
-// with the player's color, name, and a short "turn recap" label.
-function __formatAIRecap(p) {
-	var color = p && p.color ? p.color : 'var(--ink-muted)';
-	var name = p && p.name ? I18N.escape(p.name) : '';
+// Show an AI player's per-turn recap as a compact floating toast in the
+// bottom-right corner — replaces the old blocking popup so AI turns flow
+// without interruption. The alertList is pre-escaped HTML in the shape
+// "<div>line</div><div>line</div>...". We render it inside .ai-recap so
+// the toast inherits the multi-line layout it used to have in the popup,
+// and tint the toast's left accent stripe with the player's color so it's
+// instantly identifiable at a glance.
+function __showAIRecapToast(p) {
+	if (typeof UI === 'undefined' || !UI.toast) return;
+	if (!p || !p.AI) return;
+	var alertList = p.AI.alertList || '';
+	if (!alertList) return; // nothing happened this turn — don't spam the corner.
+
+	var color = p.color || 'var(--ink-muted)';
+	var name = p.name ? I18N.escape(p.name) : '';
 	var labelTurn = t('panel.aiRecapTitle') || 'Turn recap';
-	return (
-		'<div class="ai-recap">' +
+	var html =
+		'<div class="ai-recap ai-recap-toast">' +
 			'<div class="ai-recap-head">' +
 				'<span class="ai-recap-dot" style="background:' + color + '"></span>' +
 				'<div class="ai-recap-headtext">' +
@@ -322,9 +329,15 @@ function __formatAIRecap(p) {
 					'<div class="ai-recap-label">🤖 ' + I18N.escape(labelTurn) + '</div>' +
 				'</div>' +
 			'</div>' +
-			'<div class="ai-recap-body">' + (p && p.AI && p.AI.alertList || '') + '</div>' +
-		'</div>'
-	);
+			'<div class="ai-recap-body">' + alertList + '</div>' +
+		'</div>';
+
+	// Duration scales loosely with line count so a 5-line turn doesn't vanish
+	// before the user finishes reading. Capped so the corner stays uncluttered.
+	var lines = (alertList.match(/<div>/g) || []).length || 1;
+	var ms = Math.max(3500, Math.min(8000, 2500 + lines * 900));
+
+	UI.toast(html, { kind: 'recap', html: true, accentColor: color, duration: ms });
 }
 
 // =====================================================================

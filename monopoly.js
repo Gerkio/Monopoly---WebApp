@@ -245,8 +245,9 @@ function gotojail() {
 	updateOwned();
 
 	if (!p.human) {
-		popup(__formatAIRecap(p), game.next, undefined, { autoMs: 8000 });
+		__showAIRecapToast(p);
 		p.AI.alertList = "";
+		game.next();
 	}
 }
 
@@ -1128,8 +1129,9 @@ function land(increasedRent) {
 	updateOwned();
 
 	if (!p.human) {
-		popup(__formatAIRecap(p), chanceCommunityChest, undefined, { autoMs: 8000 });
+		__showAIRecapToast(p);
 		p.AI.alertList = "";
+		chanceCommunityChest();
 	} else {
 		chanceCommunityChest();
 	}
@@ -1193,8 +1195,9 @@ function _handleJailTurn(p, die1, die2) {
 	UI.$show("landed");
 	document.getElementById("landed").innerHTML = t('landed.inJail');
 	if (!p.human) {
-		popup(__formatAIRecap(p), game.next, undefined, { autoMs: 8000 });
+		__showAIRecapToast(p);
 		p.AI.alertList = "";
+		game.next();
 	}
 }
 

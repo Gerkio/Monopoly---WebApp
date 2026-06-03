@@ -76,13 +76,19 @@ var UI = (function () {
 	}
 
 	// Lightweight transient notification. Auto-removes after duration.
-	// kind: 'info' (default) | 'success' | 'warning' | 'danger'
+	// kind: 'info' (default) | 'success' | 'warning' | 'danger' | 'recap'
+	// opts.html: render the string as innerHTML (caller must sanitize). Defaults
+	//   to textContent for safety.
+	// opts.accentColor: overrides the border-left-color (used by AI turn recaps
+	//   to tint the toast with the player's color).
 	function toast(messageText, opts) {
 		opts = opts || {};
 		var overlay = ensureOverlay();
 		var node = document.createElement('div');
 		node.className = 'toast toast-' + (opts.kind || 'info');
-		node.textContent = messageText;
+		if (opts.html) node.innerHTML = String(messageText);
+		else node.textContent = messageText;
+		if (opts.accentColor) node.style.borderLeftColor = opts.accentColor;
 		overlay.appendChild(node);
 
 		var duration = opts.duration || 2400;
